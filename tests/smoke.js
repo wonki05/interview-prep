@@ -40,6 +40,12 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   const nSets = await page.evaluate(() => window.SNU.db.school("snu").sets.length);
   check(nSets >= 5 && (await page.$$("#setList .setrow")).length === nSets, "세트 행 " + nSets + "개(연도 소제목 제외)");
   await shot("home", 1280, 900, true);
+  const other = await page.evaluate(() => { const s = window.SNU.db.schools().find(x => x.id !== "snu" && x.sets.length); return s && { id: s.id, n: s.sets.length }; });
+  if (other) {
+    await page.click(`#schoolTabs [data-school="${other.id}"]`); await sleep(200);
+    const hrefs = await page.$$eval("#setList .setrow", a => a.map(x => x.getAttribute("href")));
+    check(hrefs.length === other.n && hrefs.every(h => h.includes("set=" + other.id + "-")), `학교 토글 → ${other.id} 세트 행 ${hrefs.length}개`);
+  }
 
   console.log("모의면접 설정 3단계");
   await goto("practice.html"); await setSettings({ tts: false, answerMode: "text" }); await goto("practice.html");

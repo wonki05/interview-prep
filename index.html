@@ -58,8 +58,8 @@
 
   <section class="sec">
     <div class="sec-head"><h2 class="h2">수록 기출 세트</h2></div>
-    <div class="setrows" id="setList"></div>
-    <div class="row" id="otherSchools"></div>
+    <div id="schoolTabs"></div>
+    <div id="setList"></div>
   </section>
 
   <section class="sec">
@@ -86,9 +86,15 @@
       <span class="yr">${s.year}<small>${esc(s.track)}</small></span>
       <span><span class="nm">${esc(s.name)} · ${esc(s.session)}</span><br><span class="th">${esc(s.themes.join(" · "))}</span></span>
       <span class="mt"><span>제시문 ${s.passages.length}</span><span>복기 질문 ${db.count(s)}</span><span>${s.variantKeys.map(k => db.variantLabel(k)).join("·")}</span>${db.treeUsable(s) ? "<span>결정 트리 예시</span>" : ""}</span></a>`;
-  const years = [...new Set(snu.sets.map(s => s.year))];
-  $("#setList").innerHTML = years.map(y => `<div class="setyear">${y}학년도</div>` + snu.sets.filter(s => s.year === y).map(row).join("")).join("");
-  $("#otherSchools").innerHTML = `<span class="small muted">추가 예정</span>` + db.schools().filter(s => s.id !== "snu").map(s => `<span class="chip line">${esc(s.short)}</span>`).join("");
+  /* 학교 토글(모의면접·기출DB와 같은 모양). 홈은 늘 서울대로 연다 */
+  let schoolId = "snu";
+  function renderSets() {
+    const sc = db.school(schoolId), years = [...new Set(sc.sets.map(s => s.year))];
+    $("#schoolTabs").innerHTML = `<div class="schooltabs" role="group" aria-label="학교">${db.schools().map(s => `<button type="button" data-school="${s.id}" aria-pressed="${s.id === schoolId}" class="${s.id === "snu" ? "main" : ""} ${s.sets.length ? "" : "empty"}">${esc(s.short)}${s.sets.length ? `<span class="n">${s.sets.length}</span>` : ""}</button>`).join("")}</div>`;
+    $("#setList").innerHTML = sc.sets.length ? `<div class="setrows">${years.map(y => `<div class="setyear">${y}학년도</div>` + sc.sets.filter(s => s.year === y).map(row).join("")).join("")}</div>` : `<div class="empty-school"><b>${esc(sc.name)} — 복기 추가 예정</b></div>`;
+  }
+  renderSets();
+  $("#schoolTabs").addEventListener("click", e => { const b = e.target.closest("[data-school]"); if (b) { schoolId = b.dataset.school; renderSets(); } });
   const themeLabel = { system: "시스템", light: "밝게", dark: "어둡게" }, blLabel = { off: "없음", low: "하", mid: "중", high: "상" }, fsLabel = { sm: "작게", md: "보통", lg: "크게", xl: "아주 크게" };
   function summary() {
     const s = window.SNU.settings;
