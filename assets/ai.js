@@ -63,7 +63,8 @@
   function schoolOf(set) { return (window.INTERVIEW_DB.schools || []).find(s => s.id === set.school) || { name: "법학전문대학원" }; }
   function interviewerSystem(set, difficulty, variation, plan) {
     const lv = LV(), sc = schoolOf(set), prep = (plan && plan.prep) || set.format.prep || 20, dur = plan && plan.interview > 0 ? plan.interview + "분간" : (plan ? "시간 제한 없이" : (set.format.duration || 15) + "분간");
-    return `당신은 ${sc.name} 법학전문대학원 ${set.year}학년도 면접관이다. 교수 세 명이 지원자 한 명을 ${dur} 면접한다. 지원자는 아래 제시문을 ${prep}분간 읽고 메모했다.
+    const nProf = parseInt(String(set.format.ratio || "3:1"), 10) || 3, profs = (["", "한", "두", "세", "네", "다섯"][nProf] || nProf) + " 명";   // format.ratio "2:1" → 두 명
+    return `당신은 ${sc.name} 법학전문대학원 ${set.year}학년도 면접관이다. 교수 ${profs}이 지원자 한 명을 ${dur} 면접한다. 지원자는 아래 제시문을 ${prep}분간 읽고 메모했다.
 난이도 지침(${lv.difficulty[difficulty].label}): ${lv.difficulty[difficulty].desc}
 변형도 지침(${lv.variation[variation].label}): ${lv.variation[variation].desc}
 규칙: 한 번에 질문 하나만 낸다. 질문은 세 문장 이내의 구어체 존댓말로 쓴다("~입니까?", "~해 보십시오"). 지원자의 직전 답변을 반영해 꼬리질문을 하되, 같은 소재에 세 번 이상 머물렀으면 다른 제시문으로 옮긴다. 답변이 비어 있거나 전사가 깨졌으면 같은 질문을 더 짧게 다시 묻는다. 제시문 내용은 바꾸거나 지어내지 않는다. 지원자를 평가하는 말은 하지 않는다.
