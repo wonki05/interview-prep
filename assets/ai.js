@@ -48,11 +48,15 @@
     (set.common || []).forEach(c => c.items.forEach((q, i) => out.push({ q, group: c.label, student: "공통", idx: i + 1, key: "common-" + c.label + "-" + (i + 1) })));
     return out;
   }
-  /* 제시문 머리: 책의 원표기(label)가 있으면 함께 적는다. 2019 세트는 (가)~(라), 2020 세트는 <사례> 블록. */
-  function passageHead(p) { return p.label === "사례" ? "<사례>" : `<제시문 ${p.no}>${p.label ? ` (${p.label})` : ""}`; }
+  /* 제시문 머리: 책의 원표기(label)가 있으면 함께 적는다. 한 글자((가)·(A))는 번호 뒤에, 낱말(사례·사례 1·에피소드)은 그대로 머리로. */
+  function passageHead(p) { return p.label && p.label.length > 1 ? `<${p.label}>` : `<제시문 ${p.no}>${p.label ? ` (${p.label})` : ""}`; }
   function passagesText(set) { return set.passages.map(p => `${passageHead(p)}${p.length ? " (" + p.length + ")" : ""}\n${p.text}`).join("\n\n"); }
+  /* 문제지 문항(tasks): 면접 전에 받는 문제(고려대·연세대 등). 서울대 세트에는 없다. */
+  function taskHead(t) { return t.label ? `문제 ${t.label}` : "문제"; }
+  function tasksText(set) { return (set.tasks || []).map(t => `${taskHead(t)}. ${t.text}`).join("\n"); }
   function setContext(set) {
-    return `[면접 세트] ${set.year}학년도 ${set.name} (${set.session})${set.variantLabel ? ` · 복기본: ${set.variantLabel}` : ""}\n[지시문] ${set.instruction}\n\n[제시문 전문]\n${passagesText(set)}\n\n[복기된 실제 추가질문 전체]\n${bank(set).map((q, i) => `${i + 1}. (${q.group}) ${q.q}`).join("\n")}`;
+    const tasks = (set.tasks || []).length ? `\n[문제]\n${tasksText(set)}` : "";
+    return `[면접 세트] ${set.year}학년도 ${set.name} (${set.session})${set.variantLabel ? ` · 복기본: ${set.variantLabel}` : ""}\n[지시문] ${set.instruction}${tasks}\n\n[제시문 전문]\n${passagesText(set)}\n\n[복기된 실제 추가질문 전체]\n${bank(set).map((q, i) => `${i + 1}. (${q.group}) ${q.q}`).join("\n")}`;
   }
 
   /* ---------- 모의면접: 다음 질문 ---------- */
@@ -66,7 +70,8 @@
 출력은 JSON 하나만: {"question": "질문", "focus": "제시문 번호 또는 '종합'", "why": "출제 의도 한 문장"}`;
   }
   function buildNextQuestionInput(set, history, difficulty, variation, plan) {
-    const hist = history.length ? history.map((h, i) => `Q${i + 1}: ${h.q}\nA${i + 1}: ${h.a || "(답변 없음)"}`).join("\n\n") : "(아직 질문하지 않았다. 첫 질문은 보통 제시문 요약이나 공통 주제에서 시작한다.)";
+    const first = (set.tasks || []).length ? "(아직 질문하지 않았다. 첫 질문은 문제지 문항에 대한 답변(기조 발언)을 요청한다.)" : "(아직 질문하지 않았다. 첫 질문은 보통 제시문 요약이나 공통 주제에서 시작한다.)";
+    const hist = history.length ? history.map((h, i) => `Q${i + 1}: ${h.q}\nA${i + 1}: ${h.a || "(답변 없음)"}`).join("\n\n") : first;
     return { system: interviewerSystem(set, difficulty, variation, plan), user: `${setContext(set)}\n\n[지금까지의 문답]\n${hist}\n\n다음 질문을 JSON으로 만들어라.` };
   }
   async function nextQuestion(set, history, difficulty, variation, ai, plan) {
@@ -94,5 +99,5 @@
     return parseJson(await chat(inp.system, inp.user, { ai, maxTokens: 600 }));
   }
 
-  window.AIClient = { resolve, chat, parseJson, bank, passageHead, passagesText, setContext, interviewerSystem, buildNextQuestionInput, nextQuestion, classify, buildDbInput, respond };
+  window.AIClient = { resolve, chat, parseJson, bank, passageHead, passagesText, taskHead, tasksText, setContext, interviewerSystem, buildNextQuestionInput, nextQuestion, classify, buildDbInput, respond };
 })();

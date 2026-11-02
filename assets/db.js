@@ -76,13 +76,14 @@
         ${groups(cs).map(g => `<div class="qgroup"><h3>${esc(g.label)} · ${g.items.length}</h3>${g.items.map((q, i) => qRow(cs, g.key + "-" + (i + 1), i + 1, q)).join("")}</div>`).join("")}
       </section>`;
   }
-  /* 질문 묶음과 문답 키. 키는 <student>-<n> / common-<label>-<n>, kim 외 변형은 "<variant>/" 접두사(docs/DATA.md §4). */
+  /* 질문 묶음과 문답 키. 키는 task-<n>(문제지 문항) / <student>-<n> / common-<label>-<n>, kim 외 변형은 "<variant>/" 접두사(docs/DATA.md §4). */
   function groups(cs) {
     const kp = db.keyPrefix(cs);
-    return [...cs.followups.map(f => ({ label: f.label, key: kp + f.student, items: f.items })), ...(cs.common || []).map(c => ({ label: c.label, key: kp + "common-" + c.label, items: c.items }))];
+    const tasks = (cs.tasks || []).length ? [{ label: "문제", key: kp + "task", items: cs.tasks.map(t => `${AI.taskHead(t)}. ${t.text}`) }] : [];
+    return [...tasks, ...cs.followups.map(f => ({ label: f.label, key: kp + f.student, items: f.items })), ...(cs.common || []).map(c => ({ label: c.label, key: kp + "common-" + c.label, items: c.items }))];
   }
   function passagesHtml(cs) {
-    return `<div class="papers"><div class="instr">${esc(cs.instruction)}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
+    return `<div class="papers"><div class="instr">${esc(cs.instruction)}${(cs.tasks || []).length ? `<ol class="tasks">${cs.tasks.map(t => `<li><b>${esc(AI.taskHead(t))}.</b> ${esc(t.text)}</li>`).join("")}</ol>` : ""}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
   }
   function qRow(cs, key, idx, q) {
     const msgs = thread(cs.id, key), open = !!st.open[key];

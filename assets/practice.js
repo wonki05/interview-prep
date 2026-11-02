@@ -297,7 +297,7 @@
     if (st.answerMode === "voice") { try { await recorder.init(); } catch (e) { if (err) { err.textContent = "마이크를 열 수 없다: " + e.message + " — 답변 방식을 텍스트로 바꾸면 마이크 없이 진행된다."; err.hidden = false; } return; } }
     audioCtx(); keepAwake();
     st.sessionId = Date.now().toString(36); st.history = []; st.recordings = []; st.qi = 0; st.cur = null; st.knocked = false; st.memo = ""; st.err = ""; st.treeNode = null; st.pendingBranches = null; st.tab = "passage";
-    st.queue = st.mode === "all" ? AI.bank(set()) : [];
+    st.queue = st.mode === "all" ? [...(set().tasks || []).map(t => ({ q: `${AI.taskHead(t)}. ${t.text}`, group: "문제" })), ...AI.bank(set())] : [];
     enterPhase("prep", st.plan.prep * 60);
   }
   function afterPrep() { if (st.plan.wait > 0) enterPhase("wait", st.plan.wait * 60); else enterPhase("interview", st.plan.interview * 60); }
@@ -334,7 +334,7 @@
     return `<div class="timerbar" id="timerbar"><div class="tb-left"><span class="phase">${label}</span><span class="clock num" id="clock">--:--</span></div>${timeline(st.plan, { phase: st.phase })}<div class="actions">${actionsHtml || ""}</div></div>`;
   }
   function passagesHtml(cs) {
-    return `<div class="papers"><div class="instr">${esc(cs.instruction)}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
+    return `<div class="papers"><div class="instr">${esc(cs.instruction)}${(cs.tasks || []).length ? `<ol class="tasks">${cs.tasks.map(t => `<li><b>${esc(AI.taskHead(t))}.</b> ${esc(t.text)}</li>`).join("")}</ol>` : ""}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
   }
   function memoHtml() {
     return `<div class="panel memo-pane"><div class="row between"><h3 class="h3">메모</h3><span class="small muted">A5 2장 · 3면</span></div>

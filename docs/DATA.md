@@ -83,7 +83,7 @@ data/sets/<set id>/merged.json
 |---|---|
 | `localStorage["snu-iv-settings-v1"]` | 설정. 키 이름을 바꾸면 `app.js`에서 마이그레이션(예: 이전 `lastSet: "2023-A"` → `"snu-2023-A"`, `openaiModel: "gpt-5"` → 새 기본값). `variant`(기본 복기본)는 추가된 키라 마이그레이션 없음 |
 | IndexedDB `snu-interview` v1 `recordings` | 녹음. P1-2에서 `sessions` store 추가 시 DB 버전 2로 올리고 `onupgradeneeded`에서 생성 |
-| `localStorage["snu-db-threads-v1"]` | 기출DB 문답. 질문 key = `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
+| `localStorage["snu-db-threads-v1"]` | 기출DB 문답. 질문 key = `task-<n>`(문제지 문항, 묶음 "문제"), `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
 | `localStorage["snu-library-progress-v1"]` | 서가 진도 |
 
 ## 5. 검증 스크립트 `tools/validate-data.js`

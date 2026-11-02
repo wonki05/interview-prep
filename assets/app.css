@@ -304,6 +304,8 @@ tr:last-child td { border-bottom: 0; }
 .paper .src { font-family: var(--font-ui); font-size: .78rem; color: var(--ink-3); margin-top: 12px; }
 .papers { display: flex; flex-direction: column; gap: 14px; }
 .papers .instr { font-size: .9rem; color: var(--ink-2); padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+.papers .instr .tasks { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; color: var(--ink); }
+.papers .instr .tasks b { font-weight: 600; }
 
 /* ---------- 면접 세션 ---------- */
 .timerbar { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--header-h)); z-index: 20; background: var(--bg); padding: 12px 0 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 18px; align-items: center; }
