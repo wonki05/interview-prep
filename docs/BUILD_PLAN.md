@@ -4,11 +4,11 @@
 
 ## Phase 0 — 워크스페이스 점검
 
-- [ ] **P0-1 실행 확인**: `npm install` → `npm run test:smoke` 통과. `index.html`을 `file://`로 열어 네 화면 확인.
-- [ ] **P0-1a 저장소 초기화**: `.gitignore`에 `/books/`, `/work/`, `__pycache__/`, `*.pyc` 추가, `tools/requirements.txt`(pymupdf 고정), `git init -b main`, 현재 샘플 코드 첫 커밋. 원격 연결은 P0-2.
+- [x] **P0-1 실행 확인**: `npm install` → `npm run test:smoke` 통과. `index.html`을 `file://`로 열어 네 화면 확인.
+- [x] **P0-1a 저장소 초기화**: `.gitignore`에 `/books/`, `/work/`, `__pycache__/`, `*.pyc` 추가, `tools/requirements.txt`(pymupdf 고정), `git init -b main`, 현재 샘플 코드 첫 커밋. 원격 연결은 P0-2.
 - [ ] **P0-2 배포 확인**: Q-10 결정 → 저장소 생성 → Pages 먼저 켜기(Settings → Pages → Source "GitHub Actions") → `main` push(`docs/INGEST.md` §3-B 순서. Pages를 켜기 전에 push하면 첫 실행이 실패한다). 네 HTML에 `noindex` meta, `pages.yml` 아티팩트는 사이트 파일만. 배포된 주소에서 모의면접 텍스트 모드 한 바퀴.
 - [ ] **P0-2a 배포본 스모크**: `tests/smoke.js`에 `SMOKE_BASE_URL`(후행 슬래시 정규화, `goto` timeout 60초). 로컬·배포 두 경로 모두 통과.
-- [ ] **P0-3 데이터 검증**: `node tools/validate-data.js` 통과(세트 id 유일, 제시문·질문 수 출력).
+- [x] **P0-3 데이터 검증**: `node tools/validate-data.js` 통과(세트 id 유일, 제시문·질문 수 출력).
 
 ## Phase 1 — 모의면접·기출DB 마무리
 
@@ -42,9 +42,10 @@
 
 - [ ] **P4-1 서울대 세트 전체(2019~2025, 18세트, 복기본 3종)**: 계획 `docs/INGEST.md` §2. 교재 2권(`books/`)에서 옮긴다. 제시문은 원문 그대로(OCR 오인식 교정만), 각주는 `source`에. 하위 항목 순서대로.
   - [ ] **P4-1a 교재 추출·정제·조립·대조·통합**: `tools/book_extract.py` → 파일럿 6쪽 → Workflow `ingest-ocr`(Haiku 정제 → Sonnet 이미지 검증) → `tools/check_ocr.py` → `tools/assemble_sets.py`(+Sonnet 예외 판단, 주제어·태그) → 기존 5세트 대조 보고(Q-13 승인) → Workflow `ingest-merge`(Fable 생성 → Opus 3렌즈, 단일 반려 재시도). 산출물은 `work/`(커밋 안 함).
-  - [ ] **P4-1b 변형 스키마**: `variants`/`variant`/제시문 `label`·`kind: case`/`tree.basis`, `SNU.db` 해석(`db.set(id, v)`, `schools()/sets()`도 해석본), 설정 `variant`, 기출DB 키(kim 무접두사, 그 밖 `<variant>/`), `tools/validate-data.js`와 `docs/DATA.md` 같은 커밋.
-  - [ ] **P4-1c 변형 UI**: 기출DB 세트 머리·모의면접 3단계·설정 서랍 "복기본" seg(눌림은 실효 변형, 비활성은 세트에 없는 변형), 세트 행 칩, 홈 연도별 묶음, `practice.js` 세션 변형 고정, 트리 `basis` 불일치 시 은행/실시간, `AI.md` §2 라벨 표기.
-  - [ ] **P4-1d 데이터 생성**: `tools/build_questions.py` → `data/questions.js`(세트 18, 변형 44), validate 통과, `tests/smoke.js` 갱신(세트 18, 기출DB는 kim 고정, seg 전환, `snu-2019-C` 비활성), 표본 8쪽 이미지 대조, `README.md` 자료 출처 두 권.
+  - [x] **P4-1b 변형 스키마**: `variants`/`variant`/제시문 `label`·`kind: case`/`tree.basis`, `SNU.db` 해석(`db.set(id, v)`, `schools()/sets()`도 해석본), 설정 `variant`, 기출DB 키(kim 무접두사, 그 밖 `<variant>/`), `tools/validate-data.js`와 `docs/DATA.md` 같은 커밋. 원본은 `data/sets/`(JSON), `tools/build_questions.js`가 `data/questions.js`를 생성.
+  - [x] **P4-1c 변형 UI**: 기출DB 세트 머리·모의면접 3단계·설정 서랍 "복기본" seg(눌림은 실효 변형, 비활성은 세트에 없는 변형), 세트 행 칩, 홈 연도별 묶음, `practice.js` 세션 변형 고정, 트리 `basis` 불일치 시 은행/실시간, `AI.md` §2 라벨 표기.
+  - [ ] **P4-1d 데이터 생성**: 조립된 kim 18·hwang 13 변형을 `data/sets/`에 넣고 `tools/build_questions.js` → `data/questions.js`(세트 18, 변형 31), validate 통과, 스모크(세트 18, 기출DB는 kim 고정, seg 전환, `snu-2019-C` 비활성) 통과, 표본 8쪽 이미지 대조, `README.md` 자료 출처 두 권.
+  - [ ] **P4-1e 통합본(merged) 13세트**: 2021~2025 겹치는 세트의 `data/sets/<id>/merged.json`. GPT(Codex)가 브랜치 `snu-merge`(워크트리)에서 `docs/MERGE_PROMPT.md`대로 만든다. 날조·누락·일관성 검증 뒤 `meta.json`의 `variant`를 `merged`로, 생성·validate·스모크 통과, main에 병합.
 - [ ] **P4-2 다른 학교 세트**: 고려대·연세대·성균관대·한양대·서강대·중앙대·경희대·한국외대·이화여대. 학교별 `format`(진행 방식·시간표)도 채운다. 시간표가 다르면 옵션 창 기준값 표시가 그 학교 값을 쓴다(이미 그렇게 되어 있다). 같은 파이프라인(`docs/INGEST.md` §8), 학교별 페이지 범위만 바꾼다.
 - [ ] **P4-3 세트 메타**: `themes`에 더해 `tags`(법철학·정치·과학기술·…)를 넣고 기출DB에 태그 필터. 서울대 태그 값은 P4-1a에서 만든다.
 - [ ] **P4-4 서울대 반영 후 개선**(배포 뒤, 항목마다 커밋): **a** 홈 18행 연도 묶음·모바일 400 줄바꿈, **b** 변형 seg·칩의 어둠 테마·'아주 크게', **c** AI 입력 길이(`AI.md` §7 추정·`max_tokens`), **d** 기출DB `?variant=` 병행·키 접두사 확인, **e** 안드로이드 Chrome 실기기 1회, **f** 문서(`README`·`DATA`·`AI`·`BUILD_PLAN` 상태).
