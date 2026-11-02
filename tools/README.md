@@ -13,6 +13,7 @@
 | `assemble_sets.py` | 쪽 블록 → 세트 변형 JSON(`work/sets/<book>/`) + 조립 보고서 |
 | `diff_existing.py` | 기존 세트 본문 ↔ OCR 조립본 대조 → `work/reports/existing-diff.md`(변경은 사용자 승인 뒤) |
 | `promote_sets.py` | `work/sets/<book>/` → `data/sets/<id>/<book>.json`(+ 새 세트 `meta.json`) |
+| `check_merged.py` | 통합본 `merged.json` ↔ kim·hwang 대조(스키마·질문·날조 의심 문장·누락 참고, meta `variant`) → `work/reports/merged-check.md` |
 | (예정) `transcribe.py` | 녹음 배치 전사. 지침: `docs/TRANSCRIPTION.md` §3 |
 | (예정) `gen_tree.py` | 세트별·난이도별 결정 트리 생성. 지침: `docs/AI.md` §6 |
 
