@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>서울대학교 법학전문대학원 면접전형 대비</title>
+<meta name="description" content="서울대학교 법학전문대학원 면접전형 대비 — 기출 제시문 모의면접, 기출DB, 면접대비 서가">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/app.js"></script>
+<script src="data/models.js"></script>
+<script src="data/questions.js"></script>
+</head>
+<body data-page="home">
+<main><div class="wrap page">
+
+  <section class="sec" style="gap:18px">
+    <div>
+      <div class="eyebrow">서울대학교 법학전문대학원 면접전형 대비</div>
+      <h1 class="h1" style="margin-top:6px">기출 제시문으로 치르는 모의면접</h1>
+    </div>
+    <p class="lead">준비 20분 → 대기 5분 → 면접 15분. 복기된 추가질문 또는 AI 면접관의 질문에 음성·텍스트로 답한다.</p>
+    <div class="row">
+      <a class="btn primary big" href="practice.html">모의면접</a>
+      <a class="btn big" href="db.html">기출DB</a>
+      <a class="btn big ghost" href="library.html">면접대비 서가</a>
+    </div>
+    <div style="margin-top:10px">
+      <div id="heroTl"></div>
+      <div class="tl-cap"><span>2025학년도 복기 순서</span><span>종료 1분 전 노크 · 제한시간에 발언 중단</span></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2 class="h2">세 화면</h2></div>
+    <div class="cols">
+      <a href="practice.html">
+        <h3>모의면접</h3>
+        <p>세트 → 모드 → 옵션 → 시작. 1-A 면접시간 AI 면접관 · 1-B 무한시간 AI 면접관 · 2 복기 질문 전부 답하기. 음성/텍스트 답변, 난이도·변형도, 사전 결정 트리.</p>
+        <span class="go">시작 →</span>
+      </a>
+      <a href="db.html">
+        <h3>기출DB</h3>
+        <p>학교별 세트의 제시문 전문과 학생별 복기 추가질문. 질문마다 답을 적으면 AI 면접관이 검토하고 꼬리질문을 낸다.</p>
+        <span class="go">보기 →</span>
+      </a>
+      <a href="library.html">
+        <h3>면접대비 서가</h3>
+        <p>면접 도서 100선. 등급·순위·분야, 책별 핵심 요약·반론·면접 활용, 쟁점 18개의 90초 구술 틀.</p>
+        <span class="go">서가 →</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2 class="h2">수록 기출 세트</h2></div>
+    <div class="setrows" id="setList"></div>
+    <div class="row" id="otherSchools"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2 class="h2">서울대학교 면접 진행 방식 · 2025학년도 복기</h2></div>
+    <div class="row" id="formatBasics"></div>
+    <div class="panel"><dl class="kv" id="formatDetails"></dl></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2 class="h2">현재 설정</h2></div>
+    <div class="panel"><div class="row between"><div class="row" id="settingsSummary"></div><button type="button" class="btn" id="homeOpenSettings">설정</button></div></div>
+  </section>
+
+  <p class="foot">제시문·추가질문: 해커스로스쿨 김종수 『로스쿨 면접 200주제』 복기. 개인 학습용. 녹음·문답·설정은 이 브라우저 안에만 저장된다.</p>
+</div></main>
+<script>
+(function () {
+  const { $, esc, db, timeline } = window.SNU;
+  const snu = db.school("snu");
+  $("#heroTl").innerHTML = timeline(snu.format.timeline, { cls: "lg" });
+  $("#formatBasics").innerHTML = snu.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("");
+  $("#formatDetails").innerHTML = snu.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  $("#setList").innerHTML = snu.sets.map(s => `<a class="setrow" href="practice.html?set=${s.id}">
+      <span class="yr">${s.year}<small>${esc(s.track)}</small></span>
+      <span><span class="nm">${esc(s.name)} · ${esc(s.session)}</span><br><span class="th">${esc(s.themes.join(" · "))}</span></span>
+      <span class="mt"><span>제시문 ${s.passages.length}</span><span>복기 질문 ${db.count(s)}</span>${s.tree ? "<span>결정 트리 예시</span>" : ""}</span></a>`).join("");
+  $("#otherSchools").innerHTML = `<span class="small muted">추가 예정</span>` + db.schools().filter(s => s.id !== "snu").map(s => `<span class="chip line">${esc(s.short)}</span>`).join("");
+  const themeLabel = { system: "시스템", light: "밝게", dark: "어둡게" }, blLabel = { off: "없음", low: "하", mid: "중", high: "상" }, fsLabel = { sm: "작게", md: "보통", lg: "크게", xl: "아주 크게" };
+  function summary() {
+    const s = window.SNU.settings;
+    const keyOk = s.provider === "anthropic" ? !!s.anthropicKey : !!s.openaiKey;
+    $("#settingsSummary").innerHTML = [
+      `테마 ${themeLabel[s.theme]}`, `블루라이트 ${blLabel[s.bluelight]}`, `글자 ${fsLabel[s.fontScale]}`,
+      `${window.SNU.models.providerLabel(s.provider)} ${window.SNU.models.label(s.provider, s.provider === "anthropic" ? s.anthropicModel : s.openaiModel)} · ${keyOk ? "키 있음" : "키 없음"}`,
+      `답변 ${s.answerMode === "voice" ? "음성" : "텍스트"}`, `흐름 ${s.flow === "tree" ? "결정 트리" : "실시간"}`
+    ].map(t => `<span class="chip">${esc(t)}</span>`).join("");
+  }
+  summary();
+  document.addEventListener("settings:change", summary);
+  $("#homeOpenSettings").addEventListener("click", window.SNU.openSettings);
+})();
+</script>
+</body>
+</html>

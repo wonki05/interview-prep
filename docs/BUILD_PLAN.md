@@ -1,0 +1,62 @@
+# BUILD_PLAN — 작업 순서와 완료 기준
+
+번호를 커밋·PR에 쓴다. 한 항목이 끝나면 `[ ]`를 `[x]`로. 순서는 위에서 아래가 기본이지만 같은 Phase 안에서는 바꿔도 된다. 모든 항목의 공통 완료 기준: `npm run test:smoke` 통과, 데스크톱 1280/모바일 400, 밝음/어둠, 글자 '아주 크게'에서 깨지지 않음, 콘솔 오류 없음, 키 없는 경로 동작.
+
+## Phase 0 — 워크스페이스 점검
+
+- [ ] **P0-1 실행 확인**: `npm install` → `npm run test:smoke` 통과. `index.html`을 `file://`로 열어 네 화면 확인.
+- [ ] **P0-1a 저장소 초기화**: `.gitignore`에 `/books/`, `/work/`, `__pycache__/`, `*.pyc` 추가, `tools/requirements.txt`(pymupdf 고정), `git init -b main`, 현재 샘플 코드 첫 커밋. 원격 연결은 P0-2.
+- [ ] **P0-2 배포 확인**: Q-10 결정 → 저장소 생성 → Pages 먼저 켜기(Settings → Pages → Source "GitHub Actions") → `main` push(`docs/INGEST.md` §3-B 순서. Pages를 켜기 전에 push하면 첫 실행이 실패한다). 네 HTML에 `noindex` meta, `pages.yml` 아티팩트는 사이트 파일만. 배포된 주소에서 모의면접 텍스트 모드 한 바퀴.
+- [ ] **P0-2a 배포본 스모크**: `tests/smoke.js`에 `SMOKE_BASE_URL`(후행 슬래시 정규화, `goto` timeout 60초). 로컬·배포 두 경로 모두 통과.
+- [ ] **P0-3 데이터 검증**: `node tools/validate-data.js` 통과(세트 id 유일, 제시문·질문 수 출력).
+
+## Phase 1 — 모의면접·기출DB 마무리
+
+- [ ] **P1-1 세션 기록 내보내기**: 종료 화면에 [기록 내려받기] → `session-<sessionId>.json`(세트·모드·옵션·plan·history[{q,a,recFilename,duration}]·memo·createdAt)과 같은 내용의 `.md`. 형식은 `docs/TRANSCRIPTION.md` §3과 같아야 한다(전사 스크립트가 읽는다).
+- [ ] **P1-2 세션 기록 보관**: IndexedDB에 store `sessions` 추가(keyPath `id`), 종료 시 저장. 설정 화면 하단 "녹음 보관함"을 "지난 세션"으로 바꿔 세션별로 묶어 보여 준다(펼치면 녹음 목록). 녹음 레코드의 `sessionId`로 연결.
+- [ ] **P1-3 녹음 zip 일괄 내려받기**: 세션 단위 zip(녹음 파일 + `session.json`). 외부 라이브러리 금지 → store-only(무압축) zip을 직접 만든다(로컬 파일 헤더 + 중앙 디렉터리, CRC32 구현 필요). 파일명 규칙은 유지(`<setId>_<mode>_<sessionId>_Qnn.<ext>`).
+- [ ] **P1-4 기출DB 스레드 내보내기**: 세트 단위로 `db-<setId>.md`/`.json`. 전체 내보내기/가져오기(병합, 같은 키는 최신 `at` 우선).
+- [ ] **P1-5 설정 내보내기/가져오기**: API 키 제외한 설정 JSON. 가져오기 시 키 유지.
+- [ ] **P1-6 오류 경로 정리**: 마이크 거부(텍스트 모드 전환 안내 한 줄), IndexedDB 불가(메모리만), 음성 인식 중단(재시작 실패 시 직접 입력 textarea 노출), AI 4xx/5xx(키 오류와 과금 오류 구분해 한 줄 표시). 모든 오류는 `.callout`으로 질문 카드 안에.
+- [ ] **P1-7 키보드**: 면접 화면에서 `Space` 답변 시작/완료(텍스트 입력 중에는 제외), `Enter`+`Ctrl` 제출/다음, `Esc` 질문 다시 듣기 취소. 설정 화면 단계 이동은 기존 클릭 유지.
+- [ ] **P1-8 접근성 점검**: 포커스 순서, `aria-pressed`/`aria-current` 일관, 진행 바 시계 `aria-live="off"`(초 단위 낭독 금지), 노크 표시는 `role="status"`.
+
+## Phase 2 — AI 면접관 고도화
+
+- [ ] **P2-1 결정 트리 생성 파이프라인**: `tools/gen_tree.py` 또는 브라우저 안 "트리 생성"(둘 중 하나, `docs/DECISIONS.md` Q-3). 입력: 세트(제시문 전문 + 복기 질문 전체) + 난이도 정의. 출력: `tree` 객체(깊이 6~10, 분기 2~3, `when`은 상호배타적 분류 조건). 프롬프트는 `docs/AI.md` §6. 생성 결과는 `data/questions.js`의 해당 세트 `trees: { low, mid, high, max }`로 넣고(기존 `tree`는 `trees.mid`로 이동), 실행기는 난이도에 맞는 트리를 고른다.
+- [ ] **P2-2 분류 호출 개선**: `classify`에 직전 질문과 (옵션) 제시문 요약을 넣을지 실험. 결과를 `docs/DECISIONS.md` Q-2에 기록.
+- [ ] **P2-3 종료 후 총평**: 종료 화면 [AI 총평] → 세션 history 전체 + 제시문 전문 → `{summary, strengths[], gaps[], next[]}`. 모델은 세션 AI 설정. 결과를 세션 기록에 저장.
+- [ ] **P2-4 모델 목록 자동 조회**: 설정 서랍 [목록 갱신] → Anthropic `GET /v1/models`, OpenAI `GET /v1/models`로 `data/models.js` 목록을 보강(브라우저 localStorage `snu-model-cache-v1`). 실패해도 정적 목록은 유지.
+- [ ] **P2-5 키 유효성 검사**: 설정 서랍 [저장] 뒤 가벼운 호출(모델 목록 조회)로 확인, 결과를 상태 줄에 표시.
+- [ ] **P2-6 비용·호출 로그**: 세션당 호출 수·추정 토큰을 종료 화면에 한 줄. 저장은 세션 기록 안에.
+
+## Phase 3 — 전사(transcript)
+
+지침: `docs/TRANSCRIPTION.md`. 구현 전 Q-4 결정.
+
+- [ ] **P3-1 브라우저 전사(OpenAI)**: 전사 방식에 "OpenAI 전사" 추가. [답변 완료] 뒤 녹음 blob을 `POST /v1/audio/transcriptions`(모델은 `MODEL_CATALOG.transcription`에서 선택)로 보내고 결과로 전사를 대체. 실패 시 브라우저 음성 인식 결과 유지. 진행 중 표시, 취소 가능.
+- [ ] **P3-2 배치 전사 스크립트**: `tools/transcribe.py` — 내려받은 세션 zip/폴더 → 전사 → `session-<id>.transcript.json` + `.md`. OpenAI 또는 로컬 faster-whisper 선택. 키는 환경변수.
+- [ ] **P3-3 전사 가져오기**: 종료 화면/지난 세션에서 `.transcript.json`을 가져와 문답 기록의 전사를 갱신.
+
+## Phase 4 — 데이터 확장
+
+- [ ] **P4-1 서울대 세트 전체(2019~2025, 18세트, 복기본 3종)**: 계획 `docs/INGEST.md` §2. 교재 2권(`books/`)에서 옮긴다. 제시문은 원문 그대로(OCR 오인식 교정만), 각주는 `source`에. 하위 항목 순서대로.
+  - [ ] **P4-1a 교재 추출·정제·조립·대조·통합**: `tools/book_extract.py` → 파일럿 6쪽 → Workflow `ingest-ocr`(Haiku 정제 → Sonnet 이미지 검증) → `tools/check_ocr.py` → `tools/assemble_sets.py`(+Sonnet 예외 판단, 주제어·태그) → 기존 5세트 대조 보고(Q-13 승인) → Workflow `ingest-merge`(Fable 생성 → Opus 3렌즈, 단일 반려 재시도). 산출물은 `work/`(커밋 안 함).
+  - [ ] **P4-1b 변형 스키마**: `variants`/`variant`/제시문 `label`·`kind: case`/`tree.basis`, `SNU.db` 해석(`db.set(id, v)`, `schools()/sets()`도 해석본), 설정 `variant`, 기출DB 키(kim 무접두사, 그 밖 `<variant>/`), `tools/validate-data.js`와 `docs/DATA.md` 같은 커밋.
+  - [ ] **P4-1c 변형 UI**: 기출DB 세트 머리·모의면접 3단계·설정 서랍 "복기본" seg(눌림은 실효 변형, 비활성은 세트에 없는 변형), 세트 행 칩, 홈 연도별 묶음, `practice.js` 세션 변형 고정, 트리 `basis` 불일치 시 은행/실시간, `AI.md` §2 라벨 표기.
+  - [ ] **P4-1d 데이터 생성**: `tools/build_questions.py` → `data/questions.js`(세트 18, 변형 44), validate 통과, `tests/smoke.js` 갱신(세트 18, 기출DB는 kim 고정, seg 전환, `snu-2019-C` 비활성), 표본 8쪽 이미지 대조, `README.md` 자료 출처 두 권.
+- [ ] **P4-2 다른 학교 세트**: 고려대·연세대·성균관대·한양대·서강대·중앙대·경희대·한국외대·이화여대. 학교별 `format`(진행 방식·시간표)도 채운다. 시간표가 다르면 옵션 창 기준값 표시가 그 학교 값을 쓴다(이미 그렇게 되어 있다). 같은 파이프라인(`docs/INGEST.md` §8), 학교별 페이지 범위만 바꾼다.
+- [ ] **P4-3 세트 메타**: `themes`에 더해 `tags`(법철학·정치·과학기술·…)를 넣고 기출DB에 태그 필터. 서울대 태그 값은 P4-1a에서 만든다.
+- [ ] **P4-4 서울대 반영 후 개선**(배포 뒤, 항목마다 커밋): **a** 홈 18행 연도 묶음·모바일 400 줄바꿈, **b** 변형 seg·칩의 어둠 테마·'아주 크게', **c** AI 입력 길이(`AI.md` §7 추정·`max_tokens`), **d** 기출DB `?variant=` 병행·키 접두사 확인, **e** 안드로이드 Chrome 실기기 1회, **f** 문서(`README`·`DATA`·`AI`·`BUILD_PLAN` 상태).
+
+## Phase 5 — 서가 보류 기능
+
+- [ ] **P5-1 연결 지도**(SVG 보드, `edges` 데이터), **P5-2 효용–비용 산점도**(`s` 점수), **P5-3 읽는 범위–쟁점 그래프**, **P5-4 쟁점×분야 매트릭스**, **P5-5 진도 내보내기/가져오기**. 원본 HTML의 구현을 참고하되 토큰·컴포넌트는 이 사이트 것으로.
+- [ ] **P5-6 `data/library.js` 지연 로드**: 720KB. 서가 페이지에서만 로드되는지 확인하고, 홈에서 서가 데이터를 쓰지 않도록 유지.
+
+## Phase 6 — 품질
+
+- [ ] **P6-1 PWA**: `manifest.webmanifest` + 서비스 워커(정적 파일 캐시, 네트워크 우선). 설치 아이콘. AI 호출은 캐시 제외.
+- [ ] **P6-2 실기기 점검**: 안드로이드 Chrome, iOS Safari(녹음 mp4, 음성 인식, wakeLock 미지원 대응).
+- [ ] **P6-3 테스트 확대**: `tests/smoke.js`에 기출DB 스레드·설정 서랍·다크 모드 스크린샷 비교(픽셀 비교는 하지 않고 DOM 상태 단언).
+- [ ] **P6-4 README 정리**: 사용자용 README(실행·배포·백업 방법) 분리.

@@ -1,0 +1,30 @@
+# 의존성·산출물
+node_modules/
+tests/shots/
+*.log
+.DS_Store
+Thumbs.db
+
+# 비밀값 — API 키는 브라우저 localStorage에만 둔다. 저장소에 절대 넣지 않는다.
+.env
+.env.*
+*.key
+*.pem
+secrets/
+**/apikey*
+**/api-key*
+
+# 사용자 데이터(녹음·전사·세션 기록)는 커밋하지 않는다
+recordings/
+transcripts/
+sessions/
+*.webm
+*.m4a
+*.transcript.json
+session-*.json
+
+# 기출 교재 원본(PDF)과 추출·정제 중간 산출물은 커밋하지 않는다(docs/INGEST.md)
+/books/
+/work/
+__pycache__/
+*.pyc

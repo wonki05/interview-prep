@@ -1,0 +1,15 @@
+{
+  "name": "interviewprep",
+  "version": "0.2.0",
+  "private": true,
+  "description": "서울대학교 법학전문대학원 면접전형 대비 — 정적 사이트(GitHub Pages)",
+  "scripts": {
+    "serve": "npx -y serve -l 5173 .",
+    "validate": "node tools/validate-data.js",
+    "test:smoke": "node tests/smoke.js",
+    "test": "npm run validate && npm run test:smoke"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.0.0"
+  }
+}
