@@ -223,7 +223,7 @@ PASSAGE = { no, label?, kind: "prose"|"dialog"|"case", length?, text, source, no
 
 ### 3-B 사용자 구간 (Q-10)
 
-1. Q-10 결정: 저장소 이름, 공개 범위, 노출 완화안, 작성자 메일, 아티팩트 범위.
+1. Q-10 결정: 저장소 이름, 공개 범위, 노출 완화안, 작성자 메일, 아티팩트 범위(`pages.yml`에 기본안 반영: 사이트 파일만). 작성자 메일은 저장소에서 `git config user.email <ID>+<사용자명>@users.noreply.github.com`(GitHub Settings → Emails의 noreply 주소). 지금까지의 커밋은 작성자·커밋터 모두 전역 학교 메일이므로, 공개라면 첫 push 전에 이력의 메일도 바꿀지 함께 정한다.
 2. 저장소 생성: 웹에서 만들고 URL을 주거나, `winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements` 뒤 새 셸에서 `gh auth login`(브라우저 인증) → `gh repo create <name> --<private|public> --source .`(`--push` 없이).
 3. Pages 먼저 켜기: Settings → Pages → Source "GitHub Actions" 또는 `gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`. `pages.yml`의 `configure-pages`는 Pages가 꺼진 저장소에서 "Get Pages site failed"로 실패하므로 push보다 먼저 한다.
 4. `git remote add origin …` → `git push -u origin main`(자격 증명 창은 사용자가 처리). 이미 실패한 실행이 있으면 Pages를 켠 뒤 `gh workflow run pages.yml`(`workflow_dispatch` 있음).

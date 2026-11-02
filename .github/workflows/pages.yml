@@ -1,4 +1,4 @@
-# GitHub Pages 배포: main에 push하면 저장소 루트를 그대로 올린다(빌드 없음).
+# GitHub Pages 배포: main에 push하면 사이트 파일(네 HTML, assets/, data/*.js)만 _site/에 모아 올린다(빌드 없음).
 # 저장소 Settings → Pages → Build and deployment → Source: "GitHub Actions"
 name: Deploy to GitHub Pages
 on:
@@ -21,8 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # data/sets/·docs/·tools/·tests/·CLAUDE.md·AGENTS.md 등은 올리지 않는다
+      - name: 사이트 파일 모으기
+        run: |
+          mkdir -p _site/data
+          cp index.html practice.html db.html library.html _site/
+          cp -r assets _site/
+          cp data/*.js _site/data/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
