@@ -219,7 +219,7 @@ PASSAGE = { no, label?, kind: "prose"|"dialog"|"case", length?, text, source, no
 - 네 HTML `<head>`에 `<meta name="robots" content="noindex">`(검색 노출만 줄인다. 저장소·Pages의 파일 노출은 그대로다). (완료 2026-11-03)
 - Pages 아티팩트 범위(Q-10 하위): 기본안은 `pages.yml`에서 사이트 파일(`index/practice/db/library.html`, `assets/`, `data/`)만 모아 올리는 단계 추가. 그대로 두면 `docs/`·`tools/`·`tests/`·`CLAUDE.md`도 Pages 주소에서 열린다. (완료 2026-11-03: `_site/`에 네 HTML·`assets/`·`data/*.js`만 복사, `data/sets/` 제외)
 - 커밋 전 점검: `git status --short`(`books/`·`work/` 없음), 키 문자열 검색, 저장소 로컬 `git config user.email`을 GitHub noreply 주소로(Q-10 하위. 공개 저장소면 전역 설정의 학교 메일이 모든 커밋에 노출된다). (status·키 검색 완료 2026-11-03: 모든 커밋에서 키 패턴 0건. 메일은 noreply 주소를 알아야 하므로 §3-B 1)
-- 통합본 브랜치 `snu-merge`(워크트리 `../interviewprep-merge`)는 P4-1e가 끝나면 main에 병합한 뒤 push한다.
+- 통합본 브랜치 `snu-merge`(워크트리 `../interviewprep-merge`)는 P4-1e가 끝나면 main에 병합한 뒤 push한다. (해당 없음 2026-11-03: 통합본은 main 작업 트리에서 만들어 main에 커밋했고, 쓰이지 않은 워크트리·브랜치는 정리)
 
 ### 3-B 사용자 구간 (Q-10)
 

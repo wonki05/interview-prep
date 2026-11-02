@@ -1,6 +1,6 @@
 # MERGE_PROMPT — 통합(AI) 복기본 생성 지시문 (P4-1e)
 
-두 교재의 복기(김종수 `kim.json`, 황변 `hwang.json`)를 세트마다 하나의 통합 복기본 `merged.json`으로 만드는 작업의 지시문. GPT(Codex 등 상위 모델)에게 그대로 준다. 작업 브랜치는 `snu-merge`(워크트리). 규칙의 근거는 `docs/INGEST.md` §2-E, 데이터 구조는 `docs/DATA.md` §1·§1.1.
+두 교재의 복기(김종수 `kim.json`, 황변 `hwang.json`)를 세트마다 하나의 통합 복기본 `merged.json`으로 만드는 작업의 지시문. GPT(Codex 등 상위 모델)에게 그대로 준다. 작업 위치는 main 작업 트리(아래 "실행 방법"). 규칙의 근거는 `docs/INGEST.md` §2-E, 데이터 구조는 `docs/DATA.md` §1·§1.1.
 
 ---
 
@@ -92,7 +92,6 @@ npm test
 
 ## 실행 방법 (사용자 메모)
 
-- 브랜치·워크트리: `git branch snu-merge` → `git worktree add ../interviewprep-merge snu-merge` (P4-1d 커밋 뒤 만들어 두었다. 있으면 그 폴더로 간다). Codex는 그 폴더에서 `AGENTS.md`를 읽는다.
-- 워크트리에는 `node_modules`가 없다. `npm test` 전에 그 폴더에서 한 번 `npm install`(Chromium을 못 받으면 `AGENTS.md` §5).
+- 작업 위치: main 작업 트리에서 직접 작업해도 된다(2026-11-03 Codex가 그렇게 했고 `snu-merge` 워크트리는 정리했다).
 - 위 "프롬프트" 절을 그대로 붙여 넣고, 세트 수가 많으면 "먼저 snu-2025-A 하나만 하고 보고하라"로 시작해 결과를 본 뒤 나머지를 맡긴다.
-- 끝나면 main에서 `git merge snu-merge` → `npm test` → push(단계 2).
+- 끝나면 `python -I tools/check_merged.py`(⚠ 세트 확인) → `npm test` → 커밋 → push(단계 2).
