@@ -6,8 +6,8 @@
 
 - [x] **P0-1 실행 확인**: `npm install` → `npm run test:smoke` 통과. `index.html`을 `file://`로 열어 네 화면 확인.
 - [x] **P0-1a 저장소 초기화**: `.gitignore`에 `/books/`, `/work/`, `__pycache__/`, `*.pyc` 추가, `tools/requirements.txt`(pymupdf 고정), `git init -b main`, 현재 샘플 코드 첫 커밋. 원격 연결은 P0-2.
-- [ ] **P0-2 배포 확인**: Q-10 결정 → 저장소 생성 → Pages 먼저 켜기(Settings → Pages → Source "GitHub Actions") → `main` push(`docs/INGEST.md` §3-B 순서. Pages를 켜기 전에 push하면 첫 실행이 실패한다). 네 HTML에 `noindex` meta, `pages.yml` 아티팩트는 사이트 파일만. 배포된 주소에서 모의면접 텍스트 모드 한 바퀴.
-- [ ] **P0-2a 배포본 스모크**: `tests/smoke.js`에 `SMOKE_BASE_URL`(후행 슬래시 정규화, `goto` timeout 60초). 로컬·배포 두 경로 모두 통과.
+- [ ] **P0-2 배포 확인**: Q-10 결정 → 저장소 생성 → Pages 먼저 켜기(Settings → Pages → Source "GitHub Actions") → `main` push(`docs/INGEST.md` §3-B 순서. Pages를 켜기 전에 push하면 첫 실행이 실패한다) → 배포된 주소에서 모의면접 텍스트 모드 한 바퀴와 `SMOKE_BASE_URL` 스모크. 준비(네 HTML `noindex` meta, `pages.yml` 아티팩트는 사이트 파일만)는 완료(2026-11-03).
+- [x] **P0-2a 배포본 스모크**: `tests/smoke.js`에 `SMOKE_BASE_URL`(후행 슬래시 정규화, `goto` timeout 60초). 로컬 file://·http(`npx serve`, `serve.json`) 통과(2026-11-03). 배포 주소 실행은 P0-2에서.
 - [x] **P0-3 데이터 검증**: `node tools/validate-data.js` 통과(세트 id 유일, 제시문·질문 수 출력).
 
 ## Phase 1 — 모의면접·기출DB 마무리
