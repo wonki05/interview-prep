@@ -37,14 +37,14 @@ def parse_set_head(cfg, book, text, year):
         return {"key": m.group(1), "year": int(y.group(1)) if y else year, "kind": kind}
     hw = cfg["books"]["hwang"]
     mode = hw.get("mode", "label")
-    if mode == "label":
-        for k, v in hw["sessions"].items():
+    if mode in ("label", "single"):          # single: 연도 머리가 첫 기호 세트를 열고, sessions에 있는 글머리(• 특별전형 등)만 다른 세트를 연다
+        for k, v in (hw.get("sessions") or {}).items():
             if k in text:
                 return {"key": v, "year": year, "kind": "set"}
         return None
     if mode == "order":                      # 연도 안에서 n번째 세션 글머리 = keys의 n번째 기호
         return {"key": None, "year": year, "kind": "set"}
-    return None                              # single: 세션 글머리가 없고 연도 머리가 세트를 연다
+    return None
 
 
 REF_A = re.compile(r"[＜<〈]\s*제시문\s*(\d)\s*[＞>〉]")
@@ -105,8 +105,9 @@ def split_segments(cfg, book, hook):
                     if info["key"] is None:          # order 모드
                         n = order.get(year, 0); order[year] = n + 1
                         info["key"] = keys[n] if n < len(keys) else f"X{n + 1}"
-                    cur = open_set(info, year)
-                    segs.append(cur)
+                    if not (mode == "single" and cur["kind"] == "set" and cur["key"] == info["key"] and cur["year"] == year):
+                        cur = open_set(info, year)   # single 모드에서 연도 머리가 이미 연 같은 세트의 글머리는 새로 열지 않는다
+                        segs.append(cur)
             cur["blocks"].append((p, b))
             if t != "skip":                  # skip만 있는 쪽(다음 세트 머리 앞의 꼬리말 등)은 세트 쪽 범위에 넣지 않는다
                 cur["pages"].add(p)
@@ -291,6 +292,8 @@ def main():
             json.dump({"id": seg["id"], "year": seg["year"], "pages": sorted(seg["pages"]), "items": items},
                       open(outdir / f"{seg['id']}.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             pers.append(f"{seg['id']} {len(items)}문")
+        elif not any(b["type"] not in ("set-head", "skip") for _, b in seg["blocks"]):
+            report.append(f"빈 세트 건너뜀: {seg['id']}(연도 머리가 연 세트에 내용 없이 다른 세션 글머리가 이어짐)\n")
         else:
             s, warns = build_set(cfg, book, seg, report, hook)
             if s["id"] in ids:                      # 같은 세트 머리가 두 번 잡힘(쪽 누락·오인식) → 덮어쓰지 않고 표시
