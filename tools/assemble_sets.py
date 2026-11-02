@@ -34,6 +34,15 @@ def parse_set_head(book, text, year):
     return None
 
 
+REF_A = re.compile(r"[＜<〈]\s*제시문\s*(\d)\s*[＞>〉]")
+REF_B = re.compile(r"(?<![＜<〈])제시문\s*(\d)\s*[〉>＞]")
+
+def norm_refs(q):
+    """질문 속 제시문 참조를 <제시문 n>으로 통일한다(docs/DATA.md 규칙 4). (가)(나)·<제시문 다> 표기는 그대로 둔다."""
+    q = REF_A.sub(r"<제시문 \1>", q)
+    return REF_B.sub(r"<제시문 \1>", q)
+
+
 def strip_paren(s):
     s = s.strip()
     m = re.match(r"^[\(（]\s*(.*?)\s*[\)）]$", s)
@@ -92,6 +101,8 @@ def build_set(book, mp, seg, report):
                 warns.append(f"지시문 둘 이상 p{p}: {text[:30]}")
         elif t == "passage-head":
             lab = (b.get("label") or "").strip()
+            if not lab:                      # 황변 2023의 "제시문〉" 빈 머리: 아래 [n] 머리가 제시문을 연다
+                warns.append(f"라벨 없는 제시문 머리 p{p}: {text}"); cur = None; continue
             cur = {"no": len(out["passages"]) + 1, "label": None if lab in NUMERIC else (lab or None),
                    "kind": "case" if lab == "사례" else "prose", "length": None, "text": "", "source": "", "notes": [],
                    "_parts": [], "_sources": [], "_markers": [], "_headRaw": text}
@@ -127,7 +138,7 @@ def build_set(book, mp, seg, report):
         elif t == "q":
             if not groups:
                 groups.append({"student": "공통", "label": "추가질문", "items": []})
-            item = {"label": (b.get("label") or None), "text": text, "note": (b.get("note") or None)}
+            item = {"label": (b.get("label") or None), "text": norm_refs(text), "note": (b.get("note") or None)}
             if b.get("cont") and groups[-1]["items"]:
                 groups[-1]["items"][-1]["text"] += " " + text
                 joins.append(f"p{p} 질문 이어짐: {text[:20]}")
@@ -197,6 +208,9 @@ def main():
                       open(cdir / f"{seg['id']}.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         else:
             s, warns = build_set(book, mp, seg, report)
+            if s["id"] in ids:                      # 같은 세트 머리가 두 번 잡힘(쪽 누락·오인식) → 덮어쓰지 않고 표시
+                report.append(f"⚠ 중복 세트 id {s['id']} (쪽 {s['srcPages']}) → {s['id']}-dup 로 저장\n")
+                s["id"] += "-dup"; warns.append("중복 세트 id")
             json.dump(s, open(outdir / f"{s['id']}.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             total_w += len(warns); ids.append(s["id"])
     json.dump(fmt, open(outdir / "_format.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)

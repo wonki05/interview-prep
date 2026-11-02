@@ -9,7 +9,7 @@ PUNCT = re.compile(r"[\s　.,;:!?'\"‘’“”「」『』〈〉《》<>＜＞
 def norm(s): return PUNCT.sub("", s)
 
 QLABEL = re.compile(r"^Q(\d+)(?:-(\d+))?$")
-PLABELS = {"1","2","3","4","5","가","나","다","라","마","사례"}
+PLABELS = {"1","2","3","4","5","가","나","다","라","마","사례",""}   # ""는 황변 2023의 "제시문〉" 빈 머리(조립이 무시)
 
 def runs(opcodes, tag, src, minlen):
     out = []

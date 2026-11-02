@@ -24,6 +24,10 @@
 | 2026-11-02 | GPT 계열(6.1 Terra·6 Astra)은 `OPENAI_API_KEY`가 있을 때만 보조 역할(Haiku 2회 실패 쪽 대체 정제, 통합 2안). 없으면 Claude 계열만 | 사용자 지침이 Haiku·Sonnet·Terra 택일 허용. 세션 Workflow는 Claude 모델만 실행 (옛 Q-14) |
 | 2026-11-02 | 질문 번호(Q2-1 등)는 작업 JSON(`work/`)에만 두고 `data/questions.js`에는 문장만 넣는다 | 기존 데이터 관례. 스키마에 자리 없음. 필요해지면 선택 필드로 추가 |
 | 2026-11-02 | 기출 세트 `name`은 `school.short` + 공백 + 세션 기호(서울대 A). 복기본의 '서울 A' 표기는 쓰지 않으며 모든 학교에 적용(CLAUDE.md·AGENTS.md 규칙 11) | 사용자 요청. 서울대 표기 통일, 다른 대학 기출에도 같은 규칙 |
+| 2026-11-02 | 복기본 변형은 세트 안 `variants`(merged·hwang·kim) + 제시문 `label`·`kind: case` + `tree.basis`. 기출DB 키는 kim 무접두사, 그 밖 `<variant>/`. 2019 질문의 `（나）` 참조는 원문 유지(규칙 4 예외). 원본은 `data/sets/`, `data/questions.js`는 생성 파일 | 계획(`INGEST.md` §2-F) 승인(옛 Q-9). 세트 목록·스레드 키·트리가 하나로 유지된다 |
+| 2026-11-02 | 황변 면접장 스케치는 서울대 `format.details`에 "면접장 스케치(황변)"·"합격생 현장메모(황변)" 행으로 추가 | 계획 승인(옛 Q-12) |
+| 2026-11-02 | 통합본(merged) 13세트는 Fable 5.1이 만들지 않고 GPT 계열(Codex 등)이 브랜치·워크트리 `snu-merge`에서 `docs/MERGE_PROMPT.md`대로 만든다(P4-1e). 이 세션은 OCR·조립·DB화까지 | 사용자 결정 |
+| 2026-11-02 | 질문 속 제시문 참조는 `<제시문 n>`으로 통일하되 `(가)(나)` 체계 세트의 참조는 원문대로. 책에 인쇄된 생략 표시는 본문에 두고 복기자 설명만 `notes` | 규칙 4·5의 적용. 파일럿 뒤 조립 규칙 확정 |
 
 ## 열린 질문
 
@@ -37,9 +41,7 @@
 | Q-6 | 서울대 외 학교의 진행 방식·시간표 자료 | 사용자가 복기 자료를 제공 | 자료 올 때까지 빈 자리 유지 |
 | Q-7 | 기출DB 문답과 모의면접 세션 기록을 합칠지 | (a) 분리(현재) (b) 질문별 통합 뷰 | (a) |
 | Q-8 | 세션 기록을 브라우저 밖으로 백업하는 기본 방법 | (a) 수동 내려받기(P1-1/P1-3) (b) 사용자의 클라우드 폴더에 자동 저장(File System Access API) | (a) |
-| Q-9 | 복기본 변형 구조(`INGEST.md` §2-F) | (a) 세트 안 `variants` + 제시문 `label`·`kind: case`·`tree.basis`, 기출DB 키는 kim 무접두사·그 밖 `<variant>/` 접두사, 2019 질문의 `（나）` 참조 원문 유지(규칙 4 예외) (b) 변형마다 별도 세트 id | (a). 계획 승인 시 확인 뒤 결정 표로 |
 | Q-10 | GitHub 저장소 이름·공개 범위·저작물 노출 완화 | (a) `data/questions.js` 암호화(WebCrypto AES-GCM, 암호구는 localStorage) — Pages 노출까지 막음 (b) 비공개 저장소(Pages는 GitHub Pro, 학생이면 Student Developer Pack) — 저장소 노출만 막음 (c) 공개 + noindex — 검색 노출만 줄임. 하위: 작성자 메일 noreply, Pages 아티팩트를 사이트 파일만으로 | 사용자 결정 필요. 결정 전 데이터 push 안 함 |
 | Q-11 | 김종수 `해설`(모범답안·출제 의도) 수록 여부 | (a) 수록 안 함, `work/`에 정제본만 보관 (b) 세트 `commentary`로 수록해 AI 면접관 참고 입력에 사용 | (a) |
-| Q-12 | 황변 면접장 스케치 반영 | (a) 서울대 `format.details`에 "합격생 현장메모(황변)" 행 추가 (b) `format.sources[]`로 책별 분리 | (a). 계획 승인 시 확인 |
 | Q-13 | 기존 5세트(2021 A/B/C·2023 A/B)와 책 OCR 결과가 다를 때 | (a) 대조 보고서 확인 뒤 항목별 승인(`work/reports/existing-diff.approved.json`) (b) OCR 결과로 일괄 교체 | (a). 규칙 5. 표본 대조 결과 차이는 따옴표·OCR 잡음 수준 |
 | Q-15 | "분석" 산출물 범위 | (가) 세트 메타(제시문 출처 저자·서명, 제시문·질문 수)·태그 (나) 질문 유형 분류 (다) 연도별 경향 표(`work/reports/snu-overview.md`) (라) 출제 의도 요약(Q-11 연동) | (가) |
