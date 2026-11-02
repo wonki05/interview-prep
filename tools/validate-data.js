@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* 데이터 검증: node tools/validate-data.js
-   data/questions.js · data/models.js를 읽어 구조를 확인하고 세트별 제시문·질문 수를 출력한다. 문제가 있으면 종료 코드 1. */
+   data/questions.js · data/models.js를 읽어 구조를 확인하고 세트·변형별 제시문·질문 수를 출력한다. 문제가 있으면 종료 코드 1.
+   세트는 복기본 변형(variants: merged | hwang | kim)을 가진다(docs/DATA.md §1). 변형마다 제시문·질문을 검사한다. */
 "use strict";
 const path = require("path");
 const root = path.join(__dirname, "..");
@@ -10,12 +11,40 @@ require(path.join(root, "data", "models.js"));
 const D = global.window.INTERVIEW_DB, M = global.window.MODEL_CATALOG;
 const errors = [], warns = [];
 const err = m => errors.push(m), warn = m => warns.push(m);
+const VARIANTS = ["merged", "hwang", "kim"];
+const LABELS = ["가", "나", "다", "라", "마", "사례"];
 
 if (!D || !D.levels || !Array.isArray(D.schools)) err("INTERVIEW_DB 구조가 아니다");
 ["low", "mid", "high", "max"].forEach(k => { if (!D.levels.difficulty[k]) err("levels.difficulty." + k + " 없음"); });
 ["low", "mid", "high"].forEach(k => { if (!D.levels.variation[k]) err("levels.variation." + k + " 없음"); });
 
+/* 변형 하나의 제시문·질문 검사. 제시문 번호는 1부터 연속, label은 (가)~(라)·사례만, 사례는 끝에 하나. */
+function checkVariant(tag, v) {
+  if (!Array.isArray(v.passages) || !v.passages.length) { err(tag + ": passages 없음"); return 0; }
+  v.passages.forEach((p, i) => {
+    if (p.no !== i + 1) err(tag + ": 제시문 번호가 연속이 아니다(" + p.no + ")");
+    if (!["prose", "dialog", "case"].includes(p.kind)) err(tag + ": 제시문 " + p.no + " kind 오류");
+    if (p.label !== undefined && !LABELS.includes(p.label)) err(tag + ": 제시문 " + p.no + " label 오류(" + p.label + ")");
+    if (p.kind === "case" && i !== v.passages.length - 1) err(tag + ": 사례 블록은 마지막이어야 한다");
+    if (!p.text || p.text.trim().length < 50) err(tag + ": 제시문 " + p.no + " 본문이 비었거나 짧다");
+  });
+  const labels = v.passages.filter(p => p.label && p.label !== "사례").map(p => p.label);
+  if (labels.length && labels.join("") !== "가나다라마".slice(0, labels.length)) err(tag + ": (가)(나) 라벨 순서 오류 " + labels.join(""));
+  if (!Array.isArray(v.followups) || !v.followups.length) err(tag + ": followups 없음");
+  else {
+    const students = new Set();
+    v.followups.forEach(f => {
+      if (!f.student || !f.label || !Array.isArray(f.items)) err(tag + ": followups 항목 오류");
+      if (students.has(f.student)) err(tag + ": followups student 중복(" + f.student + ") — 문답 키가 충돌한다"); students.add(f.student);
+      (f.items || []).forEach((q, i) => { if (!q || !String(q).trim()) err(tag + ": " + f.label + " Q" + (i + 1) + " 비어 있음"); });
+    });
+  }
+  (v.common || []).forEach(c => { if (!c.label || !Array.isArray(c.items)) err(tag + ": common 항목 오류"); });
+  return (v.followups || []).reduce((a, f) => a + f.items.length, 0) + (v.common || []).reduce((a, c) => a + c.items.length, 0);
+}
+
 const ids = new Set();
+const summary = [];
 for (const sc of D.schools) {
   if (!sc.id || !sc.name || !sc.short) err("학교 필드 누락: " + JSON.stringify(sc).slice(0, 60));
   if (!Array.isArray(sc.sets)) err(sc.id + ": sets가 배열이 아니다");
@@ -31,19 +60,24 @@ for (const sc of D.schools) {
     if (!/^[a-z]+-\d{4}-[A-Za-z0-9]+$/.test(s.id)) warn(tag + ": id 형식은 <school>-<year>-<name> 권장");
     if (s.school !== sc.id) err(tag + ": set.school(" + s.school + ") ≠ 학교 id");
     if (!s.year || !s.name || !s.session || !s.track || !s.instruction) err(tag + ": 기본 필드 누락");
-    if (!Array.isArray(s.passages) || !s.passages.length) err(tag + ": passages 없음");
-    else s.passages.forEach((p, i) => {
-      if (p.no !== i + 1) err(tag + ": 제시문 번호가 연속이 아니다(" + p.no + ")");
-      if (!["prose", "dialog"].includes(p.kind)) err(tag + ": 제시문 " + p.no + " kind 오류");
-      if (!p.text || p.text.trim().length < 50) err(tag + ": 제시문 " + p.no + " 본문이 비었거나 짧다");
-    });
-    if (!Array.isArray(s.themes) || s.themes.length !== (s.passages || []).length) warn(tag + ": themes 수(" + (s.themes || []).length + ") ≠ 제시문 수");
-    if (!Array.isArray(s.followups) || !s.followups.length) err(tag + ": followups 없음");
-    else s.followups.forEach(f => { if (!f.student || !f.label || !Array.isArray(f.items)) err(tag + ": followups 항목 오류"); (f.items || []).forEach((q, i) => { if (!q || !q.trim()) err(tag + ": " + f.label + " Q" + (i + 1) + " 비어 있음"); }); });
-    (s.common || []).forEach(c => { if (!c.label || !Array.isArray(c.items)) err(tag + ": common 항목 오류"); });
+    if (!s.name.startsWith(sc.short + " ")) warn(tag + ": name은 '" + sc.short + " …' 꼴 권장(" + s.name + ")");
+    if (!s.format || !(s.format.prep > 0)) err(tag + ": set.format 누락(ai.js가 format.prep을 읽는다)");
+    if (!s.variants || typeof s.variants !== "object" || !Object.keys(s.variants).length) { err(tag + ": variants 없음"); continue; }
+    const keys = Object.keys(s.variants);
+    keys.forEach(k => { if (!VARIANTS.includes(k)) err(tag + ": 모르는 변형 " + k); if (!s.variants[k].label) err(tag + "/" + k + ": label 없음"); });
+    if (!s.variant || !keys.includes(s.variant)) err(tag + ": 기본 변형(variant=" + s.variant + ")이 variants에 없다");
+    if (s.variants.merged && Array.isArray(s.variants.merged.basis) && !s.variants.merged.basis.every(b => keys.includes(b))) err(tag + ": merged.basis가 variants에 없는 변형을 가리킨다");
+    const counts = {};
+    for (const k of keys) counts[k] = checkVariant(tag + "/" + k, s.variants[k]);
+    const nps = keys.map(k => (s.variants[k].passages || []).length);
+    if (new Set(nps).size > 1) warn(tag + ": 변형 간 제시문 수가 다르다 " + keys.map((k, i) => k + "=" + nps[i]).join(" "));
+    if (!Array.isArray(s.themes) || nps.some(n => n !== s.themes.length)) warn(tag + ": themes 수(" + (s.themes || []).length + ") ≠ 제시문 수 " + nps.join("/"));
+    if (s.tags !== undefined && !Array.isArray(s.tags)) err(tag + ": tags는 배열");
     const trees = s.trees ? Object.entries(s.trees) : s.tree ? [["tree", s.tree]] : [];
     for (const [name, t] of trees) {
       const ttag = tag + " " + name;
+      if (t.basis && !keys.includes(t.basis)) err(ttag + ": basis(" + t.basis + ")가 variants에 없다");
+      if (!t.basis) warn(ttag + ": basis 없음(어느 복기본의 문구인지)");
       if (!t.root || !t.nodes || !t.nodes[t.root]) { err(ttag + ": root 없음"); continue; }
       for (const [id, n] of Object.entries(t.nodes)) {
         if (!n.q) err(ttag + ": 노드 " + id + " 질문 없음");
@@ -52,30 +86,29 @@ for (const sc of D.schools) {
         (n.branches || []).forEach(b => { if (!b.when) err(ttag + ": 노드 " + id + " when 없음"); });
         nexts.forEach(x => { if (x !== null && x !== undefined && !t.nodes[x]) err(ttag + ": 노드 " + id + " → 없는 노드 " + x); });
       }
-      // 도달성·순환
-      const seen = new Set(), stack = [t.root], onPath = new Set();
+      const seen = new Set();
       const visit = (id, pathSet) => { if (pathSet.has(id)) { err(ttag + ": 순환 " + id); return; } if (seen.has(id)) return; seen.add(id); const n = t.nodes[id]; if (!n) return; const nexts = n.branches ? n.branches.map(b => b.next) : [n.next]; const p2 = new Set(pathSet); p2.add(id); nexts.forEach(x => { if (x) visit(x, p2); }); };
-      visit(t.root, onPath);
+      visit(t.root, new Set());
       Object.keys(t.nodes).forEach(id => { if (!seen.has(id)) warn(ttag + ": root에서 닿지 않는 노드 " + id); });
     }
+    summary.push({ school: sc.short, id: s.id, variant: s.variant, keys, nps, counts, tree: trees.length ? trees.map(([n, t]) => n + (t.basis ? "(" + t.basis + ")" : "")).join(",") : "" });
   }
 }
-// 모델 목록
 for (const [prov, list] of Object.entries(M || {})) {
   const seen = new Set();
   for (const m of list) { if (!m.id || !m.label) err("models." + prov + ": id/label 누락"); if (seen.has(m.id)) err("models." + prov + ": id 중복 " + m.id); seen.add(m.id); }
 }
 
-console.log("세트 요약");
+console.log("세트 요약(변형별 제시문/질문)");
+let lastSchool = "";
 for (const sc of D.schools) {
-  const n = sc.sets.length;
-  console.log(`  ${sc.short.padEnd(6)} ${n ? "" : "(세트 없음)"}`);
-  for (const s of sc.sets) {
-    const q = s.followups.reduce((a, f) => a + f.items.length, 0) + (s.common || []).reduce((a, c) => a + c.items.length, 0);
-    console.log(`    ${s.id.padEnd(12)} 제시문 ${s.passages.length}  질문 ${String(q).padStart(2)}  ${s.trees ? "trees:" + Object.keys(s.trees).join(",") : s.tree ? "tree" : ""}`);
+  console.log(`  ${sc.short.padEnd(6)} ${sc.sets.length ? "" : "(세트 없음)"}`);
+  for (const r of summary.filter(x => x.school === sc.short)) {
+    console.log(`    ${r.id.padEnd(12)} 기본 ${r.variant.padEnd(6)} ${r.keys.map((k, i) => `${k} ${r.nps[i]}/${String(r.counts[k]).padStart(2)}`).join("  ")}${r.tree ? "  tree:" + r.tree : ""}`);
   }
 }
+const nv = summary.reduce((n, r) => n + r.keys.length, 0);
 warns.forEach(w => console.log("경고: " + w));
 errors.forEach(e => console.log("오류: " + e));
-console.log(errors.length ? `실패 — 오류 ${errors.length}` : `통과 — 세트 ${ids.size}개, 경고 ${warns.length}`);
+console.log(errors.length ? `실패 — 오류 ${errors.length}` : `통과 — 세트 ${ids.size}개, 변형 ${nv}개, 경고 ${warns.length}`);
 process.exit(errors.length ? 1 : 0);

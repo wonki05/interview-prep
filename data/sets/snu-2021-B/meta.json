@@ -1,0 +1,24 @@
+{
+ "id": "snu-2021-B",
+ "school": "snu",
+ "year": 2021,
+ "name": "서울대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "개념의 번역과 변질(니르바나·열반)",
+  "동일성의 번역과 차이의 번역",
+  "fides의 오해",
+  "규칙접근법과 데이터 학습"
+ ],
+ "tags": [],
+ "variant": "kim"
+}

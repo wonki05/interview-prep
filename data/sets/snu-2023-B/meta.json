@@ -1,0 +1,24 @@
+{
+ "id": "snu-2023-B",
+ "school": "snu",
+ "year": 2023,
+ "name": "서울대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 시험장에서 면접관의 질문에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "인공지능 챗봇과 감정",
+  "로봇과 명령 복종(네스터 10호)",
+  "마음의 확인 가능성",
+  "리벳 실험과 자유의지"
+ ],
+ "tags": [],
+ "variant": "kim"
+}

@@ -28,3 +28,6 @@ session-*.json
 /work/
 __pycache__/
 *.pyc
+
+# 편집기·에이전트 로컬 설정
+/.claude/

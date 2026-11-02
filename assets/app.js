@@ -24,6 +24,7 @@
     knock: true,
     difficulty: "mid",          // low | mid | high | max
     variation: "mid",           // low | mid | high
+    variant: "merged",          // 기본 복기본: merged(통합) | hwang | kim. 세트에 없으면 kim으로 대체(db.pick)
     lastSchool: "snu", lastSet: "snu-2023-A", lastMode: "timed"
   };
   const store = {
@@ -153,6 +154,7 @@
         <h3>모의면접 기본값</h3>
         <div class="field"><span class="lab">답변 방식</span>${seg("answerMode", [["voice", "음성"], ["text", "텍스트"]], s.answerMode)}</div>
         <div class="field"><span class="lab">흐름</span>${seg("flow", [["tree", "사전 결정 트리"], ["live", "실시간 생성"]], s.flow)}</div>
+        <div class="field"><span class="lab">복기본</span>${seg("variant", VARIANT_KEYS.map(k => [k, VARIANT_LABEL[k]]), s.variant)}</div>
         <div class="field"><span class="lab">전사(음성 답변)</span>${seg("stt", [["webspeech", "브라우저 음성 인식"], ["manual", "직접 입력"]], s.stt)}</div>
         <label class="switch"><input type="checkbox" id="sTts" ${s.tts ? "checked" : ""}><span>질문 음성 읽기</span></label>
         <div class="grid3">
@@ -191,14 +193,42 @@
   }
   document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer) closeSettings(); });
 
-  /* ---------- 기출 데이터 접근(데이터 파일이 있는 페이지에서만) ---------- */
+  /* ---------- 기출 데이터 접근(데이터 파일이 있는 페이지에서만) ----------
+     세트는 복기본 변형(set.variants: merged | hwang | kim)을 가진다(docs/DATA.md §1). 여기서 변형 하나를 골라
+     passages·followups·common이 세트 위에 펼쳐진 "해석된 세트"를 돌려주므로 소비자는 변형 구조를 몰라도 된다.
+     고르는 순서: 인자 v → URL ?variant= → 설정 variant → 세트 기본값(set.variant). 세트에 없으면 kim, 그것도 없으면 첫 변형. */
+  const VARIANT_KEYS = ["merged", "hwang", "kim"];
+  const VARIANT_LABEL = { merged: "통합(AI)", hwang: "황변", kim: "김종수" };
+  const urlVariant = () => { try { return new URLSearchParams(location.search).get("variant") || ""; } catch (e) { return ""; } };
   const db = {
-    schools() { return (window.INTERVIEW_DB && window.INTERVIEW_DB.schools) || []; },
-    school(id) { return this.schools().find(s => s.id === id) || null; },
-    sets() { return this.schools().flatMap(s => s.sets); },
-    set(id) { return this.sets().find(s => s.id === id) || null; },
+    raw() { return (window.INTERVIEW_DB && window.INTERVIEW_DB.schools) || []; },
+    pick(set, v) {
+      const keys = set.variants ? Object.keys(set.variants) : [];
+      if (!keys.length) return null;
+      const want = v || urlVariant() || settings.variant || set.variant;
+      return keys.includes(want) ? want : keys.includes("kim") ? "kim" : keys[0];
+    },
+    resolve(set, v) {
+      if (!set || !set.variants) return set;
+      const k = this.pick(set, v), out = Object.assign({}, set, set.variants[k]);
+      out.variant = k; out.defaultVariant = set.variant; out.variantKeys = Object.keys(set.variants); out.variantLabel = set.variants[k].label || VARIANT_LABEL[k];
+      delete out.variants;
+      return out;
+    },
+    schools(v) { return this.raw().map(sc => Object.assign({}, sc, { sets: sc.sets.map(s => this.resolve(s, v)) })); },
+    school(id, v) { return this.schools(v).find(s => s.id === id) || null; },
+    sets(v) { return this.schools(v).flatMap(s => s.sets); },
+    set(id, v) { const s = this.raw().flatMap(sc => sc.sets).find(x => x.id === id); return s ? this.resolve(s, v) : null; },
     label(set) { return `${set.year}학년도 ${set.name}`; },
-    count(set) { return set.followups.reduce((n, f) => n + f.items.length, 0) + (set.common || []).reduce((n, c) => n + c.items.length, 0); }
+    count(set) { return set.followups.reduce((n, f) => n + f.items.length, 0) + (set.common || []).reduce((n, c) => n + c.items.length, 0); },
+    /* 기출DB 문답 키 접두사: kim은 접두사 없음(기존 저장 데이터와 호환), 그 밖은 "<variant>/" */
+    keyPrefix(set) { return set.variant && set.variant !== "kim" ? set.variant + "/" : ""; },
+    variantLabel(k) { return VARIANT_LABEL[k] || k; },
+    variantKeys: VARIANT_KEYS,
+    /* 복기본 seg의 버튼들: 눌림은 실효 변형, 비활성은 세트에 없는 변형. 감싸는 .seg는 호출하는 쪽이 둔다(클릭 위임 속성이 다르다). */
+    variantButtons(set) { return VARIANT_KEYS.map(k => `<button type="button" data-v="${k}" aria-pressed="${set.variant === k}" ${(set.variantKeys || []).includes(k) ? "" : "disabled"}>${VARIANT_LABEL[k]}</button>`).join(""); },
+    /* 트리는 한 복기본의 문구에 묶여 있다(tree.basis). 실효 변형이 다르면 쓰지 않는다. */
+    treeUsable(set) { return !!(set.tree && (!set.tree.basis || set.tree.basis === set.variant)); }
   };
 
   /* ---------- 공개 ---------- */

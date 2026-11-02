@@ -1,0 +1,24 @@
+{
+ "id": "snu-2021-C",
+ "school": "snu",
+ "year": 2021,
+ "name": "서울대 C",
+ "session": "특별전형",
+ "track": "특별전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "민족주의와 국가의 선후",
+  "발언권과 시민권의 범위",
+  "민족국가",
+  "공동체의 융합(줄루족)"
+ ],
+ "tags": [],
+ "variant": "kim"
+}

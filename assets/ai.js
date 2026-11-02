@@ -48,9 +48,11 @@
     (set.common || []).forEach(c => c.items.forEach((q, i) => out.push({ q, group: c.label, student: "공통", idx: i + 1, key: "common-" + c.label + "-" + (i + 1) })));
     return out;
   }
-  function passagesText(set) { return set.passages.map(p => `<제시문 ${p.no}>${p.length ? " (" + p.length + ")" : ""}\n${p.text}`).join("\n\n"); }
+  /* 제시문 머리: 책의 원표기(label)가 있으면 함께 적는다. 2019 세트는 (가)~(라), 2020 세트는 <사례> 블록. */
+  function passageHead(p) { return p.label === "사례" ? "<사례>" : `<제시문 ${p.no}>${p.label ? ` (${p.label})` : ""}`; }
+  function passagesText(set) { return set.passages.map(p => `${passageHead(p)}${p.length ? " (" + p.length + ")" : ""}\n${p.text}`).join("\n\n"); }
   function setContext(set) {
-    return `[면접 세트] ${set.year}학년도 ${set.name} (${set.session})\n[지시문] ${set.instruction}\n\n[제시문 전문]\n${passagesText(set)}\n\n[복기된 실제 추가질문 전체]\n${bank(set).map((q, i) => `${i + 1}. (${q.group}) ${q.q}`).join("\n")}`;
+    return `[면접 세트] ${set.year}학년도 ${set.name} (${set.session})${set.variantLabel ? ` · 복기본: ${set.variantLabel}` : ""}\n[지시문] ${set.instruction}\n\n[제시문 전문]\n${passagesText(set)}\n\n[복기된 실제 추가질문 전체]\n${bank(set).map((q, i) => `${i + 1}. (${q.group}) ${q.q}`).join("\n")}`;
   }
 
   /* ---------- 모의면접: 다음 질문 ---------- */
@@ -92,5 +94,5 @@
     return parseJson(await chat(inp.system, inp.user, { ai, maxTokens: 600 }));
   }
 
-  window.AIClient = { resolve, chat, parseJson, bank, passagesText, setContext, interviewerSystem, buildNextQuestionInput, nextQuestion, classify, buildDbInput, respond };
+  window.AIClient = { resolve, chat, parseJson, bank, passageHead, passagesText, setContext, interviewerSystem, buildNextQuestionInput, nextQuestion, classify, buildDbInput, respond };
 })();
