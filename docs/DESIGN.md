@@ -40,6 +40,7 @@
 | `.h1` `.h2` `.h3` `.eyebrow` `.lead` `.sub` `.small` `.muted` | 글자 단계 |
 | `.btn` (`.primary` `.ghost` `.danger` `.rec` `.big` `.sm`) `.linkbtn` | 버튼 |
 | `.seg` (`.fill`, `[data-seg]`) `.switch` `.input` `select.input` `.minutes` `.keyrow` | 입력 |
+| `.effort-control` `.effort-heading` `.effort-ticks` | 설정·모의면접·기출DB 공통 effort 슬라이더. 모델별 단계와 현재 값 표시 |
 | `.chip` (`.ok` `.warn` `.rec` `.accent` `.line`) `.callout` (`.warn` `.rec` `.ok`) | 상태 |
 | `.panel` `.panel.tight` `.cols` `.grid2` `.grid3` `.row` `.stack` `.kv` | 배치 |
 | `.tl` `.tl-seg` (`.plan`/`.done`/`.cur`/`.todo`, `.narrow`) `.tl-cap` | 시간표 띠(서명 요소). `SNU.timeline(plan, opts)`로만 생성 |
@@ -48,6 +49,7 @@
 | `.timerbar` `.session` `.coll` `.colr`(sticky) `.qcard` `.reccontrols` `.level` `.transcript` `.qactions` `.qlist` `.memo-pane` `.wait-screen` `.wait-wrap` `.knock` `.mobile-tabs` | 세션 |
 | `.reclist` `.recitem` | 녹음 |
 | `.dbgrid` `.dbside` `.dbmain` `.sethead` `.aibar` `.fold` `.qgroup` `.qrow` `.qhead` `.thread` `.msg` (`.user`/`.ai`) | 기출DB |
+| `.dbtools` `.dbtheme` `.themes-hidden` | 목록 상단 주제 가림·정렬, 목록·상세 주제 blur. 질문 행 왼쪽 여백 18px(모바일 16px) |
 | `.paper` `.papers` `.instr` | 제시문 |
 | `.drawer` `.shade` `.d-sec` | 설정 서랍 |
 | 서가: `.tabs` `.tools` `.booklist` `.book` `.toprow` `.cluster` `.iss*` `.stage` `.pairs` `.calc` `.cap` `.bdrawer` `.prose` 등 | 서가(원본 이식) |

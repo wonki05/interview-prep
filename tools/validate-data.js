@@ -5,6 +5,8 @@
    --in은 build_questions.js --out으로 만든 다른 파일을 검사한다(학교별 세션의 검증용). */
 "use strict";
 const path = require("path");
+const fs = require("fs");
+const vm = require("vm");
 const root = path.join(__dirname, "..");
 const inArg = process.argv.indexOf("--in");
 global.window = {};
@@ -107,6 +109,21 @@ for (const [prov, list] of Object.entries(M || {})) {
   const seen = new Set();
   for (const m of list) { if (!m.id || !m.label) err("models." + prov + ": id/label 누락"); if (seen.has(m.id)) err("models." + prov + ": id 중복 " + m.id); seen.add(m.id); }
 }
+
+/* 브라우저 설정의 추가 필드와 모델별 effort 기본값을 실제 공통 스크립트에서 검사한다. */
+const browser = {
+  window: { MODEL_CATALOG: M },
+  localStorage: { getItem() { return null; } },
+  document: { readyState: "loading", addEventListener() {}, documentElement: { setAttribute() {}, removeAttribute() {} } }
+};
+vm.runInNewContext(fs.readFileSync(path.join(root, "assets", "app.js"), "utf8"), browser);
+const defaults = browser.window.SNU.DEFAULTS, modelHelpers = browser.window.SNU.models;
+for (const provider of ["anthropic", "openai"]) {
+  if (!(M[provider] || []).some(m => m.id === defaults[provider + "Model"])) err(provider + ": 기본 모델이 목록에 없다");
+  if (!modelHelpers.effortOptions(provider, defaults[provider + "Model"]).includes(defaults[provider + "Effort"])) err(provider + ": 기본 effort가 모델 지원 범위 밖이다");
+}
+if (typeof defaults.dbHideThemes !== "boolean") err("설정 dbHideThemes는 불리언");
+if (!["newest", "oldest"].includes(defaults.dbSort)) err("설정 dbSort는 newest/oldest");
 
 console.log("세트 요약(변형별 제시문/질문)");
 let lastSchool = "";

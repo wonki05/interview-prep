@@ -95,6 +95,22 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 :root[data-bluelight="mid"] .bluelight { opacity: .20; }
 :root[data-bluelight="high"] .bluelight { opacity: .32; }
 
+/* 모델별 추론 강도: 설정·모의면접·기출DB가 같은 슬라이더를 쓴다. */
+.effort-control { width: 100%; max-width: 260px; min-width: 0; }
+.effort-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: .8125rem; }
+.effort-heading label { color: var(--ink-2); }
+.effort-heading output { color: var(--accent-ink); font-weight: 600; }
+.effort-control input { display: block; appearance: none; -webkit-appearance: none; width: 100%; height: 32px; margin: 0; background: transparent; cursor: pointer; }
+.effort-control input::-webkit-slider-runnable-track { height: 8px; border-radius: var(--radius); background: linear-gradient(to right, var(--accent) 0 var(--effort-fill), var(--surface-3) var(--effort-fill) 100%); }
+.effort-control input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin-top: -6px; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface); }
+.effort-control input::-moz-range-track { height: 8px; border-radius: var(--radius); background: var(--surface-3); }
+.effort-control input::-moz-range-progress { height: 8px; border-radius: var(--radius); background: var(--accent); }
+.effort-control input::-moz-range-thumb { width: 16px; height: 16px; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface); }
+.effort-control input:disabled { opacity: .45; cursor: default; }
+.effort-ticks { display: flex; justify-content: space-between; padding: 0 9px; margin-top: -2px; }
+.effort-ticks i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-3); }
+.aibar .effort-control { flex: 1 1 180px; }
+
 /* ---------- 앱바 ---------- */
 .appbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); border-bottom: 1px solid var(--line); }
 .appbar-in { max-width: 1120px; margin-inline: auto; min-height: var(--header-h); display: flex; align-items: center; gap: 18px;
@@ -372,6 +388,8 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .dbgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 32px; align-items: start; }
 .dbside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--header-h) + 16px); display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .dbmain { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.dbtools { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.themes-hidden .dbtheme { filter: blur(5px); user-select: none; pointer-events: none; }
 @media (max-width: 900px) { .dbgrid { grid-template-columns: minmax(0, 1fr); gap: 20px; } .dbside { position: static; } }
 .dbside .setrow { grid-template-columns: 60px minmax(0, 1fr); padding: 12px 12px 12px 14px; }
 .dbside .setrow .mt { grid-column: 2; text-align: left; flex-direction: row; gap: 10px; flex-wrap: wrap; }
@@ -387,15 +405,15 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .qgroup h3 { font-size: .85rem; color: var(--ink-3); font-weight: 600; padding: 6px 0; }
 .qrow { border-top: 1px solid var(--line); }
 .qgroup .qrow:last-child { border-bottom: 1px solid var(--line); }
-.qhead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; padding: 12px 8px 12px 4px; width: 100%; text-align: left; align-items: start; }
+.qhead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; padding: 12px 18px; width: 100%; text-align: left; align-items: start; }
 .qhead:hover { background: var(--surface); }
 .qrow.open .qhead { background: var(--surface); }
 .qhead .qidx { color: var(--ink-3); font-size: .8rem; padding-top: 4px; font-variant-numeric: tabular-nums; }
 .qhead .qtxt { font-size: .98rem; line-height: 1.6; }
 .qhead .qst { font-size: .76rem; color: var(--ink-3); white-space: nowrap; padding-top: 4px; }
 .qhead .qst.on { color: var(--accent); font-weight: 600; }
-.thread { padding: 4px 8px 20px 54px; display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
-@media (max-width: 560px) { .thread { padding-left: 8px; } }
+.thread { padding: 4px 18px 20px 68px; display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
+@media (max-width: 560px) { .qhead, .thread { padding-inline: 16px; } }
 .msg { padding: 12px 14px; border-radius: 10px; max-width: 72ch; font-size: .95rem; line-height: 1.65; }
 .msg.user { background: var(--surface-2); }
 .msg.ai { background: var(--accent-soft); border-left: 3px solid var(--accent); }
@@ -405,7 +423,7 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .thread textarea.input { min-height: 96px; }
 .aibar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font-size: .9rem; }
 .aibar .seg button { padding: 6px 10px; font-size: .85rem; }
-.aibar input { width: 190px; }
+.aibar .modelsel input { width: 190px; }
 
 /* ---------- 설정 서랍 ---------- */
 .shade { position: fixed; inset: 0; background: var(--shade); z-index: 40; }

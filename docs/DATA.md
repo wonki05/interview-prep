@@ -79,6 +79,16 @@ data/sets/<set id>/merged.json
 
 ## 4. 브라우저 저장소
 
+설정의 추가 필드(기존 저장소 키는 유지하며 누락 필드에 기본값을 합친다):
+
+| 필드 | 값·기본값 |
+|---|---|
+| `anthropicEffort`, `openaiEffort` | 기본 `medium`. 모델별 `low / medium / high / xhigh / max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원. 지원 범위는 `SNU.models.effortOptions`로 판정. 미확인 직접 입력 모델은 API 기본값 |
+| `dbHideThemes` | 불리언, 기본 `false`. 기출DB 목록·상세 주제 가림 |
+| `dbSort` | `newest`(기본) / `oldest`. 학교별 세트 목록의 연도 정렬. 원본 배열은 변경하지 않음 |
+
+effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의 AI 호출에만 적용한다. 설정 서랍과 모의면접의 [기본값으로 저장]만 위 저장 필드에 반영한다. 기존 API 키·문답·복기본 데이터에는 변화가 없다. `tools/validate-data.js`가 추가 필드의 기본값과 모델 지원 범위를 검사한다.
+
 | 키 | 내용 |
 |---|---|
 | `localStorage["snu-iv-settings-v1"]` | 설정. 키 이름을 바꾸면 `app.js`에서 마이그레이션(예: 이전 `lastSet: "2023-A"` → `"snu-2023-A"`, `openaiModel: "gpt-5"` → 새 기본값). `variant`(기본 복기본)는 추가된 키라 마이그레이션 없음 |

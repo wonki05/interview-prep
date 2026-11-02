@@ -227,6 +227,7 @@
           <div class="opt-title">AI 모델</div>
           <div class="field"><span class="lab">제공사</span><div class="seg" data-aiseg="provider"><button type="button" data-v="anthropic" aria-pressed="${ai.provider === "anthropic"}">Claude</button><button type="button" data-v="openai" aria-pressed="${ai.provider === "openai"}">ChatGPT</button></div></div>
           <div class="field"><span class="lab">모델</span><div class="row">${models.select(ai.provider, ai.model, { sm: true, style: "max-width:220px" })}<button type="button" class="btn sm ghost" id="aiSaveDefault">기본값으로 저장</button></div></div>
+          ${models.effortControl("practice-effort", ai.provider, ai.model, ai.effort)}
           <div class="row">${ai.configured ? `<span class="chip ok">${esc(ai.label)} · 키 있음</span>` : `<span class="chip warn">API 키 없음 — 복기 질문 은행으로 진행</span><button type="button" class="linkbtn" id="optOpenSettings">설정</button>`}</div>
         </div>
         <div class="span2">${promptPreview(cs, plan)}</div>` : `
@@ -246,7 +247,7 @@
       <p class="small muted" style="margin-top:8px">첫 질문 생성 시 실제 입력. 이후 호출에는 '지금까지의 문답'이 덧붙는다. 결정 트리의 분기 분류 호출만 답변·분기 조건을 보내는 경량 호출.</p>
       <pre><b>[system]</b>\n${esc(inp.system)}\n\n<b>[user]</b>\n${esc(inp.user)}</pre></details>`;
   }
-  function sessionAi() { return { provider: st.ai.provider, model: st.ai.model || undefined }; }
+  function sessionAi() { return { provider: st.ai.provider, model: st.ai.model || undefined, effort: st.ai.effort }; }
   function planFromSettings() { const s = S(), m = mode(); return { prep: Math.max(1, +s.prepMinutes || 20), wait: s.waitEnabled ? Math.max(1, +s.waitMinutes || 5) : 0, interview: m.timed ? Math.max(1, +s.interviewMinutes || 15) : 0 }; }
 
   /* 설정 화면의 상호작용은 #app에 한 번 위임한다(단계가 바뀔 때마다 innerHTML을 다시 그리므로). */
@@ -258,8 +259,8 @@
     const sb = t.closest("[data-set]"); if (sb) { st.setId = sb.dataset.set; st.schoolId = set().school; save({ lastSet: st.setId, lastSchool: st.schoolId }); st.step = 2; renderSetup(); scrollToStep(2); return; }
     const mb = t.closest("[data-mode]"); if (mb) { st.mode = mb.dataset.mode; save({ lastMode: st.mode }); st.step = 3; renderSetup(); scrollToStep(3); return; }
     const seg = t.closest("[data-seg] button"); if (seg) { save({ [seg.closest("[data-seg]").dataset.seg]: seg.dataset.v }); return; }   // save → settings:change → refreshOptions
-    const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; refreshOptions(); return; }
-    if (t.closest("#aiSaveDefault")) { const ai = AI.resolve(sessionAi()); st.ai.model = ""; save({ provider: ai.provider, [ai.provider === "anthropic" ? "anthropicModel" : "openaiModel"]: ai.model }); return; }
+    const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; st.ai.effort = undefined; refreshOptions(); return; }
+    if (t.closest("#aiSaveDefault")) { const ai = AI.resolve(sessionAi()); st.ai.model = ""; st.ai.effort = undefined; save({ provider: ai.provider, [ai.provider + "Model"]: ai.model, [ai.provider + "Effort"]: ai.effort || "medium" }); return; }
     if (t.closest("#optOpenSettings")) { window.SNU.openSettings(); return; }
     if (t.closest("#startBtn")) { startSession(); return; }
   });
@@ -270,7 +271,12 @@
     else if (t.matches("[data-num]")) { const v = Math.max(+t.min || 0, Math.min(+t.max || 999, +t.value || 0)); save({ [t.dataset.num]: v }); }
   });
   app.addEventListener("toggle", e => { if (e.target.id === "pv") st.promptOpen = e.target.open; }, true);
-  function bindOptions() { const b = $("#step3 .step-b"); if (b) models.bind(b, id => { st.ai.model = id; refreshOptions(); }); }
+  function bindOptions() {
+    const b = $("#step3 .step-b");
+    if (!b) return;
+    models.bind(b, id => { st.ai.model = id; st.ai.effort = models.normalizeEffort(st.ai.provider, id, st.ai.effort || S()[st.ai.provider + "Effort"]); refreshOptions(); });
+    models.bindEffort(b, value => { st.ai.effort = value; });
+  }
   function refreshOptions() { const b = $("#step3 .step-b"); if (b) { b.innerHTML = optionsPanel(); bindOptions(); } }
   function scrollToStep(n) { const el = $("#step" + n); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
   document.addEventListener("settings:change", () => { if (st.phase === "setup" && st.step === 3) refreshOptions(); });
@@ -414,7 +420,7 @@
     const manual = !textMode && (s.stt !== "webspeech" || !stt.available);
     let body = "";
     if (st.thinking) body = `<div class="qmeta"><span>질문 ${st.history.length + 1}</span><span>${esc(st.aiNote)}</span></div><p class="qtext waiting">면접관이 다음 질문을 고르는 중…</p>`;
-    else if (st.pendingBranches) body = `<div class="qmeta"><span>면접관 판단</span></div><p class="qtext waiting">API 키가 없어 분류를 직접 고른다. 방금 답변에 가장 가까운 것은?</p><div class="stack">${st.pendingBranches.map((b, i) => `<button type="button" class="btn" data-branch="${i}">${esc(b.when)}</button>`).join("")}</div>`;
+    else if (st.pendingBranches) body = `<div class="qmeta"><span>면접관 판단</span></div><p class="qtext waiting">방금 답변에 가장 가까운 것은?</p><div class="stack">${st.pendingBranches.map((b, i) => `<button type="button" class="btn" data-branch="${i}">${esc(b.when)}</button>`).join("")}</div>${st.err ? `<p class="callout warn">${esc(st.err)}</p>` : ""}`;
     else if (!st.cur) body = `<p class="qtext waiting">질문 없음</p>`;
     else {
       const head = `<div class="qmeta"><span>질문 ${st.history.length + 1}${st.cur.group ? " · " + esc(st.cur.group) + (st.cur.idx ? " Q" + st.cur.idx : "") : ""}</span><span>${st.cur.focus ? "초점: " + esc(st.cur.focus) : ""}</span></div><p class="qtext">${esc(st.cur.q)}</p>`;
@@ -444,7 +450,7 @@
     const rq = $("#readQ"); if (rq) rq.addEventListener("click", () => speak(st.cur.q));
     const nb = $("#nextBtn"); if (nb) nb.addEventListener("click", () => { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); commitAnswer(); });
     const sk = $("#skipBtn"); if (sk) sk.addEventListener("click", () => { st.transcript = ""; commitAnswer(); });
-    $$("[data-branch]", q).forEach(b => b.addEventListener("click", () => { const i = +b.dataset.branch; const br = st.pendingBranches[i]; st.pendingBranches = null; st.treeNode = br.next; showTreeNode(); }));
+    $$("[data-branch]", q).forEach(b => b.addEventListener("click", () => { const i = +b.dataset.branch; const br = st.pendingBranches[i]; st.pendingBranches = null; st.err = ""; st.treeNode = br.next; showTreeNode(); }));
     const log = $("#qlog"); if (log) { log.innerHTML = st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span>${esc(h.q)}</span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : h.a ? h.a.length + "자" : "—"}</span></li>`).join("") + (st.cur ? `<li class="cur"><span class="idx">Q${st.history.length + 1}</span><span>${esc(st.cur.q)}</span><span></span></li>` : ""); }
     const pl = $("#progressLabel"); if (pl) pl.textContent = st.mode === "all" ? `${st.qi}/${st.queue.length}` : `${st.history.length}개 답변`;
   }
@@ -490,7 +496,8 @@
       const node = cs.tree.nodes[st.treeNode];
       if (node && node.branches && node.branches.length) {
         if (ai.configured) { st.thinking = true; st.aiNote = "분기 분류 · " + ai.label; renderQcard();
-          try { const i = await AI.classify(lastAnswer, node.branches, sessionAi()); st.treeNode = node.branches[i].next; } catch (e) { st.err = "분류 호출 실패: " + e.message + " — 첫 가지로 진행."; st.treeNode = node.branches[0].next; }
+          try { const i = await AI.classify(lastAnswer, node.branches, sessionAi()); st.treeNode = node.branches[i].next; }
+          catch (e) { st.err = "분류 호출 실패: " + e.message; st.thinking = false; st.pendingBranches = node.branches; renderQcard(); return; }
           st.thinking = false; showTreeNode(); return; }
         st.pendingBranches = node.branches; renderQcard(); return;
       }

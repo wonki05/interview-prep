@@ -8,15 +8,35 @@
 |---|---|---|
 | 엔드포인트 | `POST https://api.anthropic.com/v1/messages` | `POST https://api.openai.com/v1/chat/completions` |
 | 헤더 | `x-api-key`, `anthropic-version: 2023-06-01`, `anthropic-dangerous-direct-browser-access: true`, `content-type: application/json` | `authorization: Bearer <key>`, `content-type: application/json` |
-| 본문 | `{model, max_tokens, system, messages:[{role:"user", content}]}` | `{model, messages:[{role:"system",content},{role:"user",content}]}` |
-| 응답 텍스트 | `content[].text` 연결 | `choices[0].message.content` |
+| 본문 | `{model, max_tokens, system, messages, output_config:{effort, format}}` | `{model, max_completion_tokens, store:false, messages, reasoning_effort, response_format}` |
+| 응답 텍스트 | `content[]`의 `type:"text"` 블록만 연결 | `choices[0].message.content`(문자열 또는 text 블록) |
 | 오디오 입력 | 없음 | 전사는 별도 API(`docs/TRANSCRIPTION.md`) |
 
 - 키는 `localStorage["snu-iv-settings-v1"].anthropicKey / openaiKey`. 브라우저에서 직접 호출하므로 CORS는 두 제공사 모두 허용되어 있다(Anthropic은 위 헤더 필요).
 - 모델 목록: `data/models.js` `MODEL_CATALOG[provider] = [{id, label, note}]`. 화면에는 `label`(예: "Sonnet 5.5", "GPT-6.1 Sol")만 보이고 API에는 `id`를 보낸다. "직접 입력…"으로 임의 id 가능.
-- 기본값: `settings.provider`, `settings.anthropicModel`(기본 `claude-sonnet-5-5`), `settings.openaiModel`(기본 `gpt-6.1-sol`).
-- 세션 재정의: 모의면접 옵션 창과 기출DB AI 바의 `{provider, model}`은 그 화면에서만 유효. `AIClient.resolve(override)`가 `{provider, model, key, configured, label, modelLabel}`을 돌려준다.
+- 기본값: `settings.provider`, `settings.anthropicModel`(기본 `claude-sonnet-5-5`), `settings.openaiModel`(기본 `gpt-6.1-sol`), `settings.anthropicEffort / openaiEffort`(기본 `medium`). 기존 설정 키는 유지한다.
+- 설정 서랍·모의면접 옵션·기출DB AI 바에서 단계형 슬라이더로 effort를 고른다. Claude 네 모델 및 GPT-6.1 Sol·GPT-6 Astra는 `low/medium/high/xhigh/max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원한다. 직접 입력한 미확인 모델은 슬라이더를 비활성화하고 API 기본 effort를 쓴다.
+- 세션 재정의: 모의면접 옵션 창과 기출DB AI 바의 `{provider, model, effort}`는 그 화면에서만 유효. `AIClient.resolve(override)`가 `{provider, model, effort, key, configured, label, modelLabel}`을 돌려준다. 제공사·모델이 지원하지 않는 effort는 `medium`으로, 미확인 모델은 `null`로 정규화한다.
 - 키가 없으면(`configured=false`) 호출하지 않고 대체 경로로 간다. 호출 실패(4xx/5xx/네트워크)도 같은 대체 경로 + 한 줄 오류.
+
+### 1.1 구조화 응답·출력 한도
+
+- 목록에 수록된 모델의 질문 생성·기출DB 검토는 JSON Schema를 요청한다. Anthropic은 `output_config.format = {type:"json_schema", schema}`, OpenAI는 `response_format = {type:"json_schema", json_schema:{name, strict:true, schema}}`. 모든 필드를 필수 문자열로 정하고 `additionalProperties:false`를 사용한다. 직접 입력한 미확인 모델에는 effort·구조화 출력 옵션을 보내지 않으며 기존 JSON 프롬프트와 응답 검증을 적용한다.
+- Claude의 추론도 `max_tokens`에, OpenAI의 추론도 `max_completion_tokens`에 포함된다. 기존 500/600 토큰 제한은 추론만으로 소진되어 답변 텍스트가 비거나 잘릴 수 있었다. 표시될 답변은 기존처럼 짧게 요청하면서 총 출력 예산을 effort별로 확보한다.
+
+| effort | 첫 호출 출력 한도(추론 포함) |
+|---|---:|
+| `none` 또는 미확인 모델 | 2,048 |
+| `low` | 4,096 |
+| `medium` | 8,192 |
+| `high` | 16,384 |
+| `xhigh` | 24,576 |
+| `max` | 32,768 |
+
+- `stop_reason:max_tokens` / `finish_reason:length`는 잘림으로 판단하고 한도를 두 배(최대 65,536)로 늘려 한 번 재시도한다. 빈 응답·JSON 구문 오류·필수 항목 누락도 한 번만 재시도한다. 원인들이 섞여도 한 사용자 요청에서 총 두 번을 넘지 않는다.
+- 거부 응답·입력 한도 초과·HTTP 오류·연결 실패는 자동 재시도하지 않는다. 키 오류(401), 권한(403), 결제·잔액, 호출 제한(429), 서버 오류(5xx)를 구분한다. 오류 원문·추론 블록·API 키는 화면이나 로그에 남기지 않는다.
+- JSON은 객체만 허용하고 코드펜스는 제거한다. 필수 값이 누락되거나 공백·다른 형식이면 실패 처리하며, 화면에 `undefined` 검토나 빈 질문을 성공으로 저장하지 않는다.
+- 근거(2026-11-03 확인): [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort), [thinking](https://platform.claude.com/docs/en/build-with-claude/thinking), [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)·[Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)·[Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra)·[Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
 
 ## 2. 컨텍스트(모든 질문 생성·검토 호출에 포함)
 
@@ -56,7 +76,7 @@ system:
 교수 수는 세트 `format.ratio`의 앞 수(한양대 `2:1` → 두), 없으면 세.
 
 user: `setContext(set)` + `[지금까지의 문답] Q1/A1 …` + `다음 질문을 JSON으로 만들어라.`
-응답: JSON `{question, focus, why}` (`parseJson`은 코드펜스 제거 후 첫 `{…}`를 파싱). `max_tokens` 500.
+응답: JSON `{question, focus, why}`. 세 필수 문자열의 형식·공백 여부를 검증한다. 출력 한도는 §1.1.
 
 난이도·변형도 정의(`data/questions.js levels`):
 
@@ -76,12 +96,12 @@ user: `setContext(set)` + `[지금까지의 문답] Q1/A1 …` + `다음 질문�
 ### 3.2 `classify(answer, branches, ai)` — 결정 트리 분기 (경량)
 
 system: `지원자의 답변을 읽고 아래 분류 가운데 가장 맞는 것의 번호만 출력한다. 다른 말은 쓰지 않는다.`
-user: `[답변] … [분류] 1. {when} 2. {when} …` → 숫자 하나. `max_tokens` 10. **제시문 미포함**(Q-2에서 재검토). 경량 모델(Haiku 5.5 / GPT-6 Luna) 권장.
+user: `[답변] … [분류] 1. {when} 2. {when} …` → 숫자 하나. 출력 한도는 추론 토큰을 포함해 §1.1을 따른다. 범위 안의 정수만 허용하며 잘못된 결과는 수동 분기 선택으로 보낸다. **제시문 미포함**(Q-2에서 재검토). 경량 모델(Haiku 5.5 / GPT-6 Luna) 권장.
 
 ### 3.3 `respond(set, question, thread, ai)` — 기출DB 검토 + 꼬리질문
 
 system: 면접관 역할, (1) 제시문을 정확히 읽었는지·논증 구조(주장–근거–반론 처리)를 두세 문장으로 검토(칭찬보다 빠진 것), (2) 꼬리질문 하나(구어체 존댓말, 세 문장 이내). JSON `{"feedback", "followup"}`.
-user: `setContext(set)` + `[이번에 다루는 질문]` + `[문답 기록] 지원자: … / 면접관(검토): … / 면접관(꼬리질문): …` + 지시. `max_tokens` 600.
+user: `setContext(set)` + `[이번에 다루는 질문]` + `[문답 기록] 지원자: … / 면접관(검토): … / 면접관(꼬리질문): …` + 지시. 두 필수 문자열의 형식·공백 여부를 검증한다. 출력 한도는 §1.1.
 
 ### 3.4 (예정) `review(set, history, ai)` — 종료 후 총평 (P2-3)
 
@@ -127,7 +147,7 @@ P2-1에서 난이도별 `trees: { low, mid, high, max }`로 확장한다. 실행
 
 ## 7. 비용·지연 지침
 
-- 질문 생성 1회: 입력 ≈ 제시문 4편(한글 4~6천 자) + 질문 목록 + 문답 ≈ 6~10k 토큰, 출력 200 토큰. 세션(질문 8~10개)당 10회 안팎.
+- 질문 생성 1회: 입력 ≈ 제시문 4편(한글 4~6천 자) + 질문 목록 + 문답 ≈ 6~10k 토큰. 세션(질문 8~10개)당 10회 안팎. 추론 토큰과 실제 출력은 모델·effort에 따라 달라지므로 짧은 답변 길이만으로 비용을 추정하지 않는다.
 - 분기 분류 1회: 입력 수백 토큰. 경량 모델로.
 - 기출DB 검토 1회: 질문 생성과 비슷.
 - 전사: `docs/TRANSCRIPTION.md`.

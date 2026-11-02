@@ -30,29 +30,40 @@
   }
   const set = () => db.set(st.setId);
   const school = () => db.school(st.schoolId);
-  const sessionAi = () => ({ provider: st.ai.provider, model: st.ai.model || undefined });
+  const sessionAi = () => ({ provider: st.ai.provider, model: st.ai.model || undefined, effort: st.ai.effort });
+  const sortedSets = sc => [...sc.sets].sort((a, b) => (S().dbSort === "oldest" ? a.year - b.year : b.year - a.year) || a.id.localeCompare(b.id));
 
   /* ---------- 화면 ---------- */
+  let renderedSetKey = "";
   function render() {
     const sc = school(), cs = set();
+    const setKey = cs && cs.school === st.schoolId ? cs.id + "/" + cs.variant : "";
+    const drafts = setKey && setKey === renderedSetKey ? $$(".thread textarea", app).map(ta => [ta.id, ta.value]) : [];
     app.innerHTML = `
       <section class="sec" style="gap:6px">
         <div class="eyebrow">기출DB</div>
         <h1 class="h1">제시문 · 복기 질문 · 질문별 문답</h1>
       </section>
       <div class="schooltabs" role="group" aria-label="학교">${db.schools().map(s => `<button type="button" data-school="${s.id}" aria-pressed="${s.id === st.schoolId}" class="${s.id === "snu" ? "main" : ""} ${s.sets.length ? "" : "empty"}">${esc(s.short)}${s.sets.length ? `<span class="n">${s.sets.length}</span>` : ""}</button>`).join("")}</div>
-      <div class="dbgrid">
+      <div class="dbgrid ${S().dbHideThemes ? "themes-hidden" : ""}">
         <aside class="dbside">
-          ${sc.sets.length ? `<div class="setrows">${sc.sets.map(x => `<button type="button" class="setrow" data-set="${x.id}" aria-pressed="${x.id === st.setId}">
+          <div class="dbtools" role="group" aria-label="기출 표시">
+            <button type="button" class="btn sm ${S().dbHideThemes ? "primary" : ""}" id="toggleThemes" aria-pressed="${!!S().dbHideThemes}">${S().dbHideThemes ? "주제 보이기" : "주제 가리기"}</button>
+            <button type="button" class="btn sm" id="sortSets" aria-label="${S().dbSort === "oldest" ? "과거순, 최신순으로 변경" : "최신순, 과거순으로 변경"}">${S().dbSort === "oldest" ? "과거순 ↑" : "최신순 ↓"}</button>
+          </div>
+          ${sc.sets.length ? `<div class="setrows">${sortedSets(sc).map(x => `<button type="button" class="setrow" data-set="${x.id}" aria-pressed="${x.id === st.setId}">
               <span class="yr">${x.year}<small>${esc(x.track)}</small></span>
-              <span><span class="nm">${esc(x.name)} · ${esc(x.session)}</span><br><span class="th">${esc(x.themes.join(" · "))}</span></span>
+              <span><span class="nm">${esc(x.name)} · ${esc(x.session)}</span><br><span class="th dbtheme" aria-hidden="${!!S().dbHideThemes}">${esc(x.themes.join(" · "))}</span></span>
               <span class="mt"><span>제시문 ${x.passages.length}</span><span>복기 질문 ${db.count(x)}</span><span>${x.variantKeys.map(k => db.variantLabel(k)).join("·")}</span>${countThreads(x.id) ? `<span>문답 ${countThreads(x.id)}</span>` : ""}</span></button>`).join("")}</div>`
             : `<div class="empty-school"><b>${esc(sc.name)} — 복기 추가 예정</b></div>`}
           ${sc.format ? `<details class="fold"><summary>${esc(sc.short)} 면접 진행 방식 · ${sc.format.year}학년도 복기</summary><div class="fold-b"><div class="row">${sc.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("")}</div><dl class="kv" style="grid-template-columns:minmax(0,1fr);gap:2px 0;font-size:.88rem">${sc.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="margin-bottom:10px;color:var(--ink-2)">${esc(v)}</dd>`).join("")}</dl></div></details>` : ""}
         </aside>
         <div class="dbmain" id="main">${cs && cs.school === st.schoolId ? setDetail(cs) : `<p class="callout">${esc(sc.name)} 세트 없음</p>`}</div>
       </div>`;
-    models.bind(app, id => { st.ai.model = id; render(); });
+    renderedSetKey = setKey;
+    drafts.forEach(([id, value]) => { const ta = document.getElementById(id); if (ta) ta.value = value; });
+    models.bind(app, id => { st.ai.model = id; st.ai.effort = models.normalizeEffort(st.ai.provider, id, st.ai.effort || S()[st.ai.provider + "Effort"]); render(); });
+    models.bindEffort(app, value => { st.ai.effort = value; });
   }
   function setDetail(cs) {
     const ai = AI.resolve(sessionAi());
@@ -60,7 +71,7 @@
       <div class="sethead">
         <div class="eyebrow">${esc(school().name)} · ${cs.year}학년도 · ${esc(cs.session)} · ${esc(cs.track)}</div>
         <h2 class="h1">${esc(cs.name)}</h2>
-        <div class="row">${cs.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+        <div class="row dbtheme" aria-hidden="${!!S().dbHideThemes}">${cs.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
         <div class="row"><span class="small" style="font-weight:600">복기본</span><div class="seg" role="group" data-vseg="variant">${db.variantButtons(cs)}</div><span class="small muted">${esc(cs.variantLabel)}${cs.source && cs.source.pages ? ` · p.${esc(cs.source.pages)}` : ""}</span></div>
         <div class="row"><a class="btn primary" href="practice.html?set=${esc(cs.id)}">이 세트로 모의면접</a><span class="small muted">제시문 ${cs.passages.length} · 복기 질문 ${db.count(cs)}${db.treeUsable(cs) ? " · 결정 트리" : ""}</span></div>
       </div>
@@ -68,6 +79,7 @@
         <span class="small" style="font-weight:600">AI 면접관</span>
         <div class="seg" data-aiseg="provider"><button type="button" data-v="anthropic" aria-pressed="${ai.provider === "anthropic"}">Claude</button><button type="button" data-v="openai" aria-pressed="${ai.provider === "openai"}">ChatGPT</button></div>
         ${models.select(ai.provider, ai.model, { sm: true, style: "width:190px" })}
+        ${models.effortControl("db-effort", ai.provider, ai.model, ai.effort)}
         ${ai.configured ? `<span class="chip ok">키 있음</span>` : `<span class="chip warn">API 키 없음</span><button type="button" class="linkbtn" id="openSettingsLink">설정</button>`}
       </div>
       <details class="fold" open><summary>제시문 ${cs.passages.length}편 · 지시문</summary><div class="fold-b">${passagesHtml(cs)}</div></details>
@@ -122,9 +134,11 @@
   /* ---------- 상호작용(위임) ---------- */
   app.addEventListener("click", async e => {
     const t = e.target, cs = set();
+    const themeToggle = t.closest("#toggleThemes"); if (themeToggle) { saveView({ dbHideThemes: !S().dbHideThemes }, "toggleThemes"); return; }
+    const sortToggle = t.closest("#sortSets"); if (sortToggle) { saveView({ dbSort: S().dbSort === "oldest" ? "newest" : "oldest" }, "sortSets"); return; }
     const sch = t.closest("[data-school]"); if (sch) { st.schoolId = sch.dataset.school; const s = school(); if (s.sets.length && (!cs || cs.school !== s.id)) { st.setId = s.sets[0].id; history.replaceState(null, "", "#" + st.setId); } save({ lastSchool: st.schoolId }); return; }   // save → settings:change → render
     const sb = t.closest("[data-set]"); if (sb) { st.setId = sb.dataset.set; st.open = {}; history.replaceState(null, "", "#" + st.setId); save({ lastSet: st.setId }); return; }
-    const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; render(); return; }
+    const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; st.ai.effort = undefined; render(); return; }
     const vseg = t.closest("[data-vseg] button"); if (vseg) { st.open = {}; save({ variant: vseg.dataset.v }); return; }   // save → settings:change → render
     if (t.closest("#openSettingsLink")) { window.SNU.openSettings(); return; }
     const tg = t.closest("[data-toggle]"); if (tg) { const k = tg.dataset.toggle; st.open[k] = !st.open[k]; rerenderRow(k); if (st.open[k]) { const ta = $("#ta-" + cssEscape(k)); if (ta) ta.focus(); } return; }
@@ -134,6 +148,15 @@
   });
   document.addEventListener("settings:change", () => { if (!st.busy) render(); });
   window.addEventListener("hashchange", () => { const cs = db.set(location.hash.slice(1)); if (cs && cs.id !== st.setId) { st.setId = cs.id; st.schoolId = cs.school; st.open = {}; render(); } });
+
+  /* 표시 설정만 바꿀 때는 작성 중인 답변과 키보드 초점을 유지한다. */
+  function saveView(patch, focusId) {
+    const drafts = $$(".thread textarea", app).map(ta => [ta.id, ta.value]);
+    save(patch);
+    if (st.busy) render();
+    drafts.forEach(([id, value]) => { const ta = document.getElementById(id); if (ta) ta.value = value; });
+    const control = document.getElementById(focusId); if (control) control.focus({ preventScroll: true });
+  }
 
   async function sendAnswer(cs, key) {
     const ta = $("#ta-" + cssEscape(key)); const text = (ta && ta.value || "").trim();

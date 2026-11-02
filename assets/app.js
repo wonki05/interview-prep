@@ -12,8 +12,9 @@
     fontScale: "md",            // sm | md | lg | xl
     /* AI 기본값 — 모의면접 옵션 창과 기출DB에 기본으로 뜨고, 그 자리에서 바꿀 수 있다 */
     provider: "anthropic",      // anthropic | openai
-    anthropicKey: "", anthropicModel: "claude-sonnet-5-5",
-    openaiKey: "", openaiModel: "gpt-6.1-sol",
+    anthropicKey: "", anthropicModel: "claude-sonnet-5-5", anthropicEffort: "medium",
+    openaiKey: "", openaiModel: "gpt-6.1-sol", openaiEffort: "medium",
+    dbHideThemes: false, dbSort: "newest",
     /* 모의면접 기본값 — 옵션 창에서 고른 값이 마지막에 쓴 값으로 저장된다 */
     answerMode: "voice",        // voice | text
     stt: "webspeech",           // webspeech | manual
@@ -59,6 +60,43 @@
     list(provider) { return (window.MODEL_CATALOG && window.MODEL_CATALOG[provider]) || []; },
     label(provider, id) { const m = this.list(provider).find(x => x.id === id); return m ? m.label : (id || "모델 미지정"); },
     providerLabel(p) { return p === "anthropic" ? "Claude" : "ChatGPT"; },
+    /* 공식 문서로 확인한 모델만 effort를 보낸다. 직접 입력한 미확인 모델은 API 기본값을 쓴다. */
+    effortOptions(provider, model) {
+      const levels = ["low", "medium", "high", "xhigh", "max"];
+      if (provider === "anthropic" && ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-1"].includes(model)) return levels;
+      if (provider === "openai") {
+        if (["gpt-6.1-sol", "gpt-6-astra"].includes(model)) return levels;
+        if (["gpt-6.1-terra", "gpt-6-luna"].includes(model)) return ["none"].concat(levels);
+      }
+      return [];
+    },
+    normalizeEffort(provider, model, value) {
+      const levels = this.effortOptions(provider, model);
+      return levels.includes(value) ? value : levels.includes("medium") ? "medium" : null;
+    },
+    effortLabel(value) { return ({ none: "없음", low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음", max: "최대" })[value] || "모델 기본값"; },
+    effortControl(id, provider, model, value) {
+      const levels = this.effortOptions(provider, model), selected = this.normalizeEffort(provider, model, value);
+      const index = Math.max(0, levels.indexOf(selected)), max = Math.max(1, levels.length - 1);
+      return `<div class="effort-control" data-provider="${esc(provider)}" data-model="${esc(model)}">
+        <div class="effort-heading"><label for="${id}">Effort</label><output for="${id}">${this.effortLabel(selected)}</output></div>
+        <input id="${id}" type="range" min="0" max="${max}" step="1" value="${index}" aria-valuetext="${this.effortLabel(selected)}" style="--effort-fill:${index / max * 100}%" ${levels.length ? "" : "disabled"}>
+        <div class="effort-ticks" aria-hidden="true">${(levels.length ? levels : [null, null]).map(() => "<i></i>").join("")}</div>
+      </div>`;
+    },
+    bindEffort(root, onChange) {
+      $$(".effort-control", root).forEach(w => {
+        const input = $("input", w), output = $("output", w);
+        input.addEventListener("input", () => {
+          const levels = this.effortOptions(w.dataset.provider, w.dataset.model), value = levels[+input.value];
+          if (!value) return;
+          output.textContent = this.effortLabel(value);
+          input.setAttribute("aria-valuetext", output.textContent);
+          input.style.setProperty("--effort-fill", (+input.value / +input.max * 100) + "%");
+          onChange(value, w.dataset.provider);
+        });
+      });
+    },
     /* <select> + 직접 입력 칸. 바뀌면 onChange(id)를 부른다. */
     select(provider, cur, opts) {
       opts = opts || {};
@@ -146,8 +184,10 @@
         <div class="field"><span class="lab">기본 제공사</span>${seg("provider", [["anthropic", "Claude"], ["openai", "ChatGPT"]], s.provider)}</div>
         ${keyField("sAnthropicKey", "Anthropic API 키", "anthropicKey", "sk-ant-…")}
         <div class="field"><span class="lab">Claude 기본 모델</span>${models.select("anthropic", s.anthropicModel)}</div>
+        <div class="field" data-effort-slot="anthropic">${models.effortControl("settings-anthropic-effort", "anthropic", s.anthropicModel, s.anthropicEffort)}</div>
         ${keyField("sOpenaiKey", "OpenAI API 키", "openaiKey", "sk-…")}
         <div class="field"><span class="lab">ChatGPT 기본 모델</span>${models.select("openai", s.openaiModel)}</div>
+        <div class="field" data-effort-slot="openai">${models.effortControl("settings-openai-effort", "openai", s.openaiModel, s.openaiEffort)}</div>
       </section>
 
       <section class="d-sec">
@@ -183,7 +223,15 @@
     bind("sTts", "tts", t => t.checked); bind("sKnock", "knock", t => t.checked);
     bind("sWait", "waitMinutes", t => Math.max(0, +t.value || 0)); bind("sPrep", "prepMinutes", t => Math.max(1, +t.value || 20)); bind("sInt", "interviewMinutes", t => Math.max(1, +t.value || 15));
     $$("#sAnthropicKey, #sOpenaiKey", drawer).forEach(inp => inp.addEventListener("keydown", e => { if (e.key === "Enter") $(`[data-for="${inp.id}"][data-savekey]`, drawer).click(); }));
-    models.bind(drawer, (id, provider) => save({ [provider === "anthropic" ? "anthropicModel" : "openaiModel"]: id }));
+    const saveEffort = (value, provider) => save({ [provider + "Effort"]: value });
+    models.bindEffort(drawer, saveEffort);
+    models.bind(drawer, (id, provider) => {
+      const effort = models.normalizeEffort(provider, id, settings[provider + "Effort"]);
+      save({ [provider + "Model"]: id, [provider + "Effort"]: effort || "medium" });
+      const slot = $(`[data-effort-slot="${provider}"]`, drawer);
+      slot.innerHTML = models.effortControl("settings-" + provider + "-effort", provider, id, effort);
+      models.bindEffort(slot, saveEffort);
+    });
     $("#closeSettings", drawer).focus();
   }
   function closeSettings() {
