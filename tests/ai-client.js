@@ -34,6 +34,33 @@ function setup(replies, provider = "anthropic") {
 }
 const set = { id: "snu-2023-A", school: "snu", name: "서울대 A", year: 2023, session: "오전", instruction: "답하시오.", passages: [{ no: 1, text: "검증용 제시문" }], followups: [{ student: "A", label: "추가질문", items: ["근거는 무엇입니까?"] }], format: { prep: 20, duration: 15, ratio: "3:1" } };
 const feedback = { feedback: "논거를 확인했습니다.", followup: "반례는 무엇입니까?" };
+const studySet = {
+  ...set,
+  variant: "kim",
+  passages: [
+    { no: 1, text: "검증용 제시문 하나: 행위의 피해와 자유를 구별한다.", source: "검증용 출전 A" },
+    { no: 2, text: "검증용 제시문 둘: 선택의 조건을 검토한다.", source: "검증용 출전 B" }
+  ],
+  tasks: [{ label: "1", text: "검증용 문제지 문항: 개입 기준을 말하시오." }],
+  followups: [{ student: "A", label: "추가질문", items: ["검증용 추가질문: 타인에게 영향이 없다면?"] }],
+  common: [{ label: "공통", items: ["검증용 공통질문: 기준의 한계는?"] }]
+};
+const studyBooks = [{ id: 16, title: "검증용 도서", author: "검증용 저자", core: "자율성과 개입의 조건을 비교한다.", keywords: ["자유", "개입"] }];
+const exampleAnswers = { examples: [
+  { label: "해악 중심", answer: "타인의 구체적 피해를 기준으로 개입 범위를 정하겠습니다.", importance: "피해와 불쾌감을 구별하는 기준을 드러냅니다.", cautions: "피해의 존재와 규제 필요성을 별도로 논증합니다." },
+  { label: "선택 조건 중심", answer: "선택의 자발성과 대안을 먼저 확인하겠습니다.", importance: "형식적 동의와 실질적 선택을 구별합니다.", cautions: "조건이 부족하다는 이유만으로 선택을 전면 부정하지 않습니다." }
+] };
+const passageExplanation = {
+  overview: "두 제시문은 개입의 기준과 선택의 조건을 비교하게 합니다.",
+  passages: [
+    { no: 1, summary: "행위의 피해와 자유를 구별합니다.", intent: "피해 판단의 기준을 설명하는지를 묻는 것으로 해석됩니다.", keyPoints: ["피해의 범위"], notes: "피해의 존재와 규제 필요성을 구별합니다." },
+    { no: 2, summary: "선택의 실질적 조건을 검토합니다.", intent: "선택이 성립하는 전제를 검토하는지 묻는 것으로 해석됩니다.", keyPoints: ["자발성과 대안"], notes: "제시문에 없는 조건은 가정으로 구별합니다." }
+  ],
+  questionStrategy: ["문제지 문항의 기준을 추가질문의 반례에 일관되게 적용합니다."],
+  sourceNotes: "입력에는 검증용 출전 A와 검증용 출전 B가 제시되어 있습니다.",
+  books: [{ id: 16, reason: "자율성과 개입 조건을 비교하는 연관 독서입니다. 실제 출전으로 확인된 것은 아닙니다." }]
+};
+const copy = value => JSON.parse(JSON.stringify(value));
 const anth = (text, stop = "end_turn") => ({ content: [{ type: "text", text }], stop_reason: stop });
 const openai = (text, finish = "stop") => ({ choices: [{ message: { content: text }, finish_reason: finish }] });
 const respond = client => client.respond(set, "근거는 무엇입니까?", [{ role: "user", text: "제시문에 근거합니다." }]);
@@ -157,6 +184,91 @@ async function test(label, run) { await run(); checks++; console.log("통과: " 
     await respond(other.client);
     assert.equal(other.requests[0].body.reasoning_effort, undefined);
     assert.equal(other.requests[0].body.response_format, undefined);
+  });
+  await test("예시답변 2종과 해설을 구조화하고 전체 제시문·문제를 입력", async () => {
+    const { client, requests } = setup([anth(JSON.stringify(exampleAnswers))]);
+    const question = "검증용 선택 질문: 어떤 기준을 적용하겠습니까?";
+    const result = await client.exampleAnswers(studySet, question, { provider: "anthropic", effort: "high" });
+    assert.deepEqual(copy(result), exampleAnswers);
+    const body = requests[0].body, input = body.messages[0].content;
+    const schema = body.output_config.format.schema;
+    assert.equal(schema.properties.examples.type, "array");
+    assert.equal(schema.properties.examples.items.additionalProperties, false);
+    for (const name of ["label", "answer", "importance", "cautions"]) assert.ok(schema.properties.examples.items.required.includes(name));
+    for (const text of [...studySet.passages.map(p => p.text), studySet.tasks[0].text, studySet.followups[0].items[0], studySet.common[0].items[0], question]) assert.ok(input.includes(text), "학습 입력에 누락: " + text);
+    assert.equal(body.output_config.effort, "high");
+    const preview = client.buildExamplesInput(studySet, question);
+    assert.equal(preview.system, body.system);
+    assert.equal(preview.user, input);
+  });
+  await test("예시답변 부족·중복·중첩 형식 오류는 한 번 복구", async () => {
+    const invalid = [];
+    invalid.push({ examples: [exampleAnswers.examples[0]] });
+    const sameLabel = copy(exampleAnswers); sameLabel.examples[1].label = sameLabel.examples[0].label; invalid.push(sameLabel);
+    const sameAnswer = copy(exampleAnswers); sameAnswer.examples[1].answer = sameAnswer.examples[0].answer; invalid.push(sameAnswer);
+    const blank = copy(exampleAnswers); blank.examples[1].cautions = " "; invalid.push(blank);
+    const type = copy(exampleAnswers); type.examples[1].importance = []; invalid.push(type);
+    const extra = copy(exampleAnswers); extra.examples[0].unknown = "추가 필드"; invalid.push(extra);
+    invalid.push({ examples: [null, exampleAnswers.examples[1]] });
+    for (const bad of invalid) {
+      const { client, requests } = setup([anth(JSON.stringify(bad)), anth(JSON.stringify(exampleAnswers))]);
+      assert.deepEqual(copy(await client.exampleAnswers(studySet, "질문")), exampleAnswers);
+      assert.equal(requests.length, 2);
+    }
+  });
+  await test("예시답변의 반복 의미 오류도 총 두 번에서 중단", async () => {
+    const bad = JSON.stringify({ examples: [exampleAnswers.examples[0]] });
+    const { client, requests } = setup([openai(bad), openai(bad)], "openai");
+    await assert.rejects(client.exampleAnswers(studySet, "질문"));
+    assert.equal(requests.length, 2);
+  });
+  await test("제시문 해설에 출전·추가질문·서가 후보를 전달하고 번호별로 반환", async () => {
+    const { client, requests } = setup([openai(JSON.stringify(passageExplanation))], "openai");
+    assert.deepEqual(copy(await client.explainPassages(studySet, studyBooks)), passageExplanation);
+    const body = requests[0].body, input = body.messages[1].content;
+    const schema = body.response_format.json_schema.schema;
+    assert.equal(schema.properties.passages.type, "array");
+    assert.equal(schema.properties.passages.items.properties.no.type, "integer");
+    assert.equal(schema.properties.books.items.properties.id.type, "integer");
+    assert.equal(schema.properties.passages.items.additionalProperties, false);
+    assert.equal(body.response_format.json_schema.strict, true);
+    for (const text of [...studySet.passages.flatMap(p => [p.text, p.source]), studySet.tasks[0].text, studySet.followups[0].items[0], studySet.common[0].items[0], studyBooks[0].title, studyBooks[0].author, studyBooks[0].core]) assert.ok(input.includes(text), "해설 입력에 누락: " + text);
+    const preview = client.buildPassageExplanationInput(studySet, studyBooks);
+    assert.equal(preview.system, body.messages[0].content);
+    assert.equal(preview.user, input);
+  });
+  await test("제시문 누락·중복·없는 번호를 해설 성공으로 저장하지 않음", async () => {
+    const missing = copy(passageExplanation); missing.passages.pop();
+    const duplicate = copy(passageExplanation); duplicate.passages[1].no = 1;
+    const unknown = copy(passageExplanation); unknown.passages[1].no = 3;
+    const wrongType = copy(passageExplanation); wrongType.passages[1].no = "2";
+    const noninteger = copy(passageExplanation); noninteger.passages[1].no = 2.5;
+    for (const bad of [missing, duplicate, unknown, wrongType, noninteger]) {
+      const reply = JSON.stringify(bad), { client, requests } = setup([anth(reply), anth(reply)]);
+      await assert.rejects(client.explainPassages(studySet, studyBooks));
+      assert.equal(requests.length, 2);
+    }
+  });
+  await test("서가에 없는 도서·중복 도서·빈 핵심요소를 거부", async () => {
+    const unknownBook = copy(passageExplanation); unknownBook.books[0].id = 999;
+    const duplicateBook = copy(passageExplanation); duplicateBook.books.push(copy(duplicateBook.books[0]));
+    const emptyPoints = copy(passageExplanation); emptyPoints.passages[0].keyPoints = [];
+    const emptyStrategy = copy(passageExplanation); emptyStrategy.questionStrategy = [];
+    const wrongPoint = copy(passageExplanation); wrongPoint.passages[0].keyPoints = [1];
+    const extra = copy(passageExplanation); extra.passages[0].url = "추가 필드";
+    const missingSource = copy(passageExplanation); delete missingSource.sourceNotes;
+    for (const bad of [unknownBook, duplicateBook, emptyPoints, emptyStrategy, wrongPoint, extra, missingSource]) {
+      const reply = JSON.stringify(bad), { client, requests } = setup([openai(reply), openai(reply)], "openai");
+      await assert.rejects(client.explainPassages(studySet, studyBooks));
+      assert.equal(requests.length, 2);
+    }
+  });
+  await test("연관 도서가 없으면 빈 목록 허용, 해설 의미 오류는 한 번 복구", async () => {
+    const expected = copy(passageExplanation); expected.books = [];
+    const invalid = copy(expected); invalid.passages.pop();
+    const { client, requests } = setup([anth(JSON.stringify(invalid)), anth(JSON.stringify(expected))]);
+    assert.deepEqual(copy(await client.explainPassages(studySet, [])), expected);
+    assert.equal(requests.length, 2);
   });
   console.log(`AI 회귀 ${checks}개 통과 (실제 API 호출 없음)`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

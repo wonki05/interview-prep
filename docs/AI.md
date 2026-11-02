@@ -17,11 +17,12 @@
 - 기본값: `settings.provider`, `settings.anthropicModel`(기본 `claude-sonnet-5-5`), `settings.openaiModel`(기본 `gpt-6.1-sol`), `settings.anthropicEffort / openaiEffort`(기본 `medium`). 기존 설정 키는 유지한다.
 - 설정 서랍·모의면접 옵션·기출DB AI 바에서 단계형 슬라이더로 effort를 고른다. Claude 네 모델 및 GPT-6.1 Sol·GPT-6 Astra는 `low/medium/high/xhigh/max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원한다. 직접 입력한 미확인 모델은 슬라이더를 비활성화하고 API 기본 effort를 쓴다.
 - 세션 재정의: 모의면접 옵션 창과 기출DB AI 바의 `{provider, model, effort}`는 그 화면에서만 유효. `AIClient.resolve(override)`가 `{provider, model, effort, key, configured, label, modelLabel}`을 돌려준다. 제공사·모델이 지원하지 않는 effort는 `medium`으로, 미확인 모델은 `null`로 정규화한다.
+- 예시답변·제시문 해설은 `explanationProvider`, `explanationAnthropicModel / explanationAnthropicEffort`, `explanationOpenaiModel / explanationOpenaiEffort`를 별도로 저장한다. 기존 설정에 이 필드들이 없으면 면접관 설정에서 처음 한 번 복사하고 이후에는 독립적으로 유지한다. 호출부가 해당 설정을 `{provider, model, effort}`로 전달하며 API 키는 같은 제공사의 기존 키를 공유한다.
 - 키가 없으면(`configured=false`) 호출하지 않고 대체 경로로 간다. 호출 실패(4xx/5xx/네트워크)도 같은 대체 경로 + 한 줄 오류.
 
 ### 1.1 구조화 응답·출력 한도
 
-- 목록에 수록된 모델의 질문 생성·기출DB 검토는 JSON Schema를 요청한다. Anthropic은 `output_config.format = {type:"json_schema", schema}`, OpenAI는 `response_format = {type:"json_schema", json_schema:{name, strict:true, schema}}`. 모든 필드를 필수 문자열로 정하고 `additionalProperties:false`를 사용한다. 직접 입력한 미확인 모델에는 effort·구조화 출력 옵션을 보내지 않으며 기존 JSON 프롬프트와 응답 검증을 적용한다.
+- 목록에 수록된 모델의 질문 생성·기출DB 검토·예시답변·제시문 해설은 JSON Schema를 요청한다. Anthropic은 `output_config.format = {type:"json_schema", schema}`, OpenAI는 `response_format = {type:"json_schema", json_schema:{name, strict:true, schema}}`. 모든 객체 필드를 필수로 정하고 `additionalProperties:false`를 사용한다. 객체·배열·문자열·정수를 재귀 검증하며 문자열은 공백만 있으면 실패한다. 직접 입력한 미확인 모델에는 effort·구조화 출력 옵션을 보내지 않으며 JSON 프롬프트와 응답 검증을 적용한다.
 - Claude의 추론도 `max_tokens`에, OpenAI의 추론도 `max_completion_tokens`에 포함된다. 기존 500/600 토큰 제한은 추론만으로 소진되어 답변 텍스트가 비거나 잘릴 수 있었다. 표시될 답변은 기존처럼 짧게 요청하면서 총 출력 예산을 effort별로 확보한다.
 
 | effort | 첫 호출 출력 한도(추론 포함) |
@@ -36,6 +37,7 @@
 - `stop_reason:max_tokens` / `finish_reason:length`는 잘림으로 판단하고 한도를 두 배(최대 65,536)로 늘려 한 번 재시도한다. 빈 응답·JSON 구문 오류·필수 항목 누락도 한 번만 재시도한다. 원인들이 섞여도 한 사용자 요청에서 총 두 번을 넘지 않는다.
 - 거부 응답·입력 한도 초과·HTTP 오류·연결 실패는 자동 재시도하지 않는다. 키 오류(401), 권한(403), 결제·잔액, 호출 제한(429), 서버 오류(5xx)를 구분한다. 오류 원문·추론 블록·API 키는 화면이나 로그에 남기지 않는다.
 - JSON은 객체만 허용하고 코드펜스는 제거한다. 필수 값이 누락되거나 공백·다른 형식이면 실패 처리하며, 화면에 `undefined` 검토나 빈 질문을 성공으로 저장하지 않는다.
+- 예시답변 수·중복 여부, 제시문 번호의 완전성, 서가 후보 ID처럼 스키마만으로 확인할 수 없는 조건은 같은 재시도 루프 안에서 검사한다. 이 경우에도 총 두 번을 넘지 않는다. 캐시를 읽는 호출부는 `validateExamplesResponse(data)` / `validatePassageExplanationResponse(data, set, books)`로 같은 구조·내용 조건을 검사한다.
 - 근거(2026-11-03 확인): [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort), [thinking](https://platform.claude.com/docs/en/build-with-claude/thinking), [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)·[Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)·[Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra)·[Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
 
 ## 2. 컨텍스트(모든 질문 생성·검토 호출에 포함)
@@ -107,11 +109,54 @@ user: `setContext(set)` + `[이번에 다루는 질문]` + `[문답 기록] 지�
 
 JSON `{summary, strengths[], gaps[], next[]}`. 입력: `setContext` + 세션 문답 전체 + 메모(선택).
 
+### 3.5 `exampleAnswers(set, question, ai)` — 질문별 예시답변
+
+버튼 한 번으로 미리 정한 `buildExamplesInput(set, question)`의 system/user와 JSON Schema를 호출한다. 답변 초안 입력은 필요 없다. `ai`는 해설 전용 제공사·모델·effort 재정의이며 API 키는 기존 제공사 키를 공유한다.
+
+입력은 선택한 복기본의 제시문 전문·문제지 문항·복기 추가질문 전체와 대상 질문, 기록된 제시문 출전이다. 사용자 문답 기록은 전송하지 않는다. 복기 교재 출처(`set.source`)는 제시문 원출전(`passages[].source`)과 구분해 전달한다.
+
+```js
+{
+  examples: [
+    { label: "논증 방향", answer: "구술형 예시답변", importance: "중요성과 논증 해설", cautions: "질문별 유의점" },
+    { label: "다른 논증 방향", answer: "두 번째 예시답변", importance: "중요성과 논증 해설", cautions: "질문별 유의점" }
+  ]
+}
+```
+
+- 서로 다른 예시 2종을 요청하며 두 개 이상인지 검사한다. 제목·답변이 중복되면 실패한다(유니코드·공백 정규화 비교).
+- 답변은 각각 60~90초 구술형으로 결론·판단 기준·제시문 근거·반론 또는 한계를 담는다. 요약형 질문에는 강조점이나 논증 구조를 달리하며 억지로 반대 입장을 만들지 않는다.
+- `importance`는 이 답변이 드러내는 사고 능력과 논거의 역할, `cautions`는 개념 혼동·과잉 일반화·추가질문의 반론에 대비할 지점이다.
+- 출력 한도는 최소 8,192토큰과 §1.1 effort 예산 중 큰 값이다. 출력 잘림·구조·내용 오류의 재시도 규칙은 공통이다.
+
+### 3.6 `explainPassages(set, books, ai)` — 세트별 제시문 해설
+
+`buildPassageExplanationInput(set, books)`를 사용한다. 제시문 전문뿐 아니라 문제지 문항과 복기 추가질문 전체가 입력된다. `books`는 서가 원본에서 뽑은 `{id, title, author, core, keywords}` 후보 목록이며, AI 클라이언트는 이 필드만 전송한다.
+
+```js
+{
+  overview: "세트 전체의 쟁점과 제시문 사이의 관계",
+  passages: [
+    { no: 1, summary: "요약", intent: "출제의도에 대한 해석", keyPoints: ["핵심요소"], notes: "참고사항" }
+  ],
+  questionStrategy: ["전체 추가질문을 고려한 판단 기준과 예상 반론"],
+  sourceNotes: "기록된 출전 검토와 확인 한계",
+  books: [{ id: 16, reason: "해당 제시문의 논점과 연결되는 이유" }]
+}
+```
+
+- 선택 복기본의 모든 제시문 번호가 한 번씩 있어야 한다. 핵심요소와 답변 전략은 비어 있지 않아야 한다. 문제지 문항만 있으면 문항을 기준으로 설명하며 없는 추가질문을 만들지 않는다.
+- 서가 연계는 후보에 있는 정수 ID만 최대 세 권 허용하고 중복을 거부한다. 적절한 책이 없으면 `books: []`다. 표시명·링크는 AI가 만든 문자열 대신 실제 서가 데이터를 사용한다.
+- 출제의도는 복기에서 추론한 해석이며 공식 해설·유일한 정답이라고 단정하지 않는다. 출전은 원문에 기록된 정보만 근거로 검토하고 미기재 시 확인 불가라고 적는다. 원전 대조·외부 검색을 했다고 말하지 않으며 인용·판례·쪽수를 지어내지 않는다.
+- 서가 정보는 편집상 독서 안내이고 학교 공식 추천이 아니다. 연관 독서와 제시문의 실제 출전을 구분한다. 확인하지 않은 최신 법제는 현행법으로 단정하지 않는다.
+- 출력 한도는 최소 12,288토큰과 §1.1 effort 예산 중 큰 값이다. 결과 구조·번호·도서 ID 검증도 공통 재시도 루프에서 수행한다.
+
 ## 4. 대체 경로(키 없음·실패)
 
 - 다음 질문: 문제지 문항(있으면) → 복기 질문 은행 `bank(set)` 순으로 아직 묻지 않은 첫 질문(`practice.js` `pool`). 변형 없음.
 - 분기: 사용자가 `when` 목록에서 직접 고른다(질문 카드에 버튼).
 - 기출DB: [AI 면접관에게 보내기] 비활성, [기록만 남기기]만.
+- 예시답변·제시문 해설: 키가 없으면 생성하지 않는다. 생성 실패는 해설 영역의 한 줄 오류로 표시하며 사용자 답변 기록은 변경하지 않는다.
 - 오류 문구: `AI 호출 실패: {status/메시지} — 복기 질문 은행으로 대체.` 식으로 한 줄.
 
 ## 5. 결정 트리 스키마
@@ -150,6 +195,7 @@ P2-1에서 난이도별 `trees: { low, mid, high, max }`로 확장한다. 실행
 - 질문 생성 1회: 입력 ≈ 제시문 4편(한글 4~6천 자) + 질문 목록 + 문답 ≈ 6~10k 토큰. 세션(질문 8~10개)당 10회 안팎. 추론 토큰과 실제 출력은 모델·effort에 따라 달라지므로 짧은 답변 길이만으로 비용을 추정하지 않는다.
 - 분기 분류 1회: 입력 수백 토큰. 경량 모델로.
 - 기출DB 검토 1회: 질문 생성과 비슷.
+- 예시답변·제시문 해설은 제시문·추가질문 전체를 보내고, 제시문 해설에는 축약한 서가 후보를 추가한다. 생성은 버튼 클릭 때만 하며 결과 캐시는 브라우저에 둔다. 대화식 면접 호출과 별도 설정을 사용한다.
 - 전사: `docs/TRANSCRIPTION.md`.
 
 ## 8. 보안

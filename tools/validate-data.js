@@ -119,11 +119,26 @@ const browser = {
 vm.runInNewContext(fs.readFileSync(path.join(root, "assets", "app.js"), "utf8"), browser);
 const defaults = browser.window.SNU.DEFAULTS, modelHelpers = browser.window.SNU.models;
 for (const provider of ["anthropic", "openai"]) {
-  if (!(M[provider] || []).some(m => m.id === defaults[provider + "Model"])) err(provider + ": 기본 모델이 목록에 없다");
-  if (!modelHelpers.effortOptions(provider, defaults[provider + "Model"]).includes(defaults[provider + "Effort"])) err(provider + ": 기본 effort가 모델 지원 범위 밖이다");
+  for (const prefix of [provider, "explanation" + provider[0].toUpperCase() + provider.slice(1)]) {
+    if (!(M[provider] || []).some(m => m.id === defaults[prefix + "Model"])) err(prefix + ": 기본 모델이 목록에 없다");
+    if (!modelHelpers.effortOptions(provider, defaults[prefix + "Model"]).includes(defaults[prefix + "Effort"])) err(prefix + ": 기본 effort가 모델 지원 범위 밖이다");
+  }
 }
+if (!["anthropic", "openai"].includes(defaults.explanationProvider)) err("설정 explanationProvider는 anthropic/openai");
 if (typeof defaults.dbHideThemes !== "boolean") err("설정 dbHideThemes는 불리언");
 if (!["newest", "oldest"].includes(defaults.dbSort)) err("설정 dbSort는 newest/oldest");
+
+/* 해설에 전달할 서가 필드와 책 상세 링크 id를 검사하며 원본은 수정하지 않는다. */
+const shelf = { window: {} };
+vm.runInNewContext(fs.readFileSync(path.join(root, "data", "library.js"), "utf8"), shelf);
+const books = shelf.window.LIBRARY_DATA && shelf.window.LIBRARY_DATA.books, bookIds = new Set();
+if (!Array.isArray(books) || !books.length) err("서가 books 배열 없음");
+else books.forEach(book => {
+  if (!Number.isInteger(book.id) || bookIds.has(book.id)) err("서가 id가 정수가 아니거나 중복: " + book.id);
+  bookIds.add(book.id);
+  for (const field of ["t", "a", "sh"]) if (typeof book[field] !== "string" || !book[field].trim()) err("서가 " + book.id + ": " + field + " 누락");
+  if (!Array.isArray(book.kw) || book.kw.some(word => typeof word !== "string")) err("서가 " + book.id + ": kw는 문자열 배열");
+});
 
 console.log("세트 요약(변형별 제시문/질문)");
 let lastSchool = "";

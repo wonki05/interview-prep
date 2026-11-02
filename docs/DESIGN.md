@@ -49,7 +49,8 @@
 | `.timerbar` `.session` `.coll` `.colr`(sticky) `.qcard` `.reccontrols` `.level` `.transcript` `.qactions` `.qlist` `.memo-pane` `.wait-screen` `.wait-wrap` `.knock` `.mobile-tabs` | 세션 |
 | `.reclist` `.recitem` | 녹음 |
 | `.dbgrid` `.dbside` `.dbmain` `.sethead` `.aibar` `.fold` `.qgroup` `.qrow` `.qhead` `.thread` `.msg` (`.user`/`.ai`) | 기출DB |
-| `.dbtools` `.dbtheme` `.themes-hidden` | 목록 상단 주제 가림·정렬, 목록·상세 주제 blur. 질문 행 왼쪽 여백 18px(모바일 16px) |
+| `.dbtools` `.dbtheme` `.themes-hidden` | 목록 상단 주제 가림·정렬, 목록·상세 주제 blur. 질문 행 왼쪽 여백 13.5px(모바일 12px), 이전의 75% |
+| `.qtoggle` `.study-panel` `.study-result` `.study-notes` | 질문 본문으로 문답 펼침, 오른쪽 예시답변 버튼. 결과는 기존 색·글꼴·작은 버튼 사용. 제시문 해설은 제시문 아래 배치 |
 | `.paper` `.papers` `.instr` | 제시문 |
 | `.drawer` `.shade` `.d-sec` | 설정 서랍 |
 | 서가: `.tabs` `.tools` `.booklist` `.book` `.toprow` `.cluster` `.iss*` `.stage` `.pairs` `.calc` `.cap` `.bdrawer` `.prose` 등 | 서가(원본 이식) |

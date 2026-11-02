@@ -14,6 +14,9 @@
     provider: "anthropic",      // anthropic | openai
     anthropicKey: "", anthropicModel: "claude-sonnet-5-5", anthropicEffort: "medium",
     openaiKey: "", openaiModel: "gpt-6.1-sol", openaiEffort: "medium",
+    explanationProvider: "anthropic",
+    explanationAnthropicModel: "claude-sonnet-5-5", explanationAnthropicEffort: "medium",
+    explanationOpenaiModel: "gpt-6.1-sol", explanationOpenaiEffort: "medium",
     dbHideThemes: false, dbSort: "newest",
     /* 모의면접 기본값 — 옵션 창에서 고른 값이 마지막에 쓴 값으로 저장된다 */
     answerMode: "voice",        // voice | text
@@ -33,9 +36,17 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 저장 불가 환경 */ } }
   };
   const settings = Object.assign({}, DEFAULTS);
-  try { Object.assign(settings, JSON.parse(store.get(KEY) || "{}")); } catch (e) { /* 손상된 값은 무시 */ }
+  let storedSettings = {};
+  try { storedSettings = JSON.parse(store.get(KEY) || "{}") || {}; Object.assign(settings, storedSettings); } catch (e) { /* 손상된 값은 무시 */ }
   if (settings.lastSet && !/^[a-z]+-\d{4}-/.test(settings.lastSet)) settings.lastSet = "snu-" + settings.lastSet;   // 이전 샘플의 세트 id 보정
   if (settings.openaiModel === "gpt-5") settings.openaiModel = DEFAULTS.openaiModel;                                 // 이전 샘플의 기본값 보정
+  /* 해설 설정이 없던 브라우저는 기존 면접관 설정으로 한 번 시작한 뒤 독립적으로 저장한다. */
+  const explanationDefaults = {
+    explanationProvider: settings.provider,
+    explanationAnthropicModel: settings.anthropicModel, explanationAnthropicEffort: settings.anthropicEffort,
+    explanationOpenaiModel: settings.openaiModel, explanationOpenaiEffort: settings.openaiEffort
+  };
+  Object.keys(explanationDefaults).forEach(key => { if (!Object.prototype.hasOwnProperty.call(storedSettings, key)) settings[key] = explanationDefaults[key]; });
 
   function save(patch) {
     Object.assign(settings, patch || {});
@@ -161,6 +172,20 @@
     const has = !!settings[key];
     return `<div class="field"><label for="${id}">${label}</label><div class="keyrow"><input class="input" id="${id}" type="password" autocomplete="off" placeholder="${placeholder}" value="${esc(settings[key])}"><button type="button" class="btn" data-savekey="${key}" data-for="${id}">저장</button><button type="button" class="btn ghost" data-clearkey="${key}" data-for="${id}" ${has ? "" : "disabled"}>지우기</button><span class="st" id="${id}St">${has ? "이 브라우저에 저장됨" : "저장된 키 없음"}</span></div></div>`;
   }
+  function aiSettingKey(role, provider, suffix) {
+    return role === "explanation" ? "explanation" + provider[0].toUpperCase() + provider.slice(1) + suffix : provider + suffix;
+  }
+  function aiSettingsSection(role, title) {
+    const prefix = role === "explanation" ? "settings-explanation-" : "settings-";
+    const providerKey = role === "explanation" ? "explanationProvider" : "provider";
+    return `<section class="d-sec" data-ai-role="${role}"><h3>${title}</h3>
+      <div class="field"><span class="lab">기본 제공사</span>${seg(providerKey, [["anthropic", "Claude"], ["openai", "ChatGPT"]], settings[providerKey])}</div>
+      ${["anthropic", "openai"].map(provider => {
+        const model = settings[aiSettingKey(role, provider, "Model")], effort = settings[aiSettingKey(role, provider, "Effort")];
+        return `<div class="field"><span class="lab">${models.providerLabel(provider)} 기본 모델</span>${models.select(provider, model)}</div>
+          <div class="field" data-effort-slot="${provider}">${models.effortControl(prefix + provider + "-effort", provider, model, effort)}</div>`;
+      }).join("")}</section>`;
+  }
   function openSettings() {
     if (drawer) return;
     lastFocus = document.activeElement;
@@ -178,17 +203,14 @@
         <div class="field"><span class="lab">글자 크기</span>${seg("fontScale", [["sm", "작게"], ["md", "보통"], ["lg", "크게"], ["xl", "아주 크게"]], s.fontScale)}</div>
       </section>
 
-      <section class="d-sec">
-        <h3>AI 면접관</h3>
+      <section class="d-sec" data-api-keys>
+        <h3>API 키</h3>
         <p class="d-desc">API 키는 이 브라우저(localStorage)에만 저장되고 해당 제공사 서버로만 전송된다. 저장소에는 넣지 않는다.</p>
-        <div class="field"><span class="lab">기본 제공사</span>${seg("provider", [["anthropic", "Claude"], ["openai", "ChatGPT"]], s.provider)}</div>
         ${keyField("sAnthropicKey", "Anthropic API 키", "anthropicKey", "sk-ant-…")}
-        <div class="field"><span class="lab">Claude 기본 모델</span>${models.select("anthropic", s.anthropicModel)}</div>
-        <div class="field" data-effort-slot="anthropic">${models.effortControl("settings-anthropic-effort", "anthropic", s.anthropicModel, s.anthropicEffort)}</div>
         ${keyField("sOpenaiKey", "OpenAI API 키", "openaiKey", "sk-…")}
-        <div class="field"><span class="lab">ChatGPT 기본 모델</span>${models.select("openai", s.openaiModel)}</div>
-        <div class="field" data-effort-slot="openai">${models.effortControl("settings-openai-effort", "openai", s.openaiModel, s.openaiEffort)}</div>
       </section>
+      ${aiSettingsSection("interviewer", "AI 면접관")}
+      ${aiSettingsSection("explanation", "AI 면접해설")}
 
       <section class="d-sec">
         <h3>모의면접 기본값</h3>
@@ -223,14 +245,18 @@
     bind("sTts", "tts", t => t.checked); bind("sKnock", "knock", t => t.checked);
     bind("sWait", "waitMinutes", t => Math.max(0, +t.value || 0)); bind("sPrep", "prepMinutes", t => Math.max(1, +t.value || 20)); bind("sInt", "interviewMinutes", t => Math.max(1, +t.value || 15));
     $$("#sAnthropicKey, #sOpenaiKey", drawer).forEach(inp => inp.addEventListener("keydown", e => { if (e.key === "Enter") $(`[data-for="${inp.id}"][data-savekey]`, drawer).click(); }));
-    const saveEffort = (value, provider) => save({ [provider + "Effort"]: value });
-    models.bindEffort(drawer, saveEffort);
-    models.bind(drawer, (id, provider) => {
-      const effort = models.normalizeEffort(provider, id, settings[provider + "Effort"]);
-      save({ [provider + "Model"]: id, [provider + "Effort"]: effort || "medium" });
-      const slot = $(`[data-effort-slot="${provider}"]`, drawer);
-      slot.innerHTML = models.effortControl("settings-" + provider + "-effort", provider, id, effort);
-      models.bindEffort(slot, saveEffort);
+    $$("[data-ai-role]", drawer).forEach(section => {
+      const role = section.dataset.aiRole, prefix = role === "explanation" ? "settings-explanation-" : "settings-";
+      const saveEffort = (value, provider) => save({ [aiSettingKey(role, provider, "Effort")]: value });
+      models.bindEffort(section, saveEffort);
+      models.bind(section, (id, provider) => {
+        const effortKey = aiSettingKey(role, provider, "Effort");
+        const effort = models.normalizeEffort(provider, id, settings[effortKey]);
+        save({ [aiSettingKey(role, provider, "Model")]: id, [effortKey]: effort || "medium" });
+        const slot = $(`[data-effort-slot="${provider}"]`, section);
+        slot.innerHTML = models.effortControl(prefix + provider + "-effort", provider, id, effort);
+        models.bindEffort(slot, saveEffort);
+      });
     });
     $("#closeSettings", drawer).focus();
   }

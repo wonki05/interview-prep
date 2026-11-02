@@ -73,9 +73,9 @@ data/sets/<set id>/merged.json
 
 `{ anthropic: [{id, label, note}], openai: [...], transcription: [...] }`. 첫 항목이 추천 기본값이지만 실제 기본값은 `app.js` DEFAULTS. 새 모델은 한 줄 추가. 제공사 공식 문서의 id를 쓴다.
 
-## 3. `data/library.js` — `window.LIBRARY`
+## 3. `data/library.js` — `window.LIBRARY_DATA`
 
-원본 "면접 도서 100선" HTML에서 추출한 데이터. 손으로 편집하지 않는다. 키: `books`(id, rank, grade S/A/B/C, title, author, cluster, pages, scope, summary, argument, counter, use, keywords, editions…), `clusters`, `edges`(책 간 관계 x/c/l), `pairs`, `stages`, `issues`(18개: facts, axis, use, questions, oral6), `meta`. 서가 화면이 쓰는 필드는 `assets/library.js` 상단 주석에 있다.
+원본 "면접 도서 100선" HTML에서 추출한 데이터. 손으로 편집하지 않는다. `books`의 실제 필드는 `id`(정수), `t`(제목), `a`(저자), `r`(순위), `g`(등급), `pg`(분량), `sh`(짧은 요약), `kw`(키워드 배열) 등이다. 서가 화면이 쓰는 필드는 `assets/library.js`에서 확인한다. 기출DB 해설은 첫 요청 때 상대 경로 스크립트로 읽고 `{id, title:t, author:a, core:sh, keywords:kw}`만 AI에 전달한다. 추천 도서는 이 목록의 id로 검증하고 `library.html#b<id>`로 연결한다.
 
 ## 4. 브라우저 저장소
 
@@ -84,17 +84,35 @@ data/sets/<set id>/merged.json
 | 필드 | 값·기본값 |
 |---|---|
 | `anthropicEffort`, `openaiEffort` | 기본 `medium`. 모델별 `low / medium / high / xhigh / max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원. 지원 범위는 `SNU.models.effortOptions`로 판정. 미확인 직접 입력 모델은 API 기본값 |
+| `explanationProvider` | `anthropic` / `openai`. AI 면접해설 전용 제공사 |
+| `explanationAnthropicModel`, `explanationOpenaiModel` | AI 면접해설 전용 모델. 신규 브라우저 기본값은 면접관과 동일 |
+| `explanationAnthropicEffort`, `explanationOpenaiEffort` | AI 면접해설 전용 effort. 모델별 지원 범위는 면접관과 동일 |
 | `dbHideThemes` | 불리언, 기본 `false`. 기출DB 목록·상세 주제 가림 |
 | `dbSort` | `newest`(기본) / `oldest`. 학교별 세트 목록의 연도 정렬. 원본 배열은 변경하지 않음 |
 
-effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의 AI 호출에만 적용한다. 설정 서랍과 모의면접의 [기본값으로 저장]만 위 저장 필드에 반영한다. 기존 API 키·문답·복기본 데이터에는 변화가 없다. `tools/validate-data.js`가 추가 필드의 기본값과 모델 지원 범위를 검사한다.
+effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의 AI 호출에만 적용한다. 설정 서랍과 모의면접의 [기본값으로 저장]만 위 저장 필드에 반영한다. 해설 필드가 없는 기존 설정은 면접관의 해당 값을 이어받고, 이후 저장부터 독립적으로 유지한다. 해설도 기존 `anthropicKey`·`openaiKey`를 공유하며 별도 키 필드를 만들지 않는다. 기존 API 키·문답·복기본 데이터에는 변화가 없다. `tools/validate-data.js`가 두 역할의 기본 모델·effort와 서가 입력 필드를 검사한다.
 
 | 키 | 내용 |
 |---|---|
 | `localStorage["snu-iv-settings-v1"]` | 설정. 키 이름을 바꾸면 `app.js`에서 마이그레이션(예: 이전 `lastSet: "2023-A"` → `"snu-2023-A"`, `openaiModel: "gpt-5"` → 새 기본값). `variant`(기본 복기본)는 추가된 키라 마이그레이션 없음 |
 | IndexedDB `snu-interview` v1 `recordings` | 녹음. P1-2에서 `sessions` store 추가 시 DB 버전 2로 올리고 `onupgradeneeded`에서 생성 |
 | `localStorage["snu-db-threads-v1"]` | 기출DB 문답. 질문 key = `task-<n>`(문제지 문항, 묶음 "문제"), `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
+| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설 캐시. 문답과 분리, 아래 구조 참조 |
 | `localStorage["snu-library-progress-v1"]` | 서가 진도 |
+
+학습 캐시(`assets/db-study.js`):
+
+```js
+{ version: 1, entries: {
+  [JSON.stringify([setId, variant])]: {
+    context: "버전·세트 입력 전문·복기 교재·제시문 출전의 JSON 문자열",
+    examples: { [questionKey]: { question, data, model, effort, at } },
+    explanation: { libraryContext: "도서 요약 목록의 JSON 문자열", data, model, effort, at } // 생성 후에만 존재
+  }
+} }
+```
+
+`data`는 `docs/AI.md`의 예시답변·해설 응답 구조다. `model`은 생성 당시 표시명, `effort`는 지원 값 또는 `null`, `at`는 생성 시각(ms)이다. 캐시에는 API 키를 넣지 않는다. 원문·문항·질문·출전 변경은 `context`로, 해설의 서가 변경은 `libraryContext`로 판별한다. 다시 열 때도 AI 응답 검증기를 통과해야 재사용한다. 손상된 캐시는 무시하고 저장 용량 부족은 현재 페이지 메모리로 대체한다. `tests/db-study.js`가 구조 검증·무효화·동시 호출·설정 마이그레이션을 검사한다.
 
 ## 5. 검증 스크립트 `tools/validate-data.js`
 
