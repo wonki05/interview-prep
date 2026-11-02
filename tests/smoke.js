@@ -35,7 +35,8 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   await page.setViewport({ width: 1280, height: 900 });
   await goto("index.html");
   check(await page.$(".tl"), "시간표 띠 렌더");
-  check((await page.$$("#setList .setrow")).length === 5, "세트 5개");
+  const nSets = await page.evaluate(() => window.SNU.db.school("snu").sets.length);
+  check(nSets >= 5 && (await page.$$("#setList .setrow")).length === nSets, "세트 행 " + nSets + "개(연도 소제목 제외)");
   await shot("home", 1280, 900, true);
 
   console.log("모의면접 설정 3단계");
@@ -47,6 +48,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   check(await page.$("#step3.active") && await page.$("#startBtn"), "모드 선택 → 3단계 + 시작 버튼");
   const opts = await page.evaluate(() => Array.from(document.querySelectorAll("#step3 .modelsel select option")).map(o => o.textContent));
   check(opts.includes("Sonnet 5.5") && opts.includes("직접 입력…"), "모델 목록 표시명 " + opts.join("/"));
+  check(await page.$('#step3 [data-seg="variant"] [data-v="kim"][aria-pressed="true"]'), "복기본 seg(김종수 눌림, 통합 없음 → 대체)");
   await page.click("#pv summary"); await sleep(150);
   const pv = await page.evaluate(() => document.querySelector("#pv pre").textContent);
   check(pv.includes("<제시문 1>") && pv.includes("<제시문 4>") && pv.includes("[복기된 실제 추가질문 전체]"), "AI 입력 미리 보기에 제시문 전문·복기 질문 포함");
@@ -88,7 +90,17 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   check((await page.$$("#sessionRecs .recitem")).length === 1, "종료 화면 녹음 1개");
 
   console.log("기출DB");
-  await goto("db.html#snu-2023-A");
+  await setSettings({ variant: "kim" }); await goto("db.html#snu-2023-A");
+  check(await page.$('[data-vseg] [data-v="kim"][aria-pressed="true"]'), "복기본 seg: 김종수 눌림");
+  const hwangBtn = await page.$('[data-vseg] [data-v="hwang"]:not([disabled])');
+  if (hwangBtn) {
+    const before = await page.evaluate(() => document.querySelector(".paper p").textContent);
+    await hwangBtn.click(); await sleep(400);
+    const after = await page.evaluate(() => document.querySelector(".paper p").textContent);
+    check(before !== after && await page.$('[data-vseg] [data-v="hwang"][aria-pressed="true"]'), "복기본 전환(황변) → 제시문 바뀜");
+    check(await page.$('[data-toggle^="hwang/"]'), "황변 복기본 문답 키 접두사 hwang/");
+    await page.click('[data-vseg] [data-v="kim"]'); await sleep(400);
+  } else console.log("  --   황변 복기본 없음(건너뜀)");
   await page.click('[data-toggle="A-3"]'); await sleep(200);
   await page.type("#ta-A-3", "테스트 답변");
   await page.click('[data-keep="A-3"]'); await sleep(200);
@@ -96,6 +108,11 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("snu-db-threads-v1") || "{}"));
   check(saved["snu-2023-A"] && saved["snu-2023-A"]["A-3"], "문답 localStorage 저장");
   await shot("db", 1280, 900, true);
+  if (await page.evaluate(() => !!window.SNU.db.set("snu-2019-C"))) {
+    await goto("db.html#snu-2019-C");
+    check(await page.$('[data-vseg] [data-v="merged"][disabled]') && await page.$('[data-vseg] [data-v="hwang"][disabled]') && await page.$('[data-vseg] [data-v="kim"][aria-pressed="true"]'), "2019-C: 통합·황변 비활성, 김종수 눌림");
+    check(await page.evaluate(() => document.querySelector(".paper .ptitle").textContent.includes("(가)")), "2019-C: 제시문 머리에 (가) 표기");
+  }
 
   console.log("서가");
   await goto("library.html#books");

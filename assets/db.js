@@ -46,7 +46,7 @@
           ${sc.sets.length ? `<div class="setrows">${sc.sets.map(x => `<button type="button" class="setrow" data-set="${x.id}" aria-pressed="${x.id === st.setId}">
               <span class="yr">${x.year}<small>${esc(x.track)}</small></span>
               <span><span class="nm">${esc(x.name)} · ${esc(x.session)}</span><br><span class="th">${esc(x.themes.join(" · "))}</span></span>
-              <span class="mt"><span>제시문 ${x.passages.length}</span><span>복기 질문 ${db.count(x)}</span>${countThreads(x.id) ? `<span>문답 ${countThreads(x.id)}</span>` : ""}</span></button>`).join("")}</div>`
+              <span class="mt"><span>제시문 ${x.passages.length}</span><span>복기 질문 ${db.count(x)}</span><span>${x.variantKeys.map(k => db.variantLabel(k)).join("·")}</span>${countThreads(x.id) ? `<span>문답 ${countThreads(x.id)}</span>` : ""}</span></button>`).join("")}</div>`
             : `<div class="empty-school"><b>${esc(sc.name)} — 복기 추가 예정</b></div>`}
           ${sc.format ? `<details class="fold"><summary>${esc(sc.short)} 면접 진행 방식 · ${sc.format.year}학년도 복기</summary><div class="fold-b"><div class="row">${sc.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("")}</div><dl class="kv" style="grid-template-columns:minmax(0,1fr);gap:2px 0;font-size:.88rem">${sc.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="margin-bottom:10px;color:var(--ink-2)">${esc(v)}</dd>`).join("")}</dl></div></details>` : ""}
         </aside>
@@ -61,7 +61,8 @@
         <div class="eyebrow">${esc(school().name)} · ${cs.year}학년도 · ${esc(cs.session)} · ${esc(cs.track)}</div>
         <h2 class="h1">${esc(cs.name)}</h2>
         <div class="row">${cs.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
-        <div class="row"><a class="btn primary" href="practice.html?set=${esc(cs.id)}">이 세트로 모의면접</a><span class="small muted">제시문 ${cs.passages.length} · 복기 질문 ${db.count(cs)}${cs.tree ? " · 결정 트리" : ""}</span></div>
+        <div class="row"><span class="small" style="font-weight:600">복기본</span><div class="seg" role="group" data-vseg="variant">${db.variantButtons(cs)}</div><span class="small muted">${esc(cs.variantLabel)}${cs.source && cs.source.pages ? ` · p.${esc(cs.source.pages)}` : ""}</span></div>
+        <div class="row"><a class="btn primary" href="practice.html?set=${esc(cs.id)}">이 세트로 모의면접</a><span class="small muted">제시문 ${cs.passages.length} · 복기 질문 ${db.count(cs)}${db.treeUsable(cs) ? " · 결정 트리" : ""}</span></div>
       </div>
       <div class="aibar">
         <span class="small" style="font-weight:600">AI 면접관</span>
@@ -72,11 +73,16 @@
       <details class="fold" open><summary>제시문 ${cs.passages.length}편 · 지시문</summary><div class="fold-b">${passagesHtml(cs)}</div></details>
       <section class="sec" style="gap:18px">
         <div class="sec-head"><h2 class="h2">복기 추가질문</h2></div>
-        ${[...cs.followups.map(f => ({ label: f.label, key: f.student, items: f.items })), ...(cs.common || []).map(c => ({ label: c.label, key: "common-" + c.label, items: c.items }))].map(g => `<div class="qgroup"><h3>${esc(g.label)} · ${g.items.length}</h3>${g.items.map((q, i) => qRow(cs, g.key + "-" + (i + 1), i + 1, q)).join("")}</div>`).join("")}
+        ${groups(cs).map(g => `<div class="qgroup"><h3>${esc(g.label)} · ${g.items.length}</h3>${g.items.map((q, i) => qRow(cs, g.key + "-" + (i + 1), i + 1, q)).join("")}</div>`).join("")}
       </section>`;
   }
+  /* 질문 묶음과 문답 키. 키는 <student>-<n> / common-<label>-<n>, kim 외 변형은 "<variant>/" 접두사(docs/DATA.md §4). */
+  function groups(cs) {
+    const kp = db.keyPrefix(cs);
+    return [...cs.followups.map(f => ({ label: f.label, key: kp + f.student, items: f.items })), ...(cs.common || []).map(c => ({ label: c.label, key: kp + "common-" + c.label, items: c.items }))];
+  }
   function passagesHtml(cs) {
-    return `<div class="papers"><div class="instr">${esc(cs.instruction)}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">&lt;제시문 ${p.no}&gt;${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
+    return `<div class="papers"><div class="instr">${esc(cs.instruction)}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
   }
   function qRow(cs, key, idx, q) {
     const msgs = thread(cs.id, key), open = !!st.open[key];
@@ -108,8 +114,7 @@
   }
   function rerenderRow(key) {
     const cs = set(), row = $("#q-" + cssEscape(key)); if (!row) { render(); return; }
-    const all = [...cs.followups.map(f => ({ key: f.student, items: f.items })), ...(cs.common || []).map(c => ({ key: "common-" + c.label, items: c.items }))];
-    for (const g of all) for (let i = 0; i < g.items.length; i++) if (g.key + "-" + (i + 1) === key) { row.outerHTML = qRow(cs, key, i + 1, g.items[i]); return; }
+    for (const g of groups(cs)) for (let i = 0; i < g.items.length; i++) if (g.key + "-" + (i + 1) === key) { row.outerHTML = qRow(cs, key, i + 1, g.items[i]); return; }
   }
   const cssEscape = s => (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/([^\w-])/g, "\\$1");
 
@@ -119,6 +124,7 @@
     const sch = t.closest("[data-school]"); if (sch) { st.schoolId = sch.dataset.school; const s = school(); if (s.sets.length && (!cs || cs.school !== s.id)) { st.setId = s.sets[0].id; history.replaceState(null, "", "#" + st.setId); } save({ lastSchool: st.schoolId }); return; }   // save → settings:change → render
     const sb = t.closest("[data-set]"); if (sb) { st.setId = sb.dataset.set; st.open = {}; history.replaceState(null, "", "#" + st.setId); save({ lastSet: st.setId }); return; }
     const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; render(); return; }
+    const vseg = t.closest("[data-vseg] button"); if (vseg) { st.open = {}; save({ variant: vseg.dataset.v }); return; }   // save → settings:change → render
     if (t.closest("#openSettingsLink")) { window.SNU.openSettings(); return; }
     const tg = t.closest("[data-toggle]"); if (tg) { const k = tg.dataset.toggle; st.open[k] = !st.open[k]; rerenderRow(k); if (st.open[k]) { const ta = $("#ta-" + cssEscape(k)); if (ta) ta.focus(); } return; }
     const keep = t.closest("[data-keep]"); if (keep) { const k = keep.dataset.keep, ta = $("#ta-" + cssEscape(k)); const text = (ta.value || "").trim(); if (!text) { st.err[k] = "답변이 비어 있다."; rerenderRow(k); return; } st.err[k] = ""; setThread(cs.id, k, [...thread(cs.id, k), { role: "user", text, at: Date.now() }]); rerenderRow(k); return; }
@@ -142,8 +148,7 @@
     st.busy = ""; rerenderRow(key);
   }
   function findQuestion(cs, key) {
-    for (const f of cs.followups) for (let i = 0; i < f.items.length; i++) if (f.student + "-" + (i + 1) === key) return f.items[i];
-    for (const c of (cs.common || [])) for (let i = 0; i < c.items.length; i++) if ("common-" + c.label + "-" + (i + 1) === key) return c.items[i];
+    for (const g of groups(cs)) for (let i = 0; i < g.items.length; i++) if (g.key + "-" + (i + 1) === key) return g.items[i];
     return null;
   }
 

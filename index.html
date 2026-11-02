@@ -71,7 +71,7 @@
     <div class="panel"><div class="row between"><div class="row" id="settingsSummary"></div><button type="button" class="btn" id="homeOpenSettings">설정</button></div></div>
   </section>
 
-  <p class="foot">제시문·추가질문: 해커스로스쿨 김종수 『로스쿨 면접 200주제』 복기. 개인 학습용. 녹음·문답·설정은 이 브라우저 안에만 저장된다.</p>
+  <p class="foot">제시문·추가질문: 김종수 『로스쿨 면접 200주제』(해커스로스쿨)·『황변과 함께하는 로스쿨 면접 Q』 복기. 개인 학습용. 녹음·문답·설정은 이 브라우저 안에만 저장된다.</p>
 </div></main>
 <script>
 (function () {
@@ -80,10 +80,12 @@
   $("#heroTl").innerHTML = timeline(snu.format.timeline, { cls: "lg" });
   $("#formatBasics").innerHTML = snu.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("");
   $("#formatDetails").innerHTML = snu.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
-  $("#setList").innerHTML = snu.sets.map(s => `<a class="setrow" href="practice.html?set=${s.id}">
+  const row = s => `<a class="setrow" href="practice.html?set=${s.id}">
       <span class="yr">${s.year}<small>${esc(s.track)}</small></span>
       <span><span class="nm">${esc(s.name)} · ${esc(s.session)}</span><br><span class="th">${esc(s.themes.join(" · "))}</span></span>
-      <span class="mt"><span>제시문 ${s.passages.length}</span><span>복기 질문 ${db.count(s)}</span>${s.tree ? "<span>결정 트리 예시</span>" : ""}</span></a>`).join("");
+      <span class="mt"><span>제시문 ${s.passages.length}</span><span>복기 질문 ${db.count(s)}</span><span>${s.variantKeys.map(k => db.variantLabel(k)).join("·")}</span>${db.treeUsable(s) ? "<span>결정 트리 예시</span>" : ""}</span></a>`;
+  const years = [...new Set(snu.sets.map(s => s.year))];
+  $("#setList").innerHTML = years.map(y => `<div class="setyear">${y}학년도</div>` + snu.sets.filter(s => s.year === y).map(row).join("")).join("");
   $("#otherSchools").innerHTML = `<span class="small muted">추가 예정</span>` + db.schools().filter(s => s.id !== "snu").map(s => `<span class="chip line">${esc(s.short)}</span>`).join("");
   const themeLabel = { system: "시스템", light: "밝게", dark: "어둡게" }, blLabel = { off: "없음", low: "하", mid: "중", high: "상" }, fsLabel = { sm: "작게", md: "보통", lg: "크게", xl: "아주 크게" };
   function summary() {

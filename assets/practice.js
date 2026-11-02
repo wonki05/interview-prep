@@ -108,6 +108,7 @@
   const st = {
     step: 1, schoolId: "snu", setId: "", mode: S().lastMode || "timed",
     ai: { provider: S().provider, model: "" },        // 이번 세션의 AI(빈 모델 = 설정 기본값)
+    variant: "",                                      // 세션 중 고정되는 복기본. 설정 단계에서는 빈 값(설정·URL을 따른다)
     promptOpen: false,
     phase: "setup", plan: { prep: 20, wait: 5, interview: 15 }, answerMode: "voice",
     sessionId: "", phaseEnd: 0, phaseStart: 0, tick: 0,
@@ -124,7 +125,7 @@
     if (params.get("set") && found) st.step = 2;
     if (!MODES[st.mode]) st.mode = "timed";
   }
-  const set = () => db.set(st.setId);
+  const set = () => db.set(st.setId, st.variant || undefined);
   const mode = () => MODES[st.mode];
   const school = () => db.school(st.schoolId);
   let wakeLock = null;
@@ -147,7 +148,7 @@
 
       <div class="stepper">
         <section class="step ${stepCls(1)}" id="step1">
-          ${stepHead(1, "세트", cs ? `${esc(sc.short)} · ${esc(db.label(cs))} · ${esc(cs.session)}` : "")}
+          ${stepHead(1, "세트", cs ? `${esc(db.label(cs))} · ${esc(cs.session)}` : "")}
           ${st.step === 1 ? `<div class="step-b">${schoolTabs()}${setList()}</div>` : ""}
         </section>
         <section class="step ${stepCls(2)}" id="step2">
@@ -176,7 +177,7 @@
     return `<div class="setrows" id="setPick">${sc.sets.map(x => `<button type="button" class="setrow" data-set="${x.id}" aria-pressed="${x.id === st.setId}">
         <span class="yr">${x.year}<small>${esc(x.track)}</small></span>
         <span><span class="nm">${esc(x.name)} · ${esc(x.session)}</span><br><span class="th">${esc(x.themes.join(" · "))}</span></span>
-        <span class="mt"><span>제시문 ${x.passages.length}</span><span>복기 질문 ${db.count(x)}</span>${x.tree ? "<span>결정 트리</span>" : ""}</span></button>`).join("")}</div>`;
+        <span class="mt"><span>제시문 ${x.passages.length}</span><span>복기 질문 ${db.count(x)}</span><span>${x.variantKeys.map(k => db.variantLabel(k)).join("·")}</span>${db.treeUsable(x) ? "<span>결정 트리</span>" : ""}</span></button>`).join("")}</div>`;
   }
   function levelSeg(key) {
     const s = S(), lv = D.levels[key];
@@ -198,6 +199,12 @@
         </div>
 
         <div class="opt-group">
+          <div class="opt-title">복기본</div>
+          <div class="field"><span class="lab">제시문·질문</span><div class="seg" data-seg="variant">${db.variantButtons(cs)}</div>${s.variant !== cs.variant ? `<span class="help">${esc(db.variantLabel(s.variant))} 없음 — ${esc(cs.variantLabel)} 복기로 진행된다.</span>` : ""}</div>
+          <div class="row"><span class="chip line">제시문 ${cs.passages.length}</span><span class="chip line">복기 질문 ${db.count(cs)}</span>${cs.source && cs.source.pages ? `<span class="chip line">p.${esc(cs.source.pages)}</span>` : ""}</div>
+        </div>
+
+        <div class="opt-group">
           <div class="opt-title">시간표</div>
           <div class="row" style="gap:18px">
             <label class="minutes"><span class="small">준비</span><input class="input sm num" type="number" min="1" max="60" data-num="prepMinutes" value="${s.prepMinutes}"><span class="small muted">분</span></label>
@@ -214,7 +221,7 @@
           <div class="opt-title">AI 면접관</div>
           <div class="field"><span class="lab">난이도</span>${levelSeg("difficulty")}</div>
           <div class="field"><span class="lab">변형도</span>${levelSeg("variation")}</div>
-          <div class="field"><span class="lab">흐름</span><div class="seg" data-seg="flow"><button type="button" data-v="tree" aria-pressed="${s.flow === "tree"}">사전 결정 트리</button><button type="button" data-v="live" aria-pressed="${s.flow === "live"}">실시간 생성</button></div>${s.flow === "tree" && !cs.tree ? `<span class="help">이 세트에는 트리가 없어 실시간 생성으로 진행된다.</span>` : ""}</div>
+          <div class="field"><span class="lab">흐름</span><div class="seg" data-seg="flow"><button type="button" data-v="tree" aria-pressed="${s.flow === "tree"}">사전 결정 트리</button><button type="button" data-v="live" aria-pressed="${s.flow === "live"}">실시간 생성</button></div>${s.flow === "tree" && !db.treeUsable(cs) ? `<span class="help">${cs.tree ? `트리가 ${esc(db.variantLabel(cs.tree.basis))} 복기 기준이라 실시간 생성으로 진행된다.` : "이 세트에는 트리가 없어 실시간 생성으로 진행된다."}</span>` : ""}</div>
         </div>
         <div class="opt-group">
           <div class="opt-title">AI 모델</div>
@@ -286,6 +293,7 @@
     const err = $("#setupErr"); if (err) err.hidden = true;
     const s = S();
     st.plan = planFromSettings(); st.answerMode = s.answerMode;
+    st.variant = set().variant;                       // 세션 동안 복기본 고정(설정을 바꿔도 제시문·질문 은행이 바뀌지 않는다)
     if (st.answerMode === "voice") { try { await recorder.init(); } catch (e) { if (err) { err.textContent = "마이크를 열 수 없다: " + e.message + " — 답변 방식을 텍스트로 바꾸면 마이크 없이 진행된다."; err.hidden = false; } return; } }
     audioCtx(); keepAwake();
     st.sessionId = Date.now().toString(36); st.history = []; st.recordings = []; st.qi = 0; st.cur = null; st.knocked = false; st.memo = ""; st.err = ""; st.treeNode = null; st.pendingBranches = null; st.tab = "passage";
@@ -317,7 +325,7 @@
     }
     const rt = $("#recTime"); if (rt && st.recording) rt.textContent = fmtClock((now - recorder.startedAt) / 1000);
   }
-  function abort() { clearInterval(st.tick); recorder.release(); stt.stop(); try { speechSynthesis.cancel(); } catch (e) {} st.phase = "setup"; st.step = 3; app.classList.remove("in-session"); renderSetup(); }
+  function abort() { clearInterval(st.tick); recorder.release(); stt.stop(); try { speechSynthesis.cancel(); } catch (e) {} st.phase = "setup"; st.step = 3; st.variant = ""; app.classList.remove("in-session"); renderSetup(); }
 
   /* ---------------- 공통 조각 ---------------- */
   const PHASE_LABEL = { prep: "준비", wait: "대기", interview: "면접" };
@@ -326,7 +334,7 @@
     return `<div class="timerbar" id="timerbar"><div class="tb-left"><span class="phase">${label}</span><span class="clock num" id="clock">--:--</span></div>${timeline(st.plan, { phase: st.phase })}<div class="actions">${actionsHtml || ""}</div></div>`;
   }
   function passagesHtml(cs) {
-    return `<div class="papers"><div class="instr">${esc(cs.instruction)}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">&lt;제시문 ${p.no}&gt;${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
+    return `<div class="papers"><div class="instr">${esc(cs.instruction)}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
   }
   function memoHtml() {
     return `<div class="panel memo-pane"><div class="row between"><h3 class="h3">메모</h3><span class="small muted">A5 2장 · 3면</span></div>
@@ -354,7 +362,7 @@
       <div class="session" id="session" data-tab="${st.tab}">
         <div class="coll">${passagesHtml(cs)}</div>
         <div class="colr">
-          <div class="qcard"><div class="qmeta"><span>${esc(db.label(cs))} · ${esc(cs.session)}</span><span>${mode().code} ${esc(mode().label)}</span></div>
+          <div class="qcard"><div class="qmeta"><span>${esc(db.label(cs))} · ${esc(cs.session)} · ${esc(cs.variantLabel)}</span><span>${mode().code} ${esc(mode().label)}</span></div>
             <p class="qtext waiting">질문은 면접 시간에 나온다. 제시문을 읽고 메모한다.</p></div>
           ${memoHtml()}
         </div>
@@ -477,7 +485,7 @@
       if (st.qi >= st.queue.length) { endInterview(); return; }
       st.cur = st.queue[st.qi++]; showQuestion(); return;
     }
-    if (s.flow === "tree" && cs.tree) {
+    if (s.flow === "tree" && db.treeUsable(cs)) {
       if (st.treeNode === null && st.history.length === 0) { st.treeNode = cs.tree.root; showTreeNode(); return; }
       const node = cs.tree.nodes[st.treeNode];
       if (node && node.branches && node.branches.length) {
@@ -534,7 +542,7 @@
     const total = st.history.reduce((n, h) => n + (h.rec ? h.rec.duration : 0), 0);
     app.innerHTML = `
       <section class="sec">
-        <div class="eyebrow">${esc(db.label(cs))} · ${m.code} ${esc(m.label)} · ${st.answerMode === "voice" ? "음성" : "텍스트"}</div>
+        <div class="eyebrow">${esc(db.label(cs))} · ${esc(cs.variantLabel)} · ${m.code} ${esc(m.label)} · ${st.answerMode === "voice" ? "음성" : "텍스트"}</div>
         <h1 class="h1">면접 종료</h1>
         <div class="row"><span class="chip">질문 ${st.history.length}</span>${st.answerMode === "voice" ? `<span class="chip">녹음 ${st.history.filter(h => h.rec).length} · ${fmtClock(total)}</span>` : `<span class="chip">답변 ${st.history.filter(h => h.a).length}</span>`}${st.memo ? `<span class="chip">메모 ${st.memo.length}자</span>` : ""}</div>
         <div class="row"><button type="button" class="btn primary" id="again">같은 세트 다시</button><a class="btn" href="practice.html">다른 세트</a><a class="btn ghost" href="db.html#${esc(cs.id)}">기출DB에서 보기</a></div>
@@ -545,7 +553,7 @@
       ${st.memo ? `<section class="sec"><div class="sec-head"><h2 class="h2">메모</h2></div><pre class="panel" style="white-space:pre-wrap;font:inherit">${esc(st.memo)}</pre></section>` : ""}
       <section class="sec"><div class="sec-head"><h2 class="h2">이 세트의 복기 질문 전체</h2></div>
         ${[...cs.followups, ...(cs.common || [])].map(f => `<div class="panel tight"><h3 class="h3" style="margin-bottom:6px">${esc(f.label)}</h3><ol class="qlist">${f.items.map((q, i) => `<li><span class="idx">Q${i + 1}</span><span>${esc(q)}</span><span></span></li>`).join("")}</ol></div>`).join("")}</section>`;
-    $("#again").addEventListener("click", () => { st.phase = "setup"; st.step = 3; renderSetup(); });
+    $("#again").addEventListener("click", () => { st.phase = "setup"; st.step = 3; st.variant = ""; renderSetup(); });
     const el = $("#sessionRecs");
     if (el) {
       if (st.recordings.length) { el.innerHTML = st.recordings.map(recItem).join(""); $$("[data-del]", el).forEach(b => b.addEventListener("click", async () => { await dbDel(b.dataset.del); b.closest(".recitem").remove(); })); }
