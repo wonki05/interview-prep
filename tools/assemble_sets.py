@@ -79,7 +79,9 @@ def split_segments(book):
                     cur = {"kind": info["kind"], "id": sid if info["kind"] == "set" else sid + "-commentary",
                            "blocks": [], "pages": set(), "year": year, "key": info["key"]}
                     segs.append(cur)
-            cur["blocks"].append((p, b)); cur["pages"].add(p)
+            cur["blocks"].append((p, b))
+            if t != "skip":                  # skip만 있는 쪽(다음 세트 머리 앞의 꼬리말 등)은 세트 쪽 범위에 넣지 않는다
+                cur["pages"].add(p)
     return mp, segs, missing
 
 
@@ -114,8 +116,9 @@ def build_set(book, mp, seg, report):
                 out["notes"].append(text); warns.append(f"제시문 머리 전 본문 p{p}: {text[:30]}"); continue
             if b.get("cont") and cur["_parts"]:
                 prev = cur["_parts"][-1]
-                joins.append(f"p{p} …{prev[-20:]}▮{text[:20]}…")
-                cur["_parts"][-1] = prev + text
+                gap = " " if b["text"][:1].isspace() else ""   # cont 블록 text 앞의 공백 = 쪽 경계가 어절 사이(새 문장)라는 표시
+                joins.append(f"p{p} …{prev[-20:]}▮{gap}{text[:20]}…")
+                cur["_parts"][-1] = prev + gap + text
             else:
                 cur["_parts"].append(text)
             if b.get("marker"):
