@@ -4,7 +4,7 @@
    Workflow tools/workflows/ingest-typo.js 결과 [{ book, page, fixes: [{ block, from, to, kind, reason }], bookTypos, longGaps }]의
    fixes를 work/ocr/<book>/pNNNN.json 의 blocks[block].text 에 적용한다. from이 그 블록 text에 있을 때만 처음 한 곳을 바꾸고,
    적용 기록은 쪽 JSON의 "fixes"에 남겨 같은 수정을 두 번 적용하지 않는다. skip 블록은 고치지 않는다.
-   보고서 work/reports/typo-<school>.md: 적용·실패 목록, 책 자체 오탈자 의심(bookTypos, 고치지 않음), 긴 누락 의심(longGaps)."""
+   보고서 work/reports/typo-<school>.md(--dry면 typo-<school>.dry.md, 쪽 JSON은 그대로): 적용·실패 목록, 책 자체 오탈자 의심(bookTypos, 고치지 않음), 긴 누락 의심(longGaps)."""
 import sys, json, pathlib, argparse
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import schoolcfg
@@ -55,7 +55,7 @@ def main():
              f"적용 {len(applied)} · 실패 {len(failed)} · 책 오탈자 의심 {len(book_typos)} · 긴 누락 의심 {len(gaps)}", "",
              "## 적용", *[f"- {x}" for x in applied], "", "## 실패(직접 확인)", *[f"- {x}" for x in failed], "",
              "## 책 자체 오탈자 의심(고치지 않음)", *[f"- {x}" for x in book_typos], "", "## 긴 누락 의심(쪽 다시 정제)", *[f"- {x}" for x in gaps], ""]
-    out = pathlib.Path(f"work/reports/typo-{cfg['id']}.md")
+    out = pathlib.Path(f"work/reports/typo-{cfg['id']}{'.dry' if a.dry else ''}.md")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"{out}: 적용 {len(applied)}, 실패 {len(failed)}, 책 오탈자 의심 {len(book_typos)}, 긴 누락 의심 {len(gaps)}")
