@@ -48,7 +48,12 @@
   - [x] **P4-1e 통합본(merged)**: 2021~2025 겹치는 13세트 중 9세트(2021-B·C, 2022-A·B, 2023-B, 2024-A·B, 2025-A·C)의 `data/sets/<id>/merged.json`. GPT(Codex)가 `docs/MERGE_PROMPT.md`대로 main 작업 트리에서 만들고 독립 검토(`work/reports/merge-summary.md`), `tools/check_merged.py`로 점검(`work/reports/merged-check.md`), `meta.json`의 `variant`를 `merged`로, 생성(세트 18, 변형 40)·validate·스모크 통과.
     - [ ] 날조 의심 4문장 확인: 2021-B 제시문 4의 2문장·2025-C 제시문 3의 1문장(두 원문 구절 결합), 2021-C 제시문 4의 1문장(황변 복기자 주석 「(A는 미상)」 제거). 고칠지는 사용자 결정.
     - [ ] 보류 4세트: 2021-A·2023-A·2024-C·2025-B는 두 복기의 사실 서술이 충돌해 통합하지 않고 `variant: "kim"` 유지(Q-16, `work/reports/merge-rejected.md`).
-- [ ] **P4-2 다른 학교 세트**: 고려대·연세대·성균관대·한양대·서강대·중앙대·경희대·한국외대·이화여대. 학교별 `format`(진행 방식·시간표)도 채운다. 시간표가 다르면 옵션 창 기준값 표시가 그 학교 값을 쓴다(이미 그렇게 되어 있다). 같은 파이프라인(`docs/INGEST.md` §8), 학교별 페이지 범위만 바꾼다.
+- [ ] **P4-2 다른 학교 세트**: 고려대·연세대·성균관대·한양대·서강대·중앙대·경희대·한국외대·이화여대. 학교별 `format`(진행 방식·시간표)도 채운다. 시간표가 다르면 옵션 창 기준값 표시가 그 학교 값을 쓴다(이미 그렇게 되어 있다). 같은 파이프라인(`docs/INGEST.md` §8), 학교별 설정만 바꾼다.
+  - [x] **P4-2a 학교별 수록 도구**: `tools/schools/<id>.json`(쪽 범위·세트 머리·세션 기호·OCR 학교 주석·조립 선택지)과 선택 hook, `assemble_sets`·`check_ocr`·`promote_sets` 학교 인자, `build_questions.js --school/--out`·`validate-data.js --in`, `tools/workflows/`(ingest-ocr·ingest-typo·ingest-themes), `ocr_args.py`·`apply_fixes.py`, 변형 `tasks`·`figure`·라벨 완화(`DATA.md` 규칙 1·9~11). 서울대 재조립 회귀 0건.
+  - [ ] **P4-2b 고려대**(김 p136–158 · 황 p287–295), **P4-2c 연세대**(김 p421–448 · 황 p389–401), **P4-2d 성균관대**(김 p332–359 · 황 p354–363), **P4-2e 한양대**(김 p846–864 · 황 p585–593): 학교 세션이 `INGEST.md` §8-4대로 OCR·오탈자 검수·조립·승격·주제어·format 제안, 메인 세션이 §8-5대로 통합·검증·학교마다 커밋. 완료 기준: validate·스모크 통과, `work/reports/<id>-summary.md`, 새 학교 세트가 홈·기출DB·모의면접에서 열린다.
+  - [ ] **P4-2f 문제지 문항 표시**: 변형 `tasks`를 지시문 상자(`.instr`)와 AI 입력(`setContext`의 `[문제]`)에. `[사례 1]`류 라벨의 제시문 머리 표기. Q-17.
+  - [ ] **P4-2g 통합본(merged) — 4개 학교**: GPT-6 Astra급 모델. `docs/MERGE_PROMPT.md`를 학교 공통으로 고치고(문항 `tasks` 통합 규칙 포함) 두 책에 모두 있는 세트만.
+  - [ ] **P4-2h 나머지 학교**: 서강대·중앙대·경희대·한국외대·이화여대(`INGEST.md` §8-1 정찰값).
 - [ ] **P4-3 세트 메타**: `themes`에 더해 `tags`(법철학·정치·과학기술·…)를 넣고 기출DB에 태그 필터. 서울대 태그 값은 P4-1a에서 만든다.
 - [ ] **P4-4 서울대 반영 후 개선**(배포 뒤, 항목마다 커밋): **a** 홈 18행 연도 묶음·모바일 400 줄바꿈, **b** 변형 seg·칩의 어둠 테마·'아주 크게', **c** AI 입력 길이(`AI.md` §7 추정·`max_tokens`), **d** 기출DB `?variant=` 병행·키 접두사 확인, **e** 안드로이드 Chrome 실기기 1회, **f** 문서(`README`·`DATA`·`AI`·`BUILD_PLAN` 상태).
 

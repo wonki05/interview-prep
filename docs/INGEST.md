@@ -294,8 +294,62 @@ Q-14(GPT 계열 병행)는 사용자 지침이 이미 택일을 허용하므로 
 | `tools/ocr_refine_openai.py` | (선택) Terra 대체 정제기 |
 | `tools/requirements.txt` | pymupdf 버전 고정 |
 | Workflow `ingest-ocr`, `ingest-themes` | 세션 안에서 실행하는 에이전트 파이프라인(스크립트는 세션 디렉터리에 저장됨). 통합은 워크플로가 아니라 GPT 브랜치 작업 |
+| `tools/schoolcfg.py`, `tools/schools/<id>.json` | 학교별 수록 설정(§8-2). 서울대는 `snu.json` |
+| `tools/ocr_args.py`, `tools/apply_fixes.py` | 워크플로 인자 생성, 오탈자 검수 결과 반영(§8-2) |
+| `tools/workflows/*.js` | 학교 공통 워크플로 `ingest-ocr`·`ingest-typo`·`ingest-themes`(§8-2). 서울대 때의 세션 저장본을 일반화했다 |
 
-## 8. 이후 단계 (3)~(6)에 재사용
+## 8. 다른 학교 (P4-2, 단계 3~6)
 
-- 황변 PART 04(PDF p238–596, 25개 학교)와 김종수 Part 6(기출문제&해설, 학교별 구간)은 같은 표기 규칙이다. `map.json`의 학교·쪽 범위만 바꿔 2-A~2-H를 반복한다. 학교별 `format`은 황변 면접장 스케치와 김종수 `문제` 머리 표에서 채운다.
-- 학교마다 세션 이름 규칙이 다르다(시립대 "문제 1/2", 성균관대 "가군/나군"). 세트 id 규칙 `<school>-<year>-<name>`은 유지하고 `name`은 `school.short` + 책의 세션 표기(`DATA.md` 규칙 8). 제시문 표기(`(가)`, `[1]`, `문제 1〉`)는 `label`로 담는다.
+서울대 파이프라인(§2)을 학교별 설정으로 일반화해 다른 학교에 쓴다. 2026-11-03 사용자 지시: 고려대·연세대·성균관대·한양대를 학교마다 세션 하나로 병행 수록하고(OCR은 Haiku·Sonnet, 간단한 오탈자 검수까지), 두 복기의 통합본은 나중에 GPT-6 Astra급 모델로 만든다(P4-2g). 그 전까지는 김종수·황변 두 변형을 승격하는 데서 멈춘다.
+
+### 8-1 구간 (PDF 쪽, 2026-11-03 텍스트층 정찰)
+
+| 학교 (id) | 김종수 Part 6 | 황변 PART 04 | 비고 |
+|---|---|---|---|
+| 고려대 (korea) | 136–158 (문제 136–151, 해설 152–158) | 287–295 | 해마다 한 세트 '고려 A'. 황변은 세션 글머리 없음 |
+| 연세대 (yonsei) | 421–448 (문제 421–437, 해설 438–448) | 389–401 | 해마다 한 세트 '연세 A'. 제시문 안 하위 소제목 (가)(나)(A)(B), 도표 |
+| 성균관대 (skku) | 332–359 (문제 332–345, 해설 346–359) | 354–363 | 해마다 A/B. 2025 '성균관 인성 문제'. 황변 2025는 두 세션 모두 '• 오전' 인쇄 |
+| 한양대 (hanyang) | 846–864 (문제 846–858, 해설 859–864) | 585–593 | 해마다 한 세트 '한양 A'. 제시문 머리 없는 본문, 김종수 제시문 수가 황변보다 적은 해가 있음 |
+| (참고) 경희대 · 이화여대 · 중앙대 · 한국외대 · 서강대 | 111–135 · 516–534 · 703–739 · 813–845 · 없음 | 278–286 · 432–438 · 520–540 · 571–584 · 317–325 | 다음 차례. 경계는 미확인 |
+
+김종수 책은 학교를 가나다순으로 싣고(학교마다 문제 → 해설 → 광고 쪽), 황변 책은 학교마다 면접장 스케치(표·주요 인성 질문·현장메모) → 2025~2021학년도 기출문제 순이다.
+
+### 8-2 학교별 설정과 공용 도구
+
+- `tools/schools/<id>.json`: `id/name/short`, `instruction`(세트 공통 지시문 기본값), `keys`(세션 기호 → `session`·`track`), `setFormat`(김종수 진행 방식 줄이 없을 때의 세트 format), `options`(`implicitPassage` 머리 없는 본문을 제시문으로, `kimTasksBeforeGroup` 김종수 추가질문 머리 앞의 Q를 문제지 문항으로, `splitOnRestart` 번호가 처음으로 돌아가면 새 묶음), `books.kim`(`pages`, `head` 세트 머리의 학교 약칭 정규식, `format`·`commentary` 쪽, `sets` 세트↔쪽 지도, `notes` OCR 학교 주석), `books.hwang`(`pages`, `mode` = `label`(세션 글머리 → 기호, `sessions`) | `order`(연도 안 순서대로 `keys`) | `single`(글머리 없음, 연도 띠가 세트 A를 연다), `format`, `sets`, `notes`). 서울대는 `snu.json`(기존 동작 그대로, 재조립 회귀 0건).
+- `tools/schools/<id>.py`(선택): 설정으로 안 되는 학교별 예외. `fix_blocks(book, page, blocks)`(조립 전 쪽 블록), `fix_set(book, set)`(조립 뒤 세트). OCR 결과를 고치는 것이 먼저이고 hook은 구조 예외에만 쓴다.
+- 스크립트는 학교 인자를 받는다: `assemble_sets.py <id> kim|hwang`, `check_ocr.py <id>`, `promote_sets.py <id> kim|hwang`(kim 먼저), `build_questions.js --school <id> --out work/build/<id>-questions.js`, `validate-data.js --in <그 파일>`. 보고서 이름에 학교 id가 붙는다(`assemble-<id>-<book>.md`, `ocr-check-<id>.md`, `typo-<id>.md`).
+- 워크플로 `tools/workflows/`(Workflow 도구에 `scriptPath`로 실행, 인자는 `tools/ocr_args.py`가 만든다): `ingest-ocr.js`(Haiku 정제 → 결정적 점검에 걸리면 Haiku 재시도 → 마지막 1회 Sonnet. `verify: true`면 Sonnet 이미지 대조 검증 — 파일럿 쪽만), `ingest-typo.js`(Sonnet 쪽당 1회, 이미지와 대조해 글자 단위 오류만 → `apply_fixes.py`), `ingest-themes.js`(Sonnet 세트당 1회 → `apply_themes.py`).
+
+### 8-3 서울대와 다른 구조
+
+| 구조 | 처리 |
+|---|---|
+| 문제지 문항(면접 전에 받는 문제) | 블록 `task`(황변 '문제 1>', '문제〉'), 김종수는 추가질문 머리 앞의 'Q1.'을 조립이 문항으로 분류(`kimTasksBeforeGroup`). 변형 `tasks: [{label: "1-1"|"", text, note}]`(`DATA.md` 규칙 10). 화면 표시는 P4-2f |
+| 머리 없는 제시문 | 지시문 바로 뒤 본문 → 제시문 1(`implicitPassage`). 번호 없는 '제시문〉' 머리 아래 목록도 같다 |
+| 한 줄짜리 사례 목록 (가)~(사) | 제시문 하나, 줄마다 문단(머리 기호 포함) |
+| 제시문 안 하위 소제목 (가)(나)(A)(B) | 본문 문단 머리에 그대로(제시문 머리가 아니다). 책이 제시문 자체를 (가)·[A]·[사례 1]로 매기면 `label` |
+| 그림·도표 | 블록 `figure`, 그림 안 글자만 → 본문에 "[도표] …" 한 문단(`DATA.md` 규칙 1) |
+| 인성 질문 묶음(김종수 '성균관 인성 문제') | 세트가 아니다. `work/sets/kim/<id>-<year>-personality.json` → 학교 `format.details` 행 제안(`DATA.md` 규칙 11) |
+| 배지 없는 여러 추가질문 묶음 | `student` 중복을 피해 `공통`, `공통2`…(label "추가질문 2"). 김종수는 번호가 처음으로 돌아가면 새 묶음(`splitOnRestart`) |
+| 두 책의 제시문 수가 다름 | 그대로 둔다(validate 경고). 통합(P4-2g)에서 판단 |
+
+### 8-4 학교 세션 절차 (학교마다 세션 하나, 모델: 세션 = Opus 5.5 총괄, 정제 Haiku 5.5, 대체 정제·검증·오탈자·주제어 Sonnet 5.5)
+
+1. 쪽 추출: `book_extract.py`로 두 책의 학교 구간(§8-1).
+2. 쪽 이미지를 보고 설정을 다듬는다: 세트↔쪽 지도, 세션 기호와 `session`·`track`, `books.*.notes`(머리·꼬리말, 문항·질문 구분, 하위 소제목, 도표), 필요하면 hook.
+3. 파일럿: 책마다 2~3쪽을 `ingest-ocr.js`(`verify: true`)로 돌리고 세션이 이미지와 직접 대조 → notes 보완.
+4. 전체 정제: 나머지 쪽 `ingest-ocr.js` → `ocr_collect.py` → `check_ocr.py <id>` → 걸린 쪽 다시 정제.
+5. 조립: `assemble_sets.py <id> kim|hwang` → 보고서 경고 해소(OCR 결과 수정·다시 정제·hook).
+6. 오탈자 검수: `ocr_args.py <id> --have-ocr` → `ingest-typo.js` → `apply_fixes.py <id> <결과>` → 다시 조립. 책 자체 오탈자는 고치지 않고 `typo-<id>.md`에 남는다. 긴 누락 의심 쪽은 다시 정제.
+7. 승격: `promote_sets.py <id> kim` → `promote_sets.py <id> hwang`. 해설은 `work/commentary/`에만(Q-11).
+8. 주제어·태그: `ocr_args.py <id> --themes` → `ingest-themes.js` → `apply_themes.py`.
+9. 학교 format 제안: 김종수 2025 진행 방식·면접 정보 표, 황변 면접장 스케치·현장메모, 인성 질문 묶음 → `work/reports/format-<id>.json`(`_db.json` 학교 `format` 모양).
+10. 검증: `build_questions.js --school <id> --out work/build/<id>-questions.js` → `validate-data.js --in work/build/<id>-questions.js` 통과.
+11. 보고: `work/reports/<id>-summary.md`(세트·변형·제시문·문항·질문 수, 다시 정제한 쪽, 오탈자 수정 수, 책 오탈자 의심, 남은 경고, 통합 대상 세트 목록).
+
+세션이 쓰는 파일은 자기 학교 것뿐이다: `tools/schools/<id>.json`·`<id>.py`, `work/books/*/pages/`·`work/ocr/*/`의 자기 쪽, `work/sets/*/<id>-*`·`work/sets/*/_format-<id>.json`, `work/commentary/<id>-*`, `work/<id>/`, `work/build/<id>-*`, `work/reports/`의 `*-<id>*`·`<id>-summary.md`, `data/sets/<id>-*/`. 공용 도구·문서·`data/sets/_db.json`·`data/questions.js`·다른 학교 파일은 건드리지 않고, 커밋·브랜치 전환도 하지 않는다. 공용 도구 변경이 필요하면 메인 세션에 요청한다.
+
+### 8-5 통합 (메인 세션)
+
+학교 세션이 끝나면: 산출물 표본 대조 → `format-<id>.json`을 `_db.json`에 반영 → `build_questions.js` → `validate-data.js` → `npm run test:smoke` → 직접 확인(1280/400, 밝음/어둠, '아주 크게') → 학교마다 커밋(P4-2b~e). 통합본은 P4-2g(GPT-6 Astra급, `MERGE_PROMPT.md`를 학교 공통으로 고쳐서).

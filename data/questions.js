@@ -8,6 +8,7 @@
        set.variant                  — 기본 복기본(merged | hwang | kim). SNU.db.set(id, v)가 해석한다
        set.variants[v]              — 복기본 하나 = { label, source?, basis?, passages[], followups[], common[] }
          passages[]                 — { no, label?, kind: "prose"|"dialog"|"case", length?, text, source }
+         tasks[]?                   — 문제지에 제시된 문항 { label: "1-1"|"", text }(서울대에는 없다)
          followups[]                — { student, label, items: [질문…] }
        set.tree                     — 사전 결정 트리(basis: 어느 복기본의 문구에 묶였는지)
    ============================================================ */

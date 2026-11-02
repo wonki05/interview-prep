@@ -37,7 +37,7 @@ data/models.js      MODEL_CATALOG — 선택 가능한 모델 목록(표시명·
 data/library.js     도서 100선 데이터(크다, 720KB)
 docs/               SPEC, BUILD_PLAN, DESIGN, AI, DATA, TRANSCRIPTION, DECISIONS
 tests/smoke.js      puppeteer 스모크 테스트(화면 흐름·콘솔 오류·모바일 가로 넘침)
-tools/              데이터 검증 스크립트, (향후) 전사·트리 생성 스크립트
+tools/              데이터 검증·생성, 교재 수록 파이프라인(schools/ 학교별 설정, workflows/ 에이전트 워크플로), (향후) 전사·트리 생성
 ```
 
 ## 4. 작업 절차

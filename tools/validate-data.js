@@ -1,35 +1,44 @@
 #!/usr/bin/env node
-/* 데이터 검증: node tools/validate-data.js
+/* 데이터 검증: node tools/validate-data.js [--in <questions.js 경로>]
    data/questions.js · data/models.js를 읽어 구조를 확인하고 세트·변형별 제시문·질문 수를 출력한다. 문제가 있으면 종료 코드 1.
-   세트는 복기본 변형(variants: merged | hwang | kim)을 가진다(docs/DATA.md §1). 변형마다 제시문·질문을 검사한다. */
+   세트는 복기본 변형(variants: merged | hwang | kim)을 가진다(docs/DATA.md §1). 변형마다 제시문·질문을 검사한다.
+   --in은 build_questions.js --out으로 만든 다른 파일을 검사한다(학교별 세션의 검증용). */
 "use strict";
 const path = require("path");
 const root = path.join(__dirname, "..");
+const inArg = process.argv.indexOf("--in");
 global.window = {};
-require(path.join(root, "data", "questions.js"));
+require(inArg >= 0 ? path.resolve(process.argv[inArg + 1]) : path.join(root, "data", "questions.js"));
 require(path.join(root, "data", "models.js"));
 const D = global.window.INTERVIEW_DB, M = global.window.MODEL_CATALOG;
 const errors = [], warns = [];
 const err = m => errors.push(m), warn = m => warns.push(m);
 const VARIANTS = ["merged", "hwang", "kim"];
-const LABELS = ["가", "나", "다", "라", "마", "사례"];
+const HANGUL = "가나다라마바사아자차카타파하", LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 if (!D || !D.levels || !Array.isArray(D.schools)) err("INTERVIEW_DB 구조가 아니다");
 ["low", "mid", "high", "max"].forEach(k => { if (!D.levels.difficulty[k]) err("levels.difficulty." + k + " 없음"); });
 ["low", "mid", "high"].forEach(k => { if (!D.levels.variation[k]) err("levels.variation." + k + " 없음"); });
 
-/* 변형 하나의 제시문·질문 검사. 제시문 번호는 1부터 연속, label은 (가)~(라)·사례만, 사례는 끝에 하나. */
+/* 변형 하나의 제시문·질문 검사. 제시문 번호는 1부터 연속, label은 원표기가 숫자가 아닐 때의 짧은 낱말((가)·(A)·사례·사례 1·에피소드),
+   한 글자 라벨은 가나다…·ABC… 순서. 문제지 문항(tasks)은 있으면 문장이 비지 않아야 한다. */
 function checkVariant(tag, v) {
   if (!Array.isArray(v.passages) || !v.passages.length) { err(tag + ": passages 없음"); return 0; }
   v.passages.forEach((p, i) => {
     if (p.no !== i + 1) err(tag + ": 제시문 번호가 연속이 아니다(" + p.no + ")");
     if (!["prose", "dialog", "case"].includes(p.kind)) err(tag + ": 제시문 " + p.no + " kind 오류");
-    if (p.label !== undefined && !LABELS.includes(p.label)) err(tag + ": 제시문 " + p.no + " label 오류(" + p.label + ")");
-    if (p.kind === "case" && i !== v.passages.length - 1) err(tag + ": 사례 블록은 마지막이어야 한다");
-    if (!p.text || p.text.trim().length < 50) err(tag + ": 제시문 " + p.no + " 본문이 비었거나 짧다");
+    if (p.label !== undefined && !(typeof p.label === "string" && /^[^\n]{1,12}$/.test(p.label) && !/^\d+$/.test(p.label))) err(tag + ": 제시문 " + p.no + " label 오류(" + p.label + ")");
+    if (!p.text || p.text.trim().length < 10) err(tag + ": 제시문 " + p.no + " 본문이 비었다");
+    else if (p.text.trim().length < 50) warn(tag + ": 제시문 " + p.no + " 본문이 짧다(" + p.text.trim().length + "자)");
   });
-  const labels = v.passages.filter(p => p.label && p.label !== "사례").map(p => p.label);
-  if (labels.length && labels.join("") !== "가나다라마".slice(0, labels.length)) err(tag + ": (가)(나) 라벨 순서 오류 " + labels.join(""));
+  for (const abc of [HANGUL, LATIN]) {
+    const labels = v.passages.filter(p => p.label && p.label.length === 1 && abc.includes(p.label)).map(p => p.label);
+    if (labels.length && labels.join("") !== abc.slice(0, labels.length)) err(tag + ": 한 글자 라벨 순서 오류 " + labels.join(""));
+  }
+  if (v.tasks !== undefined) {
+    if (!Array.isArray(v.tasks)) err(tag + ": tasks는 배열");
+    else v.tasks.forEach((t, i) => { if (!t || typeof t.text !== "string" || !t.text.trim()) err(tag + ": 문제 " + (i + 1) + " 비어 있음"); if (t && typeof t.label !== "string") err(tag + ": 문제 " + (i + 1) + " label은 문자열"); });
+  }
   if (!Array.isArray(v.followups) || !v.followups.length) err(tag + ": followups 없음");
   else {
     const students = new Set();
