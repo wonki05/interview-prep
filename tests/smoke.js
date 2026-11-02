@@ -102,9 +102,9 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   check(await page.$('[data-vseg] [data-v="kim"][aria-pressed="true"]'), "복기본 seg: 김종수 눌림");
   const hwangBtn = await page.$('[data-vseg] [data-v="hwang"]:not([disabled])');
   if (hwangBtn) {
-    const before = await page.evaluate(() => document.querySelector(".paper p").textContent);
+    const before = await page.evaluate(() => document.querySelector(".papers").textContent);   // 첫 문단은 두 복기본이 같을 수 있다
     await hwangBtn.click(); await sleep(400);
-    const after = await page.evaluate(() => document.querySelector(".paper p").textContent);
+    const after = await page.evaluate(() => document.querySelector(".papers").textContent);
     check(before !== after && await page.$('[data-vseg] [data-v="hwang"][aria-pressed="true"]'), "복기본 전환(황변) → 제시문 바뀜");
     check(await page.$('[data-toggle^="hwang/"]'), "황변 복기본 문답 키 접두사 hwang/");
     await page.click('[data-vseg] [data-v="kim"]'); await sleep(400);
