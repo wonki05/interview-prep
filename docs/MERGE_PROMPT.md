@@ -92,6 +92,7 @@ npm test
 
 ## 실행 방법 (사용자 메모)
 
-- 브랜치·워크트리: `git worktree add ../interviewprep-merge snu-merge` (이미 만들어져 있으면 그 폴더로 간다). Codex는 그 폴더에서 `AGENTS.md`를 읽는다.
+- 브랜치·워크트리: `git branch snu-merge` → `git worktree add ../interviewprep-merge snu-merge` (P4-1d 커밋 뒤 만들어 두었다. 있으면 그 폴더로 간다). Codex는 그 폴더에서 `AGENTS.md`를 읽는다.
+- 워크트리에는 `node_modules`가 없다. `npm test` 전에 그 폴더에서 한 번 `npm install`(Chromium을 못 받으면 `AGENTS.md` §5).
 - 위 "프롬프트" 절을 그대로 붙여 넣고, 세트 수가 많으면 "먼저 snu-2025-A 하나만 하고 보고하라"로 시작해 결과를 본 뒤 나머지를 맡긴다.
 - 끝나면 main에서 `git merge snu-merge` → `npm test` → push(단계 2).
