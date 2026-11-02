@@ -39,8 +39,8 @@ function checkVariant(tag, v) {
     if (!Array.isArray(v.tasks)) err(tag + ": tasks는 배열");
     else v.tasks.forEach((t, i) => { if (!t || typeof t.text !== "string" || !t.text.trim()) err(tag + ": 문제 " + (i + 1) + " 비어 있음"); if (t && typeof t.label !== "string") err(tag + ": 문제 " + (i + 1) + " label은 문자열"); });
   }
-  if (!Array.isArray(v.followups) || !v.followups.length) err(tag + ": followups 없음");
-  else {
+  if (!Array.isArray(v.followups) || (!v.followups.length && !(Array.isArray(v.tasks) && v.tasks.length))) err(tag + ": followups 없음(문제지 문항도 없음)");
+  else {                                            // 문제지 문항만 복기된 세트는 followups가 비어도 된다(docs/DATA.md 규칙 3)
     const students = new Set();
     v.followups.forEach(f => {
       if (!f.student || !f.label || !Array.isArray(f.items)) err(tag + ": followups 항목 오류");
@@ -49,7 +49,7 @@ function checkVariant(tag, v) {
     });
   }
   (v.common || []).forEach(c => { if (!c.label || !Array.isArray(c.items)) err(tag + ": common 항목 오류"); });
-  return (v.followups || []).reduce((a, f) => a + f.items.length, 0) + (v.common || []).reduce((a, c) => a + c.items.length, 0);
+  return (v.followups || []).reduce((a, f) => a + f.items.length, 0) + (v.common || []).reduce((a, c) => a + c.items.length, 0) + (Array.isArray(v.tasks) ? v.tasks.length : 0);
 }
 
 const ids = new Set();

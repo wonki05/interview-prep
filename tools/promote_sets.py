@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""조립본 승격(docs/INGEST.md §2-F·§8): python tools/promote_sets.py <school> kim|hwang [--overwrite-existing] [--data-root data/sets]
+"""조립본 승격(docs/INGEST.md §2-F·§8): python tools/promote_sets.py <school> kim|hwang [--overwrite-existing] [--refresh-format] [--data-root data/sets]
    work/sets/<book>/<school>-*.json(OCR 조립본)을 data/sets/<set id>/<book>.json(변형 파일, 커밋 대상)으로 옮기고,
    meta.json이 없는 새 세트는 조립본에서 세트 공통 필드를 만든다(themes·tags는 비워 두고 ingest-themes가 채운다).
    세트 format(교수:학생, 준비·면접 시간, 메모, 추가질문)은 김종수 연도 머리의 진행 방식 줄에서 읽고, 없으면 학교 설정 setFormat.
@@ -16,33 +16,36 @@ def dump(p, obj):
     p.write_text(json.dumps(obj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
 def year_formats(school, base):
-    """김종수 연도 머리의 진행 방식 줄 → {연도: 세트 format}. 예: ① 교수:학생 = 3:1 ② 면접 준비 14분, 면접 시간 11분 ③ 메모 허용 ④ 추가질문 있음"""
+    """김종수 연도 머리의 진행 방식 줄 → {연도: 세트 format}. 예: ① 교수:학생 = 3:1 ② 면접 준비 14분, 면접 시간 11분 ③ 메모 허용 ④ 추가질문 있음
+       같은 해의 연도 머리가 여럿이면(해설 쪽 '2021' 등 진행 방식 줄이 없는 머리) 항목을 가장 많이 읽어 낸 것을 쓴다."""
     f = pathlib.Path(f"work/sets/kim/_format-{school}.json")
-    out = {}
+    out, hits = {}, {}
     if not f.exists():
         return out
     for seg in json.load(open(f, encoding="utf-8")):
         if not seg.get("year"):
             continue
         text = " ".join(b["text"] for b in seg["blocks"])
-        fm = dict(base)
+        fm, n = dict(base), 0
         m = re.search(r"교수\W*학생\s*=?\s*(\d+)\s*[:：]\s*(\d+)", text)
-        if m: fm["ratio"] = f"{m.group(1)}:{m.group(2)}"
+        if m: fm["ratio"] = f"{m.group(1)}:{m.group(2)}"; n += 1
         m = re.search(r"면접\s*준비\s*(?:시간)?\s*(\d+)\s*분", text)
-        if m: fm["prep"] = int(m.group(1))
+        if m: fm["prep"] = int(m.group(1)); n += 1
         m = re.search(r"면접\s*시간\s*(\d+)\s*분", text)
-        if m: fm["duration"] = int(m.group(1))
-        if re.search(r"메모\s*(불가|금지|불허)", text): fm["memo"] = False
-        elif re.search(r"메모\s*(허용|가능)", text): fm["memo"] = True
-        if re.search(r"추가\s*질문\s*없음", text): fm["followup"] = False
-        elif re.search(r"추가\s*질문\s*있음", text): fm["followup"] = True
-        out[seg["year"]] = fm
+        if m: fm["duration"] = int(m.group(1)); n += 1
+        if re.search(r"메모\s*(불가|금지|불허)", text): fm["memo"] = False; n += 1
+        elif re.search(r"메모\s*(허용|가능)", text): fm["memo"] = True; n += 1
+        if re.search(r"추가\s*질문\s*없음", text): fm["followup"] = False; n += 1
+        elif re.search(r"추가\s*질문\s*있음", text): fm["followup"] = True; n += 1
+        if n and n > hits.get(seg["year"], 0):
+            out[seg["year"]], hits[seg["year"]] = fm, n
     return out
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("school"); ap.add_argument("book", choices=schoolcfg.BOOKS)
     ap.add_argument("--overwrite-existing", action="store_true")
+    ap.add_argument("--refresh-format", action="store_true", help="이미 있는 meta.json의 format도 진행 방식 줄 값으로 다시 쓴다(그 학교 세트만)")
     ap.add_argument("--data-root", default="data/sets")
     a = ap.parse_args()
     cfg, book = schoolcfg.load(a.school), a.book
@@ -82,6 +85,8 @@ def main():
                 if s.get("instruction"): meta["instruction"] = s["instruction"]
             elif book == "kim" and not meta.get("instruction") and s.get("instruction"):
                 meta["instruction"] = s["instruction"]; changed = True
+            if a.refresh_format and meta.get("format") != yf.get(s["year"], cfg["setFormat"]):
+                meta["format"] = yf.get(s["year"], cfg["setFormat"]); changed = True
             if changed: dump(meta_f, meta)
     print(f"{cfg['short']} {book}: 변형 파일 {n_new}개 작성, {n_skip}개 유지(기존), meta 신규 {n_meta}")
 

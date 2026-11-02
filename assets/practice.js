@@ -297,7 +297,7 @@
     if (st.answerMode === "voice") { try { await recorder.init(); } catch (e) { if (err) { err.textContent = "마이크를 열 수 없다: " + e.message + " — 답변 방식을 텍스트로 바꾸면 마이크 없이 진행된다."; err.hidden = false; } return; } }
     audioCtx(); keepAwake();
     st.sessionId = Date.now().toString(36); st.history = []; st.recordings = []; st.qi = 0; st.cur = null; st.knocked = false; st.memo = ""; st.err = ""; st.treeNode = null; st.pendingBranches = null; st.tab = "passage";
-    st.queue = st.mode === "all" ? [...(set().tasks || []).map(t => ({ q: `${AI.taskHead(t)}. ${t.text}`, group: "문제" })), ...AI.bank(set())] : [];
+    st.queue = st.mode === "all" ? pool(set()) : [];
     enterPhase("prep", st.plan.prep * 60);
   }
   function afterPrep() { if (st.plan.wait > 0) enterPhase("wait", st.plan.wait * 60); else enterPhase("interview", st.plan.interview * 60); }
@@ -521,9 +521,11 @@
     catch (e) { st.err = "AI 호출 실패: " + e.message + " — 복기 질문 은행으로 대체."; st.cur = bankNext(cs); }
     st.thinking = false; showQuestion();
   }
+  /* 질문 은행: 문제지 문항(있으면) → 복기 추가질문. '복기 질문 전부' 모드와 키 없는 대체 경로가 함께 쓴다. */
+  function pool(cs) { return [...(cs.tasks || []).map(t => ({ q: `${AI.taskHead(t)}. ${t.text}`, group: "문제" })), ...AI.bank(cs)]; }
   function bankNext(cs) {
     const asked = new Set(st.history.map(h => h.q));
-    return AI.bank(cs).find(x => !asked.has(x.q)) || null;
+    return pool(cs).find(x => !asked.has(x.q)) || null;
   }
   function showQuestion() { if (!st.cur) { endInterview(); return; } st.answered = false; st.transcript = ""; st.interim = ""; renderQcard(); speak(st.cur.q); }
 

@@ -18,7 +18,7 @@
 | `apply_fixes.py` | `<id> <ingest-typo 결과>`: 수정 반영 → `work/ocr/`, 보고서 `work/reports/typo-<id>.md`(책 자체 오탈자 의심은 고치지 않고 목록만) |
 | `assemble_sets.py` | `<id> kim\|hwang`: 쪽 블록 → 세트 변형 JSON(`work/sets/<book>/`) + 조립 보고서 `assemble-<id>-<book>.md` |
 | `diff_existing.py` | 기존 세트 본문 ↔ OCR 조립본 대조 → `work/reports/existing-diff.md`(변경은 사용자 승인 뒤) |
-| `promote_sets.py` | `<id> kim\|hwang`(kim 먼저): `work/sets/<book>/` → `data/sets/<id>/<book>.json`(+ 새 세트 `meta.json`, 세트 format은 김종수 진행 방식 줄) |
+| `promote_sets.py` | `<id> kim\|hwang`(kim 먼저): `work/sets/<book>/` → `data/sets/<id>/<book>.json`(+ 새 세트 `meta.json`, 세트 format은 김종수 그해 진행 방식 줄). `--refresh-format`은 이미 있는 meta의 format도 다시 쓴다 |
 | `workflows/ingest-themes.js`, `apply_themes.py` | Sonnet 세트당 1회 주제어·태그 → `meta.json`의 themes·tags |
 | `check_merged.py` | 통합본 `merged.json` ↔ kim·hwang 대조(스키마·질문·날조 의심 문장·누락 참고, meta `variant`) → `work/reports/merged-check.md` |
 | (예정) `transcribe.py` | 녹음 배치 전사. 지침: `docs/TRANSCRIPTION.md` §3 |
