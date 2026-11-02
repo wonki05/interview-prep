@@ -114,8 +114,9 @@ def main():
     for d in sorted(p.parent for p in (ROOT / "data/sets").glob("*/meta.json")):
         meta = load(d / "meta.json")
         if not (d / "merged.json").exists():
-            plain.append(f"{d.name} `{meta.get('variant')}`" + ("" if meta.get("variant") == "kim" else " ← kim이어야 함"))
-            errors += meta.get("variant") != "kim"
+            want = "kim" if (d / "kim.json").exists() else "hwang"   # 김종수에 없는 세트(연세대 특별전형 C 등)는 황변
+            plain.append(f"{d.name} `{meta.get('variant')}`" + ("" if meta.get("variant") == want else f" ← {want}이어야 함"))
+            errors += meta.get("variant") != want
             continue
         if not (d / "kim.json").exists() or not (d / "hwang.json").exists():
             rows.append(f"| {d.name} | `{meta.get('variant')}` | kim.json·hwang.json 없음 | | | | |"); errors += 1; continue
