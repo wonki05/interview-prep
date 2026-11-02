@@ -1,0 +1,29 @@
+{
+ "id": "snu-2022-B",
+ "school": "snu",
+ "year": 2022,
+ "name": "서울대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "거짓말과 헛소리의 차이",
+  "언론의 자기검열(사실과 의견)",
+  "문명화된 전쟁의 옹호",
+  "추상화의 기준과 적절성"
+ ],
+ "tags": [
+  "언어·인식",
+  "정치·민주주의",
+  "윤리",
+  "역사"
+ ],
+ "variant": "kim"
+}
