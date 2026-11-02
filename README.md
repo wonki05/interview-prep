@@ -8,6 +8,7 @@
 npm install          # 테스트용(puppeteer). 사이트 자체는 설치가 필요 없다
 npm run serve        # http://localhost:5173/  (또는 index.html을 Chrome에서 직접 연다)
 npm test             # 데이터 검증 + 스모크 테스트
+SMOKE_BASE_URL=https://<id>.github.io/<repo>/ npm run test:smoke   # 배포본 스모크. PowerShell: $env:SMOKE_BASE_URL="…"; npm run test:smoke
 ```
 
 ## 배포
