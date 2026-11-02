@@ -1,0 +1,26 @@
+{
+ "id": "skku-2024-B",
+ "school": "skku",
+ "year": 2024,
+ "name": "성균관대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "규제의 근거(타인·자기 보호)"
+ ],
+ "tags": [
+  "법철학",
+  "법·제도",
+  "윤리",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

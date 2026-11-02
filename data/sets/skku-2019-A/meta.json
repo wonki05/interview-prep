@@ -1,0 +1,27 @@
+{
+ "id": "skku-2019-A",
+ "school": "skku",
+ "year": 2019,
+ "name": "성균관대 A",
+ "session": "오전 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 30,
+  "duration": 20,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "자유 추구와 이기심",
+  "타인의 자유 존중(황금률)",
+  "이익 추구의 정당성과 법적 개입"
+ ],
+ "tags": [
+  "경제·시장",
+  "윤리",
+  "법철학"
+ ],
+ "variant": "kim"
+}

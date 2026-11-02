@@ -1,0 +1,26 @@
+{
+ "id": "skku-2023-A",
+ "school": "skku",
+ "year": 2023,
+ "name": "성균관대 A",
+ "session": "오전 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "규제의 근거(온정적 간섭주의)"
+ ],
+ "tags": [
+  "법·제도",
+  "법철학",
+  "윤리",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,25 @@
+{
+ "id": "skku-2019-B",
+ "school": "skku",
+ "year": 2019,
+ "name": "성균관대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 30,
+  "duration": 20,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "직무상 비밀유지와 보고·고발"
+ ],
+ "tags": [
+  "윤리",
+  "법·제도",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}

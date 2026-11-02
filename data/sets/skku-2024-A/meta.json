@@ -1,0 +1,25 @@
+{
+ "id": "skku-2024-A",
+ "school": "skku",
+ "year": 2024,
+ "name": "성균관대 A",
+ "session": "오전 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "보호·구조 행위가 낳은 사망"
+ ],
+ "tags": [
+  "법철학",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

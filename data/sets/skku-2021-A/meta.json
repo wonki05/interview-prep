@@ -1,0 +1,25 @@
+{
+ "id": "skku-2021-A",
+ "school": "skku",
+ "year": 2021,
+ "name": "성균관대 A",
+ "session": "오전 면접",
+ "track": "일반전형",
+ "instruction": "아래 사례를 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 30,
+  "duration": 20,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "법적 금지의 기준(해악 원리)"
+ ],
+ "tags": [
+  "법철학",
+  "법·제도",
+  "윤리"
+ ],
+ "variant": "kim"
+}

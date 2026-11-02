@@ -1,0 +1,25 @@
+{
+ "id": "skku-2023-B",
+ "school": "skku",
+ "year": 2023,
+ "name": "성균관대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "비난의 근거와 경중(의도·결과)"
+ ],
+ "tags": [
+  "윤리",
+  "법철학",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

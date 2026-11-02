@@ -1,0 +1,25 @@
+{
+ "id": "skku-2022-A",
+ "school": "skku",
+ "year": 2022,
+ "name": "성균관대 A",
+ "session": "오전 면접",
+ "track": "일반전형",
+ "instruction": "아래 사례를 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "비난 가능성의 경중 판단"
+ ],
+ "tags": [
+  "법철학",
+  "윤리",
+  "생명·환경"
+ ],
+ "variant": "kim"
+}

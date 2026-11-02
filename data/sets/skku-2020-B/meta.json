@@ -1,0 +1,28 @@
+{
+ "id": "skku-2020-B",
+ "school": "skku",
+ "year": 2020,
+ "name": "성균관대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 30,
+  "duration": 20,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "무고한 자의 처형(전면전 회피)",
+  "납치 항공기 격추(탑승객 희생)",
+  "난민 입국 거부(자국 여론)",
+  "장기기증 서약자의 후순위 치료"
+ ],
+ "tags": [
+  "윤리",
+  "법철학",
+  "생명·환경"
+ ],
+ "variant": "kim"
+}

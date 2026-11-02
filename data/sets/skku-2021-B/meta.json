@@ -1,0 +1,26 @@
+{
+ "id": "skku-2021-B",
+ "school": "skku",
+ "year": 2021,
+ "name": "성균관대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "아래 사례를 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 30,
+  "duration": 20,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "사망 초래 행위의 비난가능성"
+ ],
+ "tags": [
+  "법철학",
+  "윤리",
+  "생명·환경",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

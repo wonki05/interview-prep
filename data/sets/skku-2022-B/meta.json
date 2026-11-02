@@ -1,0 +1,25 @@
+{
+ "id": "skku-2022-B",
+ "school": "skku",
+ "year": 2022,
+ "name": "성균관대 B",
+ "session": "오후 면접",
+ "track": "일반전형",
+ "instruction": "아래 사례를 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "부작위와 결과 방지 의무"
+ ],
+ "tags": [
+  "법철학",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}
