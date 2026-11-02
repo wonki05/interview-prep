@@ -1,0 +1,27 @@
+{
+ "id": "yonsei-2025-A",
+ "school": "yonsei",
+ "year": 2025,
+ "name": "연세대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 <제시문 1>과 <제시문 2>를 읽고, 아래 문제에 모두 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "대중과 국가의 정의(신상공개)",
+  "인격과 상황(사마리아인 실험)"
+ ],
+ "tags": [
+  "법·제도",
+  "윤리",
+  "법철학",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

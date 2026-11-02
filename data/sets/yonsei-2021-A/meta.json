@@ -1,0 +1,27 @@
+{
+ "id": "yonsei-2021-A",
+ "school": "yonsei",
+ "year": 2021,
+ "name": "연세대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "자유와 질서의 상충",
+  "개인주의와 집단주의 문화",
+  "빡빡한 사회와 느슨한 사회"
+ ],
+ "tags": [
+  "사회·공동체",
+  "법·제도",
+  "정치·민주주의"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,27 @@
+{
+ "id": "yonsei-2023-A",
+ "school": "yonsei",
+ "year": 2023,
+ "name": "연세대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 모두 읽고, 아래의 모든 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "규범 이탈의 정당화(국가·개인)",
+  "계층 혼합과 개구리 연못효과"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체",
+  "정치·민주주의",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}

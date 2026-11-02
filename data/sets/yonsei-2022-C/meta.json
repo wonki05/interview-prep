@@ -1,0 +1,27 @@
+{
+ "id": "yonsei-2022-C",
+ "school": "yonsei",
+ "year": 2022,
+ "name": "연세대 C",
+ "session": "특별전형",
+ "track": "특별전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "준법 의무의 근거(적색 신호)",
+  "소득별 교육격차와 환경요인"
+ ],
+ "tags": [
+  "법철학",
+  "윤리",
+  "사회·공동체",
+  "정치·민주주의"
+ ],
+ "variant": "hwang"
+}
