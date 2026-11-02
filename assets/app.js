@@ -220,7 +220,7 @@
     sets(v) { return this.schools(v).flatMap(s => s.sets); },
     set(id, v) { const s = this.raw().flatMap(sc => sc.sets).find(x => x.id === id); return s ? this.resolve(s, v) : null; },
     label(set) { return `${set.year}학년도 ${set.name}`; },
-    count(set) { return set.followups.reduce((n, f) => n + f.items.length, 0) + (set.common || []).reduce((n, c) => n + c.items.length, 0); },
+    count(set) { return (set.tasks || []).length + set.followups.reduce((n, f) => n + f.items.length, 0) + (set.common || []).reduce((n, c) => n + c.items.length, 0); },   // 문제지 문항 포함('복기 질문 전부' 모드가 묻는 수)
     /* 기출DB 문답 키 접두사: kim은 접두사 없음(기존 저장 데이터와 호환), 그 밖은 "<variant>/" */
     keyPrefix(set) { return set.variant && set.variant !== "kim" ? set.variant + "/" : ""; },
     variantLabel(k) { return VARIANT_LABEL[k] || k; },

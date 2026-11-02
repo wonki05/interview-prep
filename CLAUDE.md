@@ -32,7 +32,8 @@ assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setConte
 assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder→IndexedDB "snu-interview"), STT/TTS, 결정 트리 보행
 assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1")
 assets/library.js   서가: 개요/도서/쟁점/읽는 순서, 책 상세 서랍, 진도(localStorage "snu-library-progress-v1")
-data/questions.js   INTERVIEW_DB = { levels, schools[] } — 서울대 2021 A/B/C · 2023 A/B, 결정 트리 예시(snu-2023-A), 다른 9개 학교 빈 자리
+data/sets/          세트 원본(<set id>/meta·kim·hwang·merged.json, _db.json의 levels·학교 format). 고친 뒤 tools/build_questions.js
+data/questions.js   INTERVIEW_DB = { levels, schools[] } — data/sets/에서 생성. 서울대 18 · 고려대 7 · 연세대 9 · 성균관대 14 · 한양대 7세트, 결정 트리 예시(snu-2023-A), 다른 5개 학교 빈 자리
 data/models.js      MODEL_CATALOG — 선택 가능한 모델 목록(표시명·API id)
 data/library.js     도서 100선 데이터(크다, 720KB)
 docs/               SPEC, BUILD_PLAN, DESIGN, AI, DATA, TRANSCRIPTION, DECISIONS

@@ -122,6 +122,24 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     check(await page.evaluate(() => document.querySelector(".paper .ptitle").textContent.includes("(가)")), "2019-C: 제시문 머리에 (가) 표기");
   }
 
+  console.log("문제지 문항(tasks)");
+  /* 문항만 있고 추가질문이 없는 세트를 먼저 고른다(없으면 문항이 있는 아무 세트) */
+  const tk = await page.evaluate(() => { const all = window.SNU.db.schools().flatMap(s => s.sets); const s = all.find(x => (x.tasks || []).length && !x.followups.length) || all.find(x => (x.tasks || []).length); return s && { id: s.id, n: s.tasks.length }; });
+  if (tk) {
+    await goto("db.html#" + tk.id);
+    check((await page.$$(".instr .tasks li")).length === tk.n, `${tk.id}: 지시문 상자에 문항 ${tk.n}개`);
+    check(await page.$('[data-toggle$="task-1"]'), `${tk.id}: 기출DB "문제" 묶음`);
+    await goto("practice.html?set=" + tk.id); await setSettings({ tts: false, answerMode: "text", waitEnabled: false, lastMode: "all" }); await goto("practice.html?set=" + tk.id);
+    await page.click('[data-mode="all"]'); await sleep(200);
+    await page.click("#startBtn"); await sleep(500);
+    check((await page.$$(".instr .tasks li")).length === tk.n, `${tk.id}: 준비 화면 문항 ${tk.n}개`);
+    await page.click("#toNext"); await sleep(500);
+    const q1 = await page.evaluate(() => (document.querySelector(".qtext") || {}).textContent || "");
+    check(q1.startsWith("문제"), `${tk.id}: '복기 질문 전부' 첫 질문이 문항 (${q1.slice(0, 20)}…)`);
+    await page.click("#endBtn"); await sleep(600);
+    check(await page.$("#again"), `${tk.id}: 종료 화면`);
+  } else console.log("  --   문항 있는 세트 없음(건너뜀)");
+
   console.log("서가");
   await goto("library.html#books");
   check((await page.$$(".book")).length > 50, "도서 목록");
@@ -140,7 +158,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
 
   console.log("모바일 가로 넘침");
   await page.setViewport({ width: 400, height: 820 });
-  for (const p of ["index.html", "practice.html", "db.html", "library.html#issues"]) { await goto(p); check(await noOverflow(), p); }
+  for (const p of ["index.html", "practice.html", "db.html", "library.html#issues"].concat(tk ? ["db.html#" + tk.id] : [])) { await goto(p); check(await noOverflow(), p); }
   await goto("practice.html?set=snu-2021-A"); await setSettings({ tts: false, answerMode: "text", lastMode: "all" }); await goto("practice.html?set=snu-2021-A");
   await page.click('[data-mode="all"]'); await sleep(200); await page.click("#startBtn"); await sleep(500);
   check(await noOverflow(), "세션 화면(모바일)");
