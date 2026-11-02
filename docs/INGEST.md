@@ -223,7 +223,7 @@ PASSAGE = { no, label?, kind: "prose"|"dialog"|"case", length?, text, source, no
 
 ### 3-B 사용자 구간 (Q-10)
 
-1. Q-10 결정: 저장소 이름, 공개 범위, 노출 완화안, 작성자 메일, 아티팩트 범위(`pages.yml`에 기본안 반영: 사이트 파일만). 작성자 메일은 저장소에서 `git config user.email <ID>+<사용자명>@users.noreply.github.com`(GitHub Settings → Emails의 noreply 주소). 지금까지의 커밋은 작성자·커밋터 모두 전역 학교 메일이므로, 공개라면 첫 push 전에 이력의 메일도 바꿀지 함께 정한다.
+1. Q-10 결정됨(interview-prep, 공개). noindex 유지, 아티팩트는 사이트 파일만(`pages.yml` 반영). 남은 것은 작성자 메일: 저장소에서 `git config user.email <ID>+<사용자명>@users.noreply.github.com`(GitHub Settings → Emails의 noreply 주소). 지금까지의 커밋은 작성자·커밋터 모두 전역 학교 메일이라 공개 저장소에서는 이력에 노출되므로, 첫 push 전에 이력의 메일도 바꿀지 정한다.
 2. 저장소 생성: 웹에서 만들고 URL을 주거나, `winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements` 뒤 새 셸에서 `gh auth login`(브라우저 인증) → `gh repo create <name> --<private|public> --source .`(`--push` 없이).
 3. Pages 먼저 켜기: Settings → Pages → Source "GitHub Actions" 또는 `gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`. `pages.yml`의 `configure-pages`는 Pages가 꺼진 저장소에서 "Get Pages site failed"로 실패하므로 push보다 먼저 한다.
 4. `git remote add origin …` → `git push -u origin main`(자격 증명 창은 사용자가 처리). 이미 실패한 실행이 있으면 Pages를 켠 뒤 `gh workflow run pages.yml`(`workflow_dispatch` 있음).
@@ -251,7 +251,7 @@ PASSAGE = { no, label?, kind: "prose"|"dialog"|"case", length?, text, source, no
 | # | 질문 | 선택지 | 기본 가정 |
 |---|---|---|---|
 | Q-9 | 복기본 변형 구조 | (a) 세트 안 `variants` + `label`·`case`·`tree.basis`, kim 키 무접두사(§2-F) (b) 변형마다 별도 세트 id | (a)로 결정(2026-11-02 계획 승인, 결정 표) |
-| Q-10 | 저장소 이름·공개 범위·저작물 노출 완화 | (a) 공개/비공개 무관 + `data/questions.js` 암호화(WebCrypto AES-GCM, 암호구는 localStorage, 외부 라이브러리 없음. Pages 노출까지 막는 유일한 안. 생성 스크립트·검증 경로 추가 필요) (b) 비공개 저장소(Pages는 GitHub Pro. snu.ac.kr 메일이면 Student Developer Pack으로 무상) — 저장소 노출만 막고 Pages 노출은 남음 (c) 공개 + noindex — 검색 노출만 줄임. 하위: 작성자 메일 noreply, 아티팩트 범위(사이트 파일만) | 사용자 결정 필요 |
+| Q-10 | 저장소 이름·공개 범위·저작물 노출 완화 | (a) 공개/비공개 무관 + `data/questions.js` 암호화(WebCrypto AES-GCM, 암호구는 localStorage, 외부 라이브러리 없음. Pages 노출까지 막는 유일한 안. 생성 스크립트·검증 경로 추가 필요) (b) 비공개 저장소(Pages는 GitHub Pro. snu.ac.kr 메일이면 Student Developer Pack으로 무상) — 저장소 노출만 막고 Pages 노출은 남음 (c) 공개 + noindex — 검색 노출만 줄임. 하위: 작성자 메일 noreply, 아티팩트 범위(사이트 파일만) | 결정됨(interview-prep, 공개). (c)안, 2026-11-03 결정 표. 하위 작성자 메일은 §3-B 1 |
 | Q-11 | 김종수 `해설`(모범답안·출제 의도) 수록 여부 | (a) 수록 안 함, `work/`에 정제본만 보관 (b) 세트 `commentary`로 수록해 AI 면접관 참고 입력에 사용 | (a) |
 | Q-12 | 황변 면접장 스케치 반영 | (a) `format.details` 행 추가 (b) `format.sources[]`로 책별 분리 | (a)로 결정(2026-11-02 계획 승인) |
 | Q-13 | 기존 5세트와 OCR 결과가 다를 때 | (a) 보고서 확인 뒤 항목별 승인(`existing-diff.approved.json`) (b) OCR 결과로 일괄 교체 | (a). 규칙 5 |
