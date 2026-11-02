@@ -47,7 +47,7 @@ window.INTERVIEW_DB = {
     sets: [
     /* ---------------------------------------------------------- 2021 A ---- */
     {
-      id: "snu-2021-A", school: "snu", year: 2021, name: "서울 A", session: "오전 면접", track: "일반전형",
+      id: "snu-2021-A", school: "snu", year: 2021, name: "서울대 A", session: "오전 면접", track: "일반전형",
       instruction: "제시문을 읽고, 시험장에서 면접관의 질문에 답하시오.",
       format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
       themes: ["클루지와 환경적 스캐폴딩", "세습 군주정과 선출", "지식의 원천", "뇌과학 증거와 법적 판단"],
@@ -121,7 +121,7 @@ window.INTERVIEW_DB = {
 
     /* ---------------------------------------------------------- 2021 B ---- */
     {
-      id: "snu-2021-B", school: "snu", year: 2021, name: "서울 B", session: "오후 면접", track: "일반전형",
+      id: "snu-2021-B", school: "snu", year: 2021, name: "서울대 B", session: "오후 면접", track: "일반전형",
       instruction: "다음 제시문을 읽고, 문제에 답하시오.",
       format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
       themes: ["개념의 번역과 변질(니르바나·열반)", "동일성의 번역과 차이의 번역", "fides의 오해", "규칙접근법과 데이터 학습"],
@@ -180,7 +180,7 @@ window.INTERVIEW_DB = {
 
     /* ---------------------------------------------------------- 2021 C ---- */
     {
-      id: "snu-2021-C", school: "snu", year: 2021, name: "서울 C", session: "특별전형", track: "특별전형",
+      id: "snu-2021-C", school: "snu", year: 2021, name: "서울대 C", session: "특별전형", track: "특별전형",
       instruction: "다음 제시문을 읽고, 문제에 답하시오.",
       format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
       themes: ["민족주의와 국가의 선후", "발언권과 시민권의 범위", "민족국가", "공동체의 융합(줄루족)"],
@@ -216,7 +216,7 @@ window.INTERVIEW_DB = {
 
     /* ---------------------------------------------------------- 2023 A ---- */
     {
-      id: "snu-2023-A", school: "snu", year: 2023, name: "서울 A", session: "오전 면접", track: "일반전형",
+      id: "snu-2023-A", school: "snu", year: 2023, name: "서울대 A", session: "오전 면접", track: "일반전형",
       instruction: "다음 제시문을 읽고, 시험장에서 면접관의 질문에 답하시오. (답변 준비시 문제를 제시하지 않음)",
       format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
       themes: ["인간과 동물의 단절성 비판", "침팬지와 보노보, 친화력", "원숭이 공정성 실험", "장애와 연대"],
@@ -280,7 +280,7 @@ window.INTERVIEW_DB = {
 
     /* ---------------------------------------------------------- 2023 B ---- */
     {
-      id: "snu-2023-B", school: "snu", year: 2023, name: "서울 B", session: "오후 면접", track: "일반전형",
+      id: "snu-2023-B", school: "snu", year: 2023, name: "서울대 B", session: "오후 면접", track: "일반전형",
       instruction: "제시문을 읽고, 시험장에서 면접관의 질문에 답하시오.",
       format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
       themes: ["인공지능 챗봇과 감정", "로봇과 명령 복종(네스터 10호)", "마음의 확인 가능성", "리벳 실험과 자유의지"],

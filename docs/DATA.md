@@ -17,7 +17,7 @@
 }
 SET = {
   id: "snu-2023-A",            // "<schoolId>-<year>-<name>" 전 학교에서 유일. 영문·숫자·하이픈
-  school: "snu", year: 2023, name: "서울 A", session: "오전 면접", track: "일반전형",
+  school: "snu", year: 2023, name: "서울대 A", session: "오전 면접", track: "일반전형",
   instruction: "제시문을 읽고, …",
   format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
   themes: ["…", "…"],          // 제시문 순서대로 한 구절씩(세트 행·칩에 표시)
@@ -39,6 +39,7 @@ SET = {
 5. `themes`는 제시문 수와 같은 수의 짧은 구절.
 6. 한 세트를 넣은 뒤 `node tools/validate-data.js`로 확인한다.
 7. 학교에 진행 방식 복기가 있으면 `format`을 채운다. `timeline`은 분 단위, 대기 시간이 없으면 `wait: 0`. 옵션 창의 기준값 표시에만 쓰이고 실제 세션 시간은 설정값이다.
+8. 세트 `name`은 `school.short` + 공백 + 세션 기호(교재의 A/B/C 또는 책의 표기). 교재가 학교 약칭을 줄여 적어도("서울 A", "시립 A") 사이트에서는 `school.short`를 쓴다("서울대 A", "서울시립대 A"). 화면의 세트 라벨은 `SNU.db.label(set)` = `<year>학년도 <name>`이다.
 
 ## 2. `data/models.js` — `window.MODEL_CATALOG`
 

@@ -68,6 +68,7 @@ work/
 - `tools/book_extract.py <pdf> <tag> <from>-<to>`: pymupdf로 쪽 이미지(150dpi, 회색조 PNG)와 텍스트층을 `work/books/<tag>/pages/`에 저장. 김종수 p259–314, 황변 p326–348. 100dpi 표본(707×1014px)으로도 본문 글자와 줄 안 공백이 판독되므로 150dpi로 시작하고, 파일럿(2-B 0)에서 작은 글자(출처·분량 표기) 오류가 나오면 200dpi나 상·하 분할을 검토한다.
 - 페이지 지도 `map.json`: `[{ set, pages: [from, to] }]`. 총괄이 머리말 패턴(`20xx 문제`, `서[울물] [ABC] 문제`, `20xx학년도 기출문제`, `• 오전/오후/특별전형`, `해설`)으로 만들고, Sonnet 에이전트 하나가 쪽 이미지로 경계를 확인한다. 세트 범위는 머리말이 있는 쪽부터 다음 세트 머리말이 있는 쪽까지이며 그 쪽은 두 세트가 공유한다. 한 쪽 안의 경계는 2-B의 `set-head` 블록으로 가른다(2-C).
 - 세트 id는 `snu-<year>-<A|B|C>`(오전=A, 오후=B, 특별전형=C. 기존 5세트와 같은 규칙).
+- `name`은 `school.short` + 세션 기호: 서울대 A/B/C. `DATA.md` 규칙 8.
 
 | 세트 | 김종수(PDF p) | 황변(PDF p) |
 |---|---|---|
@@ -112,7 +113,7 @@ type: set-head | format | instruction | passage-head | para | case | footnote | 
 `tools/assemble_sets.py`: `map.json`의 세트마다 쪽 블록을 이어 붙여 변형 JSON을 만든다. type·label·marker·cont·쪽 순서만 쓴다. 첫 쪽은 그 세트의 `set-head` 블록부터, 끝 쪽은 다음 세트의 `set-head` 직전까지.
 
 ```
-{ id, year, name: "서울 A", session: "오전 면접", track: "일반전형",
+{ id, year, name: "서울대 A", session: "오전 면접", track: "일반전형",
   instruction, passages: [{ no, label?, kind: "prose"|"dialog"|"case", length?, text, source, notes? }],
   followups: [{ student, label, items: [{ label?, text, note? }] }], common?: [...],
   refs?: [...], srcPages: [259, 260, 261], book: "kim" | "hwang" }
@@ -285,4 +286,4 @@ Q-14(GPT 계열 병행)는 사용자 지침이 이미 택일을 허용하므로 
 ## 8. 이후 단계 (3)~(6)에 재사용
 
 - 황변 PART 04(PDF p238–596, 25개 학교)와 김종수 Part 6(기출문제&해설, 학교별 구간)은 같은 표기 규칙이다. `map.json`의 학교·쪽 범위만 바꿔 2-A~2-H를 반복한다. 학교별 `format`은 황변 면접장 스케치와 김종수 `문제` 머리 표에서 채운다.
-- 학교마다 세션 이름 규칙이 다르다(시립대 "문제 1/2", 성균관대 "가군/나군"). 세트 id 규칙 `<school>-<year>-<name>`은 유지하고 `name`은 책의 표기를 따른다. 제시문 표기(`(가)`, `[1]`, `문제 1〉`)는 `label`로 담는다.
+- 학교마다 세션 이름 규칙이 다르다(시립대 "문제 1/2", 성균관대 "가군/나군"). 세트 id 규칙 `<school>-<year>-<name>`은 유지하고 `name`은 `school.short` + 책의 세션 표기(`DATA.md` 규칙 8). 제시문 표기(`(가)`, `[1]`, `문제 1〉`)는 `label`로 담는다.
