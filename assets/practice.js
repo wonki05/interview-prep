@@ -200,7 +200,7 @@
 
         <div class="opt-group">
           <div class="opt-title">복기본</div>
-          <div class="field"><span class="lab">제시문·질문</span><div class="seg" data-seg="variant">${db.variantButtons(cs)}</div>${s.variant !== cs.variant ? `<span class="help">${esc(db.variantLabel(s.variant))} 없음 — ${esc(cs.variantLabel)} 복기로 진행된다.</span>` : ""}</div>
+          <div class="field"><span class="lab">제시문·질문</span><div class="seg" data-seg="variant">${db.variantButtons(cs)}</div>${s.variant !== cs.variant ? `<span class="help">${esc(db.variantLabel(s.variant))} 없음 — ${esc(cs.variantLabel)}로 진행된다.</span>` : ""}</div>
           <div class="row"><span class="chip line">제시문 ${cs.passages.length}</span><span class="chip line">복기 질문 ${db.count(cs)}</span>${cs.source && cs.source.pages ? `<span class="chip line">p.${esc(cs.source.pages)}</span>` : ""}</div>
         </div>
 
