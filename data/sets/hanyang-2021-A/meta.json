@@ -1,0 +1,26 @@
+{
+ "id": "hanyang-2021-A",
+ "school": "hanyang",
+ "year": 2021,
+ "name": "한양대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "공동체 가치 공유와 사회통합",
+  "다원성과 갈등의 통합 기능"
+ ],
+ "tags": [
+  "사회·공동체",
+  "정치·민주주의",
+  "윤리"
+ ],
+ "variant": "kim"
+}

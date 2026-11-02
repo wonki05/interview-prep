@@ -1,0 +1,27 @@
+{
+ "id": "hanyang-2019-A",
+ "school": "hanyang",
+ "year": 2019,
+ "name": "한양대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "비정규직 처우와 정규직 전환",
+  "청년 실업과 공채 확대",
+  "전환 대 신규 공채(H회사)"
+ ],
+ "tags": [
+  "경제·시장",
+  "사회·공동체",
+  "윤리"
+ ],
+ "variant": "kim"
+}

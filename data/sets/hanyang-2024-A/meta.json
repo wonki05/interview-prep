@@ -1,0 +1,27 @@
+{
+ "id": "hanyang-2024-A",
+ "school": "hanyang",
+ "year": 2024,
+ "name": "한양대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "지배자 권력의 위험(독수리의 왕)",
+  "다수의 폭정과 사회적 억압"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "법철학",
+  "사회·공동체",
+  "윤리"
+ ],
+ "variant": "kim"
+}
