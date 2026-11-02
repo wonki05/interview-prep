@@ -1,0 +1,26 @@
+{
+ "id": "korea-2020-A",
+ "school": "korea",
+ "year": 2020,
+ "name": "고려대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 2문제 중 하나를 선택하여 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 14,
+  "duration": 8,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "법에의 접근 가능성(문지기)",
+  "대중매체와 고전 원작의 가치"
+ ],
+ "tags": [
+  "문화·예술",
+  "법철학",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

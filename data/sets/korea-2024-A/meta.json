@@ -1,0 +1,28 @@
+{
+ "id": "korea-2024-A",
+ "school": "korea",
+ "year": 2024,
+ "name": "고려대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 12,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "자유의지와 도덕적 책임",
+  "도박중독과 카지노의 책임 분담",
+  "노예제 배상과 공동체의 책무"
+ ],
+ "tags": [
+  "윤리",
+  "사회·공동체",
+  "법철학",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

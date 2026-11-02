@@ -1,0 +1,27 @@
+{
+ "id": "korea-2025-A",
+ "school": "korea",
+ "year": 2025,
+ "name": "고려대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 14,
+  "duration": 11,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "인간중심주의와 인간의 포악성",
+  "인간의 이중성(자연과 문화)",
+  "인간과 자연의 연결(되기)"
+ ],
+ "tags": [
+  "생명·환경",
+  "윤리",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,27 @@
+{
+ "id": "korea-2019-A",
+ "school": "korea",
+ "year": 2019,
+ "name": "고려대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문과 문제를 읽고, 아래 두 문제 중 하나를 택하여 답변하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 8,
+  "memo": true,
+  "followup": false
+ },
+ "themes": [
+  "자연의 권리 주체성(왕가누이 강)",
+  "공동경작과 노동량 분배(여전제)"
+ ],
+ "tags": [
+  "생명·환경",
+  "법철학",
+  "경제·시장",
+  "역사"
+ ],
+ "variant": "kim"
+}
