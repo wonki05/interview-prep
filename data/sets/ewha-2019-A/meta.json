@@ -1,0 +1,25 @@
+{
+ "id": "ewha-2019-A",
+ "school": "ewha",
+ "year": 2019,
+ "name": "이화여대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": false
+ },
+ "themes": [
+  "비정규직 정규직화와 자회사 배치"
+ ],
+ "tags": [
+  "경제·시장",
+  "사회·공동체",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

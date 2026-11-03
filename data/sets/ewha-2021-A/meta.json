@@ -1,0 +1,28 @@
+{
+ "id": "ewha-2021-A",
+ "school": "ewha",
+ "year": 2021,
+ "name": "이화여대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": false
+ },
+ "themes": [
+  "방역과 개인의 정보 권리",
+  "국가의 정보 활용과 빅브라더",
+  "사기업의 정보 보관(구글)"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체",
+  "과학기술·AI",
+  "정치·민주주의"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,25 @@
+{
+ "id": "ewha-2024-D",
+ "school": "ewha",
+ "year": 2024,
+ "name": "이화여대 D",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "생성 AI의 법률 전문가 대체"
+ ],
+ "tags": [
+  "과학기술·AI",
+  "법·제도",
+  "법철학"
+ ],
+ "variant": "kim"
+}

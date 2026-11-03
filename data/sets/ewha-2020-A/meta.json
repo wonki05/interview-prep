@@ -1,0 +1,27 @@
+{
+ "id": "ewha-2020-A",
+ "school": "ewha",
+ "year": 2020,
+ "name": "이화여대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": false
+ },
+ "themes": [
+  "수술실 CCTV와 프라이버시",
+  "어린이집 CCTV와 교사 압박감",
+  "IC카드 출결과 동선 감시"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체",
+  "윤리"
+ ],
+ "variant": "kim"
+}

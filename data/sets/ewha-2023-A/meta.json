@@ -1,0 +1,25 @@
+{
+ "id": "ewha-2023-A",
+ "school": "ewha",
+ "year": 2023,
+ "name": "이화여대 A",
+ "session": "나군 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": false
+ },
+ "themes": [
+  "민영교도소 도입 찬반(과밀 수용)"
+ ],
+ "tags": [
+  "법·제도",
+  "경제·시장",
+  "윤리"
+ ],
+ "variant": "kim"
+}

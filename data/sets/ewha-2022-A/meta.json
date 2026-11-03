@@ -1,0 +1,27 @@
+{
+ "id": "ewha-2022-A",
+ "school": "ewha",
+ "year": 2022,
+ "name": "이화여대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": false
+ },
+ "themes": [
+  "위험 영역의 자율 로봇 활용",
+  "자율주행차의 사고율 감소",
+  "자율살상무기와 전쟁 효율성"
+ ],
+ "tags": [
+  "과학기술·AI",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

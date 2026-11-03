@@ -1,0 +1,26 @@
+{
+ "id": "ewha-2024-B",
+ "school": "ewha",
+ "year": 2024,
+ "name": "이화여대 B",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 9.5,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "교육과 온난화 인식(교란변수)"
+ ],
+ "tags": [
+  "생명·환경",
+  "경제·시장",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}
