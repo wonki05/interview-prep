@@ -15,6 +15,12 @@ BOOK = {"kim": {"label": "김종수 복기", "book": "해커스 김종수 로스
 def dump(p, obj):
     p.write_text(json.dumps(obj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
+def minutes(m):
+    """'N분 M초' 일치 → 분(초가 있으면 소수, 없으면 정수)."""
+    s = int(m.group(2) or 0)
+    return int(m.group(1)) + round(s / 60, 2) if s else int(m.group(1))
+
+
 def year_formats(school, base):
     """김종수 연도 머리의 진행 방식 줄 → {연도: 세트 format}. 예: ① 교수:학생 = 3:1 ② 면접 준비 14분, 면접 시간 11분 ③ 메모 허용 ④ 추가질문 있음
        같은 해의 연도 머리가 여럿이면(해설 쪽 '2021' 등 진행 방식 줄이 없는 머리) 항목을 가장 많이 읽어 낸 것을 쓴다."""
@@ -29,10 +35,10 @@ def year_formats(school, base):
         fm, n = dict(base), 0
         m = re.search(r"교수\W*학생\s*=?\s*(\d+)\s*[:：]\s*(\d+)", text)
         if m: fm["ratio"] = f"{m.group(1)}:{m.group(2)}"; n += 1
-        m = re.search(r"면접\s*준비\s*(?:시간)?\s*(\d+)\s*분", text)
-        if m: fm["prep"] = int(m.group(1)); n += 1
-        m = re.search(r"면접\s*시간\s*(\d+)\s*분", text)
-        if m: fm["duration"] = int(m.group(1)); n += 1
+        m = re.search(r"면접\s*준비\s*(?:시간)?\s*(\d+)\s*분(?:\s*(\d+)\s*초)?", text)   # '9분 30초' → 9.5
+        if m: fm["prep"] = minutes(m); n += 1
+        m = re.search(r"면접\s*시간\s*(\d+)\s*분(?:\s*(\d+)\s*초)?", text)
+        if m: fm["duration"] = minutes(m); n += 1
         if re.search(r"메모\s*(불가|금지|불허)", text): fm["memo"] = False; n += 1
         elif re.search(r"메모\s*(허용|가능)", text): fm["memo"] = True; n += 1
         if re.search(r"추가\s*질문\s*없음", text): fm["followup"] = False; n += 1

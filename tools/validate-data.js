@@ -25,7 +25,11 @@ if (!D || !D.levels || !Array.isArray(D.schools)) err("INTERVIEW_DB 구조가 �
 /* 변형 하나의 제시문·질문 검사. 제시문 번호는 1부터 연속, label은 원표기가 숫자가 아닐 때의 짧은 낱말((가)·(A)·사례·사례 1·에피소드),
    한 글자 라벨은 가나다…·ABC… 순서. 문제지 문항(tasks)은 있으면 문장이 비지 않아야 한다. */
 function checkVariant(tag, v) {
-  if (!Array.isArray(v.passages) || !v.passages.length) { err(tag + ": passages 없음"); return 0; }
+  if (!Array.isArray(v.passages)) { err(tag + ": passages 없음"); return 0; }
+  if (!v.passages.length) {                         // 책에 제시문 없이 문항만 인쇄된 변형은 빈 배열(문항 필수, docs/DATA.md 규칙 12)
+    if (!(Array.isArray(v.tasks) && v.tasks.length)) { err(tag + ": passages 없음(문제지 문항도 없음)"); return 0; }
+    warn(tag + ": 제시문 없음(문제지 문항만)");
+  }
   v.passages.forEach((p, i) => {
     if (p.no !== i + 1) err(tag + ": 제시문 번호가 연속이 아니다(" + p.no + ")");
     if (!["prose", "dialog", "case"].includes(p.kind)) err(tag + ": 제시문 " + p.no + " kind 오류");

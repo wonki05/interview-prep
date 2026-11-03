@@ -68,6 +68,7 @@ data/sets/<set id>/merged.json
 9. 세션 기호는 서울대 오전 = A, 오후 = B, 특별전형 = C. 다른 학교는 김종수 교재의 세션 기호(해마다 한 세트면 A)를 쓰고, 황변의 세션은 학교 설정(`tools/schools/<id>.json`의 `books.hwang.mode`)으로 같은 기호에 맞춘다. 세트 id는 `<schoolId>-<year>-<기호>`.
 10. 문제지 문항(면접 전에 받는 문제: 황변 `문제 1>`·`문제〉`, 김종수는 추가질문 머리 앞의 `Q1.`)은 변형의 `tasks`에 순서대로 둔다(label은 번호 `1`·`1-1`, 없으면 `""`). 복기본마다 문항 표현이 달라 세트 공통이 아니라 변형에 둔다. 세트 공통 `instruction`은 김종수 지시문.
 11. 인성 질문 묶음(김종수 `성균관 인성 문제`, 황변 면접장 스케치의 `주요 인성 질문`)은 세트로 만들지 않고 학교 `format.details`에 `["인성 질문(김종수 2025)", "…"]`처럼 행으로 둔다.
+12. 책에 제시문 없이 문제지 문항만 인쇄된 변형(예: 이화여대 김종수 2024 E, 한국외대 황변의 찬반 문항만 있는 세션)은 `passages`를 빈 배열로 두고 문항은 `tasks`에만 둔다(문항 문장을 제시문으로 복제하지 않는다). `tasks`가 없는 빈 `passages`는 오류.
 
 ## 2. `data/models.js` — `window.MODEL_CATALOG`
 
@@ -116,4 +117,4 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 
 ## 5. 검증 스크립트 `tools/validate-data.js`
 
-`node tools/validate-data.js [--in <파일>]` — 세트 id 유일성, `school` 일치, `name` 규칙, `variants`·기본 `variant`·`merged.basis`·`tree.basis` 참조, 변형마다 제시문 번호 연속·`label`(12자 이하, 숫자 아님, 한 글자 라벨 순서)·`kind`·본문 길이(비면 오류, 50자 미만 경고)·`tasks` 문장·`followups` 비어 있지 않음(`tasks`가 있으면 비어도 됨)·`student` 중복 없음, 변형 간 제시문 수(경고), `themes` 길이, 트리 참조 무결성(모든 `next`가 존재, root 도달, 순환 없음), 모델 목록 id 중복을 검사하고 세트·변형별 제시문·질문 수를 출력한다. `--in`은 `build_questions.js --school <id> --out <파일>`로 만든 학교별 파일을 검사한다(`INGEST.md` §8). 데이터 구조를 바꾸면 이 스크립트도 같이 고친다.
+`node tools/validate-data.js [--in <파일>]` — 세트 id 유일성, `school` 일치, `name` 규칙, `variants`·기본 `variant`·`merged.basis`·`tree.basis` 참조, 변형마다 제시문 번호 연속·`label`(12자 이하, 숫자 아님, 한 글자 라벨 순서)·`kind`·본문 길이(비면 오류, 50자 미만 경고)·`tasks` 문장·`passages`·`followups` 비어 있지 않음(`tasks`가 있으면 비어도 됨, 제시문 없음은 경고)·`student` 중복 없음, 변형 간 제시문 수(경고), `themes` 길이, 트리 참조 무결성(모든 `next`가 존재, root 도달, 순환 없음), 모델 목록 id 중복을 검사하고 세트·변형별 제시문·질문 수를 출력한다. `--in`은 `build_questions.js --school <id> --out <파일>`로 만든 학교별 파일을 검사한다(`INGEST.md` §8). 데이터 구조를 바꾸면 이 스크립트도 같이 고친다.
