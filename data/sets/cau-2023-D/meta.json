@@ -1,0 +1,27 @@
+{
+ "id": "cau-2023-D",
+ "school": "cau",
+ "year": 2023,
+ "name": "중앙대 D",
+ "session": "가군 일요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "프레임과 사실의 수용",
+  "편향 동화와 입장 강화",
+  "심의민주주의와 집계적 민주주의"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "언어·인식",
+  "사회·공동체"
+ ],
+ "variant": "hwang"
+}

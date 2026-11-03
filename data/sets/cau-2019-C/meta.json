@@ -1,0 +1,26 @@
+{
+ "id": "cau-2019-C",
+ "school": "cau",
+ "year": 2019,
+ "name": "중앙대 C",
+ "session": "가군",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "사회적 자본과 경제성장",
+  "중국의 경제력과 국가신뢰도 격차"
+ ],
+ "tags": [
+  "사회·공동체",
+  "경제·시장",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

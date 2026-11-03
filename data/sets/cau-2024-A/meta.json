@@ -1,0 +1,27 @@
+{
+ "id": "cau-2024-A",
+ "school": "cau",
+ "year": 2024,
+ "name": "중앙대 A",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "무작위 시 작법(다다이즘)",
+  "기계적 저술과 효율성(라퓨타)",
+  "우연과 행위의 회화(드리핑)"
+ ],
+ "tags": [
+  "문화·예술",
+  "과학기술·AI",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

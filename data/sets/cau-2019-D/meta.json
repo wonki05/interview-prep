@@ -1,0 +1,27 @@
+{
+ "id": "cau-2019-D",
+ "school": "cau",
+ "year": 2019,
+ "name": "중앙대 D",
+ "session": "가군",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "태양광발전기의 외부효과",
+  "코스의 정리와 민간 협상",
+  "소유 효과(와인·머그컵 실험)"
+ ],
+ "tags": [
+  "경제·시장",
+  "법·제도",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

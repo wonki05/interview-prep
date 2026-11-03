@@ -1,0 +1,27 @@
+{
+ "id": "cau-2024-C",
+ "school": "cau",
+ "year": 2024,
+ "name": "중앙대 C",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "공적 참여와 공익 중시",
+  "유권자 유형(호빗·훌리건·벌컨)",
+  "권세가의 사익과 법술지사의 고독"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

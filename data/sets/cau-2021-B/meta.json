@@ -1,0 +1,26 @@
+{
+ "id": "cau-2021-B",
+ "school": "cau",
+ "year": 2021,
+ "name": "중앙대 B",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "시장 정보의 침묵(곡물 상인)",
+  "하자의 고지의무(주택 매매)"
+ ],
+ "tags": [
+  "윤리",
+  "경제·시장",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

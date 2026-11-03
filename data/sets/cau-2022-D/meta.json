@@ -1,0 +1,26 @@
+{
+ "id": "cau-2022-D",
+ "school": "cau",
+ "year": 2022,
+ "name": "중앙대 D",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "문명의 역설적 빈곤(과시소비)",
+  "하우스리스와 노마드의 삶"
+ ],
+ "tags": [
+  "경제·시장",
+  "사회·공동체",
+  "윤리"
+ ],
+ "variant": "hwang"
+}

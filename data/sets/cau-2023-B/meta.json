@@ -1,0 +1,26 @@
+{
+ "id": "cau-2023-B",
+ "school": "cau",
+ "year": 2023,
+ "name": "중앙대 B",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "헌신적 사랑과 약자 배려",
+  "잃어버린 반쪽을 향한 에로스",
+  "갈등의 공동 해결로서의 사랑"
+ ],
+ "tags": [
+  "윤리",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

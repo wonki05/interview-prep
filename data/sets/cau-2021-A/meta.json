@@ -1,0 +1,27 @@
+{
+ "id": "cau-2021-A",
+ "school": "cau",
+ "year": 2021,
+ "name": "중앙대 A",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "편향동화와 기존 신념 강화",
+  "탈개인화와 잔혹 행위(전쟁)",
+  "포퓰리즘과 정치적 이원론"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "사회·공동체",
+  "언어·인식"
+ ],
+ "variant": "kim"
+}

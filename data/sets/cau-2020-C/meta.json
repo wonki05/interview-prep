@@ -1,0 +1,27 @@
+{
+ "id": "cau-2020-C",
+ "school": "cau",
+ "year": 2020,
+ "name": "중앙대 C",
+ "session": "가군",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "갑질과 우회적 대응(포인트 월급)",
+  "SNS와 인간관계의 거리"
+ ],
+ "tags": [
+  "윤리",
+  "사회·공동체",
+  "경제·시장",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

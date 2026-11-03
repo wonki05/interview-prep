@@ -1,0 +1,26 @@
+{
+ "id": "cau-2022-A",
+ "school": "cau",
+ "year": 2022,
+ "name": "중앙대 A",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "이자의 정당성(이중지급)",
+  "이자제한법 폐지(최고이자율)"
+ ],
+ "tags": [
+  "경제·시장",
+  "법·제도",
+  "윤리"
+ ],
+ "variant": "kim"
+}

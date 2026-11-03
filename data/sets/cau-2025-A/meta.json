@@ -1,0 +1,27 @@
+{
+ "id": "cau-2025-A",
+ "school": "cau",
+ "year": 2025,
+ "name": "중앙대 A",
+ "session": "가군 일요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "유추와 닮음(기능 대 형태)",
+  "운명의 여신과 정의의 여신",
+  "우연과 이성(주사위·체스·백개먼)"
+ ],
+ "tags": [
+  "법철학",
+  "언어·인식",
+  "문화·예술"
+ ],
+ "variant": "kim"
+}

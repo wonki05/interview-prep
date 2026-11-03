@@ -1,0 +1,28 @@
+{
+ "id": "cau-2022-B",
+ "school": "cau",
+ "year": 2022,
+ "name": "중앙대 B",
+ "session": "가군 일요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "논쟁과 대화(공공도덕의 성립)",
+  "사회적 폭포효과와 집단 극단화",
+  "파벌의 원인과 인간 본성"
+ ],
+ "tags": [
+  "사회·공동체",
+  "정치·민주주의",
+  "윤리",
+  "언어·인식"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,26 @@
+{
+ "id": "cau-2022-C",
+ "school": "cau",
+ "year": 2022,
+ "name": "중앙대 C",
+ "session": "가군 일요일 오전",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "예술의 이해와 보편적 즐거움",
+  "온당한 묘사와 취향(구두장이)",
+  "모방이 아닌 표현으로서의 미술"
+ ],
+ "tags": [
+  "문화·예술",
+  "언어·인식"
+ ],
+ "variant": "kim"
+}

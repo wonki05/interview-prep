@@ -1,0 +1,25 @@
+{
+ "id": "cau-2019-B",
+ "school": "cau",
+ "year": 2019,
+ "name": "중앙대 B",
+ "session": "가군",
+ "track": "일반전형",
+ "instruction": "아래 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "무관한 숫자의 앵커링 효과",
+  "초기 자산구성과 투자 선택"
+ ],
+ "tags": [
+  "경제·시장",
+  "언어·인식"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,27 @@
+{
+ "id": "cau-2023-C",
+ "school": "cau",
+ "year": 2023,
+ "name": "중앙대 C",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "단기기억과 해마(장기기억 전환)",
+  "서술적 기억(말로 설명 가능)",
+  "절차기억(반복 연습·자동 수행)"
+ ],
+ "tags": [
+  "언어·인식",
+  "과학기술·AI",
+  "법·제도"
+ ],
+ "variant": "hwang"
+}

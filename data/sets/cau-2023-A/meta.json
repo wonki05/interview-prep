@@ -1,0 +1,28 @@
+{
+ "id": "cau-2023-A",
+ "school": "cau",
+ "year": 2023,
+ "name": "중앙대 A",
+ "session": "가군 일요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "눈속임과 사실적 모방",
+  "키치와 예술의 대중화",
+  "복제와 유일성의 해체"
+ ],
+ "tags": [
+  "문화·예술",
+  "법·제도",
+  "과학기술·AI",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}

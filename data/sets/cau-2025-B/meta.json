@@ -1,0 +1,27 @@
+{
+ "id": "cau-2025-B",
+ "school": "cau",
+ "year": 2025,
+ "name": "중앙대 B",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "애도와 멜랑콜리의 구분",
+  "좌절된 사랑과 자살(베르테르)",
+  "사랑의 유한함과 기다림의 자세"
+ ],
+ "tags": [
+  "문화·예술",
+  "생명·환경",
+  "윤리"
+ ],
+ "variant": "kim"
+}

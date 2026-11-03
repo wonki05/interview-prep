@@ -1,0 +1,26 @@
+{
+ "id": "cau-2020-B",
+ "school": "cau",
+ "year": 2020,
+ "name": "중앙대 B",
+ "session": "가군",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "친모 판별과 모성애(포청천)",
+  "양육과 진짜 어머니(그루쉐)"
+ ],
+ "tags": [
+  "법·제도",
+  "윤리",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}
