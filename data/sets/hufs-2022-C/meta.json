@@ -1,0 +1,24 @@
+{
+ "id": "hufs-2022-C",
+ "school": "hufs",
+ "year": 2022,
+ "name": "한국외대 C",
+ "session": "가군 일요일 오전",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "국회의원 연임 제한(4선 금지)"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

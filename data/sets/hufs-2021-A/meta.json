@@ -1,0 +1,26 @@
+{
+ "id": "hufs-2021-A",
+ "school": "hufs",
+ "year": 2021,
+ "name": "한국외대 A",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "방역과 프라이버시(위치 추적)"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체",
+  "윤리",
+  "과학기술·AI"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2023-D",
+ "school": "hufs",
+ "year": 2023,
+ "name": "한국외대 D",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "의무투표제 도입 찬반"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "법·제도",
+  "법철학"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,26 @@
+{
+ "id": "hufs-2025-A",
+ "school": "hufs",
+ "year": 2025,
+ "name": "한국외대 A",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "불법체류자 합법화(인력난과 법치)"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체",
+  "법철학",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}

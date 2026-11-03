@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2023-A",
+ "school": "hufs",
+ "year": 2023,
+ "name": "한국외대 A",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "공원 음주 금지의 정당성"
+ ],
+ "tags": [
+  "법·제도",
+  "법철학",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

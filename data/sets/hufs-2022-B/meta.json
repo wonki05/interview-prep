@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2022-B",
+ "school": "hufs",
+ "year": 2022,
+ "name": "한국외대 B",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "통계의 객관성과 계량성의 착각"
+ ],
+ "tags": [
+  "언어·인식",
+  "사회·공동체",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

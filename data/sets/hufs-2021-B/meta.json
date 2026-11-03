@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2021-B",
+ "school": "hufs",
+ "year": 2021,
+ "name": "한국외대 B",
+ "session": "가군 일요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "플랫폼 알고리즘 개입과 악용 우려"
+ ],
+ "tags": [
+  "법·제도",
+  "정치·민주주의",
+  "과학기술·AI"
+ ],
+ "variant": "kim"
+}

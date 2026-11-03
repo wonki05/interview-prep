@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2023-C",
+ "school": "hufs",
+ "year": 2023,
+ "name": "한국외대 C",
+ "session": "가군 일요일 오전",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "노인 연령 상향(재정·일자리)"
+ ],
+ "tags": [
+  "사회·공동체",
+  "경제·시장",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

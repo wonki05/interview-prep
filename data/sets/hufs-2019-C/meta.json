@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2019-C",
+ "school": "hufs",
+ "year": 2019,
+ "name": "한국외대 C",
+ "session": "나군 오전",
+ "track": "일반전형",
+ "instruction": "아래 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "신디지털 격차(소득별 기기 노출)"
+ ],
+ "tags": [
+  "과학기술·AI",
+  "사회·공동체",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}

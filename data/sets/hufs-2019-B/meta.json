@@ -1,0 +1,27 @@
+{
+ "id": "hufs-2019-B",
+ "school": "hufs",
+ "year": 2019,
+ "name": "한국외대 B",
+ "session": "가군 오후",
+ "track": "일반전형",
+ "instruction": "아래 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "독일 이민포용정책 후퇴(AFD)",
+  "반이민 행정명령 합헌과 인권침해"
+ ],
+ "tags": [
+  "사회·공동체",
+  "정치·민주주의",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,26 @@
+{
+ "id": "hufs-2022-A",
+ "school": "hufs",
+ "year": 2022,
+ "name": "한국외대 A",
+ "session": "가군 일요일 오후",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "ESG 공개 의무화와 기업 자율"
+ ],
+ "tags": [
+  "경제·시장",
+  "법·제도",
+  "생명·환경",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

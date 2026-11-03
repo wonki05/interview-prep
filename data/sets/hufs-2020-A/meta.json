@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2020-A",
+ "school": "hufs",
+ "year": 2020,
+ "name": "한국외대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "재산 비례 벌금제(노키아 사례)"
+ ],
+ "tags": [
+  "법철학",
+  "법·제도",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}

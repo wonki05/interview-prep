@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2019-D",
+ "school": "hufs",
+ "year": 2019,
+ "name": "한국외대 D",
+ "session": "나군 오후",
+ "track": "일반전형",
+ "instruction": "아래 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "글로벌 공공선과 경제적 가치 충돌"
+ ],
+ "tags": [
+  "경제·시장",
+  "윤리",
+  "정치·민주주의"
+ ],
+ "variant": "kim"
+}

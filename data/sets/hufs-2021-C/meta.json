@@ -1,0 +1,25 @@
+{
+ "id": "hufs-2021-C",
+ "school": "hufs",
+ "year": 2021,
+ "name": "한국외대 C",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "저탄소 규제와 경제발전"
+ ],
+ "tags": [
+  "생명·환경",
+  "경제·시장",
+  "법·제도"
+ ],
+ "variant": "kim"
+}
