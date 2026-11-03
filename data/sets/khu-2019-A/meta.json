@@ -1,0 +1,26 @@
+{
+ "id": "khu-2019-A",
+ "school": "khu",
+ "year": 2019,
+ "name": "경희대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 다음 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "AI 위협론과 개발 규제",
+  "AI 면접관의 공정성과 편향"
+ ],
+ "tags": [
+  "과학기술·AI",
+  "윤리",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,27 @@
+{
+ "id": "khu-2024-A",
+ "school": "khu",
+ "year": 2024,
+ "name": "경희대 A",
+ "session": "가군 오전 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "탈성장론(제국적 생활양식)",
+  "그린 뉴딜과 연금기금 재투자",
+  "석유 문명과 세대 간 책임"
+ ],
+ "tags": [
+  "생명·환경",
+  "경제·시장",
+  "윤리"
+ ],
+ "variant": "kim"
+}

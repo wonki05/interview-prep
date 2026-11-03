@@ -1,0 +1,27 @@
+{
+ "id": "khu-2020-A",
+ "school": "khu",
+ "year": 2020,
+ "name": "경희대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "도시 재생의 개념과 부작용",
+  "젠트리피케이션과 세입자 축출",
+  "오버투어리즘과 관광지화"
+ ],
+ "tags": [
+  "사회·공동체",
+  "경제·시장",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

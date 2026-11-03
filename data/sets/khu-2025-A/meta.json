@@ -1,0 +1,27 @@
+{
+ "id": "khu-2025-A",
+ "school": "khu",
+ "year": 2025,
+ "name": "경희대 A",
+ "session": "가군 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "기계의 위험과 통제(원숭이 발)",
+  "AI 위협론 반박과 가치정렬",
+  "지능의 도덕 중립성과 목적 위임",
+  "이야기 만들기와 인간의 주체성"
+ ],
+ "tags": [
+  "과학기술·AI",
+  "윤리"
+ ],
+ "variant": "kim"
+}

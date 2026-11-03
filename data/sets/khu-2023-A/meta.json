@@ -1,0 +1,26 @@
+{
+ "id": "khu-2023-A",
+ "school": "khu",
+ "year": 2023,
+ "name": "경희대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "과학적 실재론(수성 궤도)",
+  "도구주의(예측력과 실용성)",
+  "마음의 이론(로봇 병 실험)"
+ ],
+ "tags": [
+  "과학기술·AI",
+  "언어·인식"
+ ],
+ "variant": "kim"
+}

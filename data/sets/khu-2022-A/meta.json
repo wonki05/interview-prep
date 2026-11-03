@@ -1,0 +1,29 @@
+{
+ "id": "khu-2022-A",
+ "school": "khu",
+ "year": 2022,
+ "name": "경희대 A",
+ "session": "면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "연대와 공동책임(총체인격)",
+  "자유의 대가와 자기책임",
+  "소비자 주권과 자원 배분",
+  "공인의 책무와 사적 영역"
+ ],
+ "tags": [
+  "윤리",
+  "사회·공동체",
+  "경제·시장",
+  "정치·민주주의"
+ ],
+ "variant": "kim"
+}
