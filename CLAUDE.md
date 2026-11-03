@@ -25,12 +25,14 @@ Claude Code가 이 저장소에서 작업할 때 따르는 규칙. Codex는 같�
 ## 3. 파일 지도
 
 ```
-index.html / practice.html / db.html / library.html   페이지 셸(헤드에서 app.css, app.js, data/*.js, ai.js 로드)
+index.html / practice.html / db.html / library.html   페이지 셸(헤드에서 app.css, app.js, data/*.js, ai.js, records.js 로드)
 assets/app.css      토큰(밝음/어둠), 공통 컴포넌트, 시간표 띠(.tl), 단계 선택(.step), 세션 레이아웃(.session), 기출DB(.dbgrid), 서가
-assets/app.js       설정 저장소(localStorage "snu-iv-settings-v1"), 테마/블루라이트/글자 크기, 앱바, 설정 서랍, 시간표 띠 생성, 모델 목록 select, SNU.db 데이터 접근
-assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setContext(제시문 전문+복기 질문 전체), 프롬프트 빌더, nextQuestion/classify/respond
-assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder→IndexedDB "snu-interview"), STT/TTS, 결정 트리 보행
-assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1")
+assets/app.js       설정 저장소(localStorage "snu-iv-settings-v1"), 테마/블루라이트/글자 크기, 앱바, 설정 서랍, 시간표 띠 생성, 모델 목록 select, 누적 AI 결과 목록(SNU.runs), SNU.db 데이터 접근
+assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setContext(제시문 전문+복기 질문 전체), 프롬프트 빌더, nextQuestion/classify/respond/exampleAnswers/explainPassages/review(면접 피드백)
+assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder)·세션 기록 저장(records.js), STT/TTS, 결정 트리 보행, 종료 화면 AI 피드백
+assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1"), 예시답변·제시문 해설 화면
+assets/db-study.js  기출DB 학습 도우미: AI 면접해설 설정, 서가 지연 로드, 예시답변·제시문 해설 결과 누적(localStorage "snu-db-study-v1")
+assets/records.js   면접 기록: IndexedDB "snu-interview"(sessions·recordings), 기록 서랍(앱바, 모든 화면), AI 피드백
 assets/library.js   서가: 개요/도서/쟁점/읽는 순서, 책 상세 서랍, 진도(localStorage "snu-library-progress-v1")
 data/sets/          세트 원본(<set id>/meta·kim·hwang·merged.json, _db.json의 levels·학교 format). 고친 뒤 tools/build_questions.js
 data/questions.js   INTERVIEW_DB = { levels, schools[] } — data/sets/에서 생성. 서울대 18 · 고려대 7 · 연세대 9 · 성균관대 14 · 한양대 7 · 서강대 14 · 중앙대 28세트, 결정 트리 예시(snu-2023-A), 다른 3개 학교 빈 자리

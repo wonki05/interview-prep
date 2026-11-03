@@ -1,5 +1,5 @@
 /* ============================================================
-   공통 스크립트: 설정 저장소, 테마·블루라이트·글자 크기 적용, 설정 서랍, 앱바, 시간표 띠, 모델 목록.
+   공통 스크립트: 설정 저장소, 테마·블루라이트·글자 크기 적용, 설정 서랍, 앱바, 시간표 띠, 모델 목록, 누적 AI 결과 목록.
    모든 페이지가 먼저 읽는다. 설정은 localStorage에 저장하며 서버로 보내지 않는다.
    ============================================================ */
 (function () {
@@ -140,10 +140,20 @@
     }).join("")}</div>`;
   }
 
+  /* ---------- 누적 AI 결과(예시답변·제시문 해설·면접 피드백) ----------
+     list: 최신순 결과 [{at, model, effort, stale?}]. opts: { open: 펼친 결과의 at 집합, attrs: 결과·삭제 버튼에 붙일 data 속성, body(run) }.
+     결과마다 접는 블록(n차 · 모델 · effort · 시각)과 삭제 버튼. stale은 원문이 바뀌기 전 결과 표시. */
+  function runs(list, opts) {
+    const attrs = opts.attrs || "";
+    return `<div class="runs">${list.map((run, i) => `<details class="fold run" data-run="${run.at}" ${attrs} ${opts.open.has(run.at) ? "open" : ""}><summary><b>${list.length - i}차</b><span class="small muted">${esc(run.model)} · ${esc(models.effortLabel(run.effort))} · ${esc(new Date(run.at).toLocaleString("ko-KR"))}</span>${run.stale ? '<span class="chip line">이전 원문</span>' : ""}</summary><div class="fold-b">${opts.body(run)}<div class="row"><button type="button" class="btn sm ghost" data-run-del="${run.at}" ${attrs}>삭제</button></div></div></details>`).join("")}</div>`;
+  }
+
   /* ---------- 앱바 ---------- */
   function mountAppbar() {
     const page = document.body.dataset.page || "";
     const gear = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+    const clock = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>';
+    const records = window.Records ? `<button type="button" class="iconbtn" id="openRecords" aria-label="면접 기록" title="면접 기록">${clock}</button>` : "";   // assets/records.js를 읽은 화면만
     const bar = document.createElement("header");
     bar.className = "appbar";
     const cur = p => page === p ? 'aria-current="page"' : "";
@@ -155,12 +165,13 @@
         <a href="db.html" ${cur("db")}>기출DB</a>
         <a href="library.html" ${cur("library")}>서가</a>
       </nav>
-      <button type="button" class="iconbtn" id="openSettings" aria-label="설정" title="설정">${gear}</button>
+      ${records}<button type="button" class="iconbtn" id="openSettings" aria-label="설정" title="설정">${gear}</button>
     </div>`;
     document.body.prepend(bar);
     const bl = document.createElement("div"); bl.className = "bluelight"; bl.setAttribute("aria-hidden", "true");
     document.body.append(bl);
     $("#openSettings").addEventListener("click", openSettings);
+    if (records) $("#openRecords").addEventListener("click", () => window.Records.open());
   }
 
   /* ---------- 설정 서랍 ---------- */
@@ -262,10 +273,15 @@
   }
   function closeSettings() {
     if (!drawer) return;
-    drawer.remove(); shade.remove(); drawer = shade = null; document.body.style.overflow = "";
-    if (lastFocus && lastFocus.focus) lastFocus.focus();
+    drawer.remove(); shade.remove(); drawer = shade = null;
+    document.body.style.overflow = document.querySelector(".drawer, .bdrawer") ? "hidden" : "";   // 기록 서랍 위에서 열었으면 잠금 유지
+    /* 연 버튼이 그 사이 다시 그려졌으면(기록 서랍의 피드백 영역 등) 남은 서랍의 닫기 버튼이나 톱니로 초점을 돌린다. */
+    const back = lastFocus && lastFocus.isConnected ? lastFocus : document.querySelector("#recordsDrawer #rClose") || document.getElementById("openSettings");
+    if (back && back.focus) back.focus();
   }
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer) closeSettings(); });
+  /* 서랍이 겹치면 나중에 연(DOM 뒤쪽) 서랍이 맨 위다. Esc는 맨 위 서랍만 닫는다. */
+  function topDrawer() { const all = document.querySelectorAll(".drawer, .bdrawer"); return all.length ? all[all.length - 1] : null; }
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer && topDrawer() === drawer) closeSettings(); });
 
   /* ---------- 기출 데이터 접근(데이터 파일이 있는 페이지에서만) ----------
      세트는 복기본 변형(set.variants: merged | hwang | kim)을 가진다(docs/DATA.md §1). 여기서 변형 하나를 골라
@@ -306,7 +322,7 @@
   };
 
   /* ---------- 공개 ---------- */
-  window.SNU = { SITE, settings, save, store, $, $$, esc, openSettings, DEFAULTS, timeline, db, models,
+  window.SNU = { SITE, settings, save, store, $, $$, esc, openSettings, topDrawer, DEFAULTS, timeline, runs, db, models,
     fmtClock(sec) { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${String(s).padStart(2, "0")}`; }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountAppbar); else mountAppbar();

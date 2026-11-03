@@ -117,7 +117,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .brand { display: flex; align-items: baseline; gap: 8px; text-decoration: none; color: var(--ink); white-space: nowrap; min-width: 0; }
 .brand b { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 760px) { .appbar-in { flex-wrap: wrap; gap: 0 10px; padding-top: 8px; } .brand { order: 0; flex: 1 1 auto; } .brand b { font-size: .95rem; } .iconbtn { order: 1; } .nav { order: 2; flex: 1 1 100%; } .nav a { padding: 8px 10px 10px; } }
 .nav { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { padding: 16px 12px 14px; color: var(--ink-2); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; font-weight: 500; }
@@ -126,6 +125,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 .iconbtn { flex: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; color: var(--ink-2); }
 .iconbtn:hover { color: var(--ink); border-color: var(--ink-3); }
 .iconbtn svg { width: 18px; height: 18px; }
+/* 모바일: 브랜드(말줄임)·아이콘 줄 + 메뉴 줄. 기본 규칙보다 뒤에 두어야 .nav·.nav a가 덮인다 */
+@media (max-width: 760px) { .appbar-in { flex-wrap: wrap; gap: 0 10px; padding-top: 8px; } .brand { order: 0; flex: 1 1 0; } .brand b { font-size: .95rem; } .iconbtn { order: 1; } .nav { order: 2; flex: 1 1 100%; } .nav a { padding: 8px 10px 10px; } }
 
 /* ---------- 본문 ---------- */
 main { padding-block: 32px 88px; }
@@ -426,6 +427,13 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .study-list { padding-left: 1.2em; margin: 0; font-size: .92rem; line-height: 1.7; }
 .study-list li + li { margin-top: 6px; }
 .study-books a { font-weight: 600; }
+/* 누적 AI 결과(예시답변·제시문 해설·면접 피드백): 결과마다 접는 블록, 최신이 위 */
+.runs { display: flex; flex-direction: column; min-width: 0; }
+.runs > .fold + .fold > summary, .study-result > .runs:first-child > .fold:first-child > summary { border-top: 0; }
+.study-result > .runs:first-child > .fold:first-child > summary { padding-top: 0; }
+.runs > .fold[open] + .fold > summary { border-top: 1px solid var(--line); }   /* 펼친 결과 아래 구분선 */
+.fold.run > summary { flex-wrap: wrap; gap: 4px 10px; font-weight: 500; }
+.fold.run > summary b { font-weight: 600; }
 @media (max-width: 560px) { .qhead, .thread, .question-study { padding-inline: 12px; } }
 .msg { padding: 12px 14px; border-radius: 10px; max-width: 72ch; font-size: .95rem; line-height: 1.65; }
 .msg.user { background: var(--surface-2); }
@@ -449,6 +457,8 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .d-sec { display: flex; flex-direction: column; gap: 12px; padding-top: 18px; border-top: 1px solid var(--line); }
 .d-sec h3 { font-size: .95rem; }
 .d-sec .d-desc { font-size: .82rem; color: var(--ink-3); }
+/* 면접 기록 서랍: 설정 서랍과 같은 구조, 문답·피드백을 읽도록 넓게 */
+.drawer.wide { width: min(760px, 100%); }
 
 /* ---------- 서가 ---------- */
 .g { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; border-radius: 4px; font-size: 12px; font-weight: 600; line-height: 1; font-family: var(--font-ui); }

@@ -5,6 +5,7 @@
    모드: timed 1-A 면접시간 AI 면접관 / endless 1-B 무한시간 AI 면접관 / all 2 무한시간 모든 질문 답변
    답변: 음성(MediaRecorder 녹음 → IndexedDB, 전사는 브라우저 음성 인식 또는 직접 입력) 또는 텍스트 입력.
    AI: assets/ai.js. 제공사·모델은 옵션 창에서 고르고(기본값은 설정), 키가 없으면 복기 질문 은행(변형 없음)으로 대체한다.
+   기록: assets/records.js. 답변을 제출할 때마다 세션 기록(문답·메모·옵션)을 저장하고, 종료 화면에서 AI 피드백을 받는다.
    ============================================================ */
 (function () {
   "use strict";
@@ -20,20 +21,8 @@
     all:     { code: "2",   label: "무한시간 모든 질문 답변", desc: "복기된 추가질문을 학생별 순서로 전부 답한다.", feats: ["제한 없음", "복기 질문 전체", "AI 없음"], ai: false, timed: false }
   };
 
-  /* ---------------- IndexedDB: 녹음 보관 ---------------- */
-  const DBN = "snu-interview", STORE = "recordings";
-  function openDb() {
-    return new Promise((res, rej) => {
-      if (!("indexedDB" in window)) return rej(new Error("IndexedDB 없음"));
-      const r = indexedDB.open(DBN, 1);
-      r.onupgradeneeded = e => { const d = e.target.result; if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: "id" }); };
-      r.onsuccess = e => res(e.target.result); r.onerror = () => rej(r.error);
-    });
-  }
-  async function dbTx(mode, fn) { const d = await openDb(); return new Promise((res, rej) => { const tx = d.transaction(STORE, mode); const o = tx.objectStore(STORE); const out = fn(o); tx.oncomplete = () => res(out && out.result !== undefined ? out.result : out); tx.onerror = () => rej(tx.error); }); }
-  const dbPut = rec => dbTx("readwrite", o => o.put(rec));
-  const dbDel = id => dbTx("readwrite", o => o.delete(id));
-  async function dbAll() { try { const d = await openDb(); return await new Promise((res, rej) => { const r = d.transaction(STORE).objectStore(STORE).getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); }); } catch (e) { return []; } }
+  /* ---------------- 녹음·세션 기록 보관: IndexedDB "snu-interview"(assets/records.js) ---------------- */
+  const Records = window.Records;
 
   /* ---------------- 녹음기 ---------------- */
   const recorder = {
@@ -114,7 +103,8 @@
     sessionId: "", phaseEnd: 0, phaseStart: 0, tick: 0,
     queue: [], qi: 0, cur: null, history: [], recordings: [],
     recording: false, answered: false, transcript: "", interim: "", thinking: false, aiNote: "",
-    memo: "", tab: "interview", knocked: false, treeNode: null, pendingBranches: null, err: "", lastAnswer: null
+    memo: "", tab: "interview", knocked: false, treeNode: null, pendingBranches: null, err: "", lastAnswer: null,
+    startedAt: 0, options: null, aiUsed: null, ending: false, saveChain: Promise.resolve(), saveErr: ""   // 세션 기록(assets/records.js)
   };
   {
     const want = params.get("set") || S().lastSet;
@@ -162,11 +152,11 @@
       </div>
 
       <section class="sec">
-        <div class="sec-head"><h2 class="h2">녹음 보관함</h2></div>
-        <div class="reclist" id="vault"><p class="small muted">불러오는 중…</p></div>
+        <div class="row between"><h2 class="h2">지난 면접</h2><button type="button" class="btn sm" id="openRecordsList">전체 기록</button></div>
+        <div id="vault"><p class="small muted">불러오는 중…</p></div>
       </section>`;
     bindOptions();
-    renderVault($("#vault"));
+    Records.mountList($("#vault"), 5);
   }
   function schoolTabs() {
     return `<div class="schooltabs" role="group" aria-label="학교" id="schoolTabs">${db.schools().map(s => `<button type="button" data-school="${s.id}" aria-pressed="${s.id === st.schoolId}" class="${s.id === "snu" ? "main" : ""} ${s.sets.length ? "" : "empty"}">${esc(s.short)}${s.sets.length ? `<span class="n">${s.sets.length}</span>` : ""}</button>`).join("")}</div>`;
@@ -262,6 +252,7 @@
     const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; st.ai.effort = undefined; refreshOptions(); return; }
     if (t.closest("#aiSaveDefault")) { const ai = AI.resolve(sessionAi()); st.ai.model = ""; st.ai.effort = undefined; save({ provider: ai.provider, [ai.provider + "Model"]: ai.model, [ai.provider + "Effort"]: ai.effort || "medium" }); return; }
     if (t.closest("#optOpenSettings")) { window.SNU.openSettings(); return; }
+    if (t.closest("#openRecordsList")) { Records.open(); return; }
     if (t.closest("#startBtn")) { startSession(); return; }
   });
   app.addEventListener("change", e => {
@@ -281,13 +272,6 @@
   function scrollToStep(n) { const el = $("#step" + n); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
   document.addEventListener("settings:change", () => { if (st.phase === "setup" && st.step === 3) refreshOptions(); });
 
-  async function renderVault(el, sessionOnly) {
-    const all = (await dbAll()).filter(r => !sessionOnly || r.sessionId === st.sessionId).sort((a, b) => b.createdAt - a.createdAt);
-    if (!el.isConnected) return;
-    if (!all.length) { el.innerHTML = `<p class="small muted">녹음 없음</p>`; return; }
-    el.innerHTML = all.map(r => recItem(r)).join("");
-    $$("[data-del]", el).forEach(b => b.addEventListener("click", async () => { await dbDel(b.dataset.del); renderVault(el, sessionOnly); }));
-  }
   function recItem(r) {
     const url = URL.createObjectURL(r.blob);
     return `<div class="recitem"><div style="min-width:0"><div class="q">${esc(r.question)}</div><div class="m">${esc(r.setLabel)} · ${esc(r.modeLabel)} · ${new Date(r.createdAt).toLocaleString("ko-KR")} · ${fmtClock(r.duration)}</div><audio controls preload="none" src="${url}"></audio></div>
@@ -304,7 +288,33 @@
     audioCtx(); keepAwake();
     st.sessionId = Date.now().toString(36); st.history = []; st.recordings = []; st.qi = 0; st.cur = null; st.knocked = false; st.memo = ""; st.err = ""; st.treeNode = null; st.pendingBranches = null; st.tab = "passage";
     st.queue = st.mode === "all" ? pool(set()) : [];
+    /* 기록에 남길 옵션과 면접관 모델은 시작할 때 고정한다(세션 중 설정을 바꿔도 기록이 흔들리지 않게). */
+    const ai = AI.resolve(sessionAi());
+    st.startedAt = Date.now(); st.ending = false; st.saveChain = Promise.resolve(); st.saveErr = "";
+    st.options = mode().ai ? { difficulty: s.difficulty, variation: s.variation, flow: s.flow } : null;
+    st.aiUsed = mode().ai && ai.configured ? { provider: ai.provider, model: ai.model, effort: ai.effort, label: ai.label } : null;
     enterPhase("prep", st.plan.prep * 60);
+  }
+  /* ---------------- 세션 기록 ----------------
+     답변을 제출할 때마다 저장해 탭이 닫혀도 그때까지의 문답이 남는다(endedAt 없음 = 중단). 문답·메모가 없으면 저장하지 않는다. */
+  function sessionRecord(final) {
+    const cs = set(), m = mode();
+    return {
+      id: st.sessionId, setId: cs.id, variant: cs.variant, school: cs.school, setLabel: db.label(cs), variantLabel: cs.variantLabel,
+      mode: st.mode, modeLabel: m.code + " " + m.label, answerMode: st.answerMode, plan: Object.assign({}, st.plan), options: st.options, ai: st.aiUsed,
+      createdAt: st.startedAt, updatedAt: Date.now(), endedAt: final ? Date.now() : null,
+      history: st.history.map(h => ({ q: h.q, a: h.a || "", group: h.group || "", recFilename: h.rec ? h.rec.filename : "", duration: h.rec ? h.rec.duration : 0 })),
+      memo: st.memo
+    };
+  }
+  let memoTimer = 0;
+  function saveRecord(final) {
+    clearTimeout(memoTimer);
+    if (st.ending && !final) return Promise.resolve(false);   // 종료를 시작한 뒤의 중간 저장이 종료 기록을 '중단'으로 되돌리지 않게
+    if (!st.history.length && !(final && st.memo.trim())) return Promise.resolve(false);
+    const rec = sessionRecord(final);
+    st.saveChain = st.saveChain.then(() => Records.saveSession(rec)).catch(() => false).then(saved => { st.saveErr = saved ? "" : "기록 저장 실패: 새로 고침하면 사라진다."; return true; });
+    return st.saveChain;
   }
   function afterPrep() { if (st.plan.wait > 0) enterPhase("wait", st.plan.wait * 60); else enterPhase("interview", st.plan.interview * 60); }
   function enterPhase(p, seconds) {
@@ -353,7 +363,7 @@
   let tbObs = null;
   function bindCommon() {
     const mt = $("#mtabs"); if (mt) mt.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (!b) return; st.tab = b.dataset.tab; $("#session").dataset.tab = st.tab; $$("button", mt).forEach(x => x.setAttribute("aria-pressed", x === b)); });
-    const memo = $("#memo"); if (memo) { const cnt = () => { $("#memoCount").textContent = memo.value.length + "자"; }; cnt(); memo.addEventListener("input", () => { st.memo = memo.value; cnt(); }); }
+    const memo = $("#memo"); if (memo) { const cnt = () => { $("#memoCount").textContent = memo.value.length + "자"; }; cnt(); memo.addEventListener("input", () => { st.memo = memo.value; cnt(); if (st.history.length) { clearTimeout(memoTimer); memoTimer = setTimeout(() => saveRecord(false), 1000); } }); }
     const ab = $("#abort"); if (ab) ab.addEventListener("click", abort);
     /* 오른쪽 열(질문·메모)이 진행 바 아래에 붙도록 진행 바 높이를 CSS 변수로 전달한다 */
     const tb = $("#timerbar"); if (tb) { const setH = () => app.style.setProperty("--tb-h", tb.offsetHeight + "px"); setH(); if (tbObs) tbObs.disconnect(); if ("ResizeObserver" in window) { tbObs = new ResizeObserver(setH); tbObs.observe(tb); } }
@@ -472,19 +482,21 @@
       const cs = set(), n = st.history.length + 1;
       const rec = { id: `${st.sessionId}-${n}`, sessionId: st.sessionId, setId: cs.id, setLabel: db.label(cs), modeLabel: mode().code + " " + mode().label, question: st.cur ? st.cur.q : "", createdAt: Date.now(),
         duration: out.duration, mime: out.mime, blob: out.blob, filename: `${cs.id}_${st.mode}_${st.sessionId}_Q${String(n).padStart(2, "0")}.${extOf(out.mime)}` };
-      try { await dbPut(rec); } catch (e) { st.err = "녹음을 브라우저에 저장하지 못했다(" + e.message + ")."; }
+      try { await Records.putRecording(rec); } catch (e) { st.err = "녹음을 브라우저에 저장하지 못했다(" + e.message + ")."; }
       st.recordings.push(rec); st.lastAnswer = rec;
     }
     st.answered = true; renderQcard();
   }
   function commitAnswer() {
     if (!st.cur) return;
-    st.history.push({ q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null });
+    st.history.push({ q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null, group: st.cur.group || "" });
     const answered = st.transcript; st.cur = null; st.answered = false; st.transcript = ""; st.interim = ""; st.lastAnswer = null;
+    saveRecord(false);
     nextQuestion(answered);
   }
 
   /* ---------------- 다음 질문 결정 ---------------- */
+  function interviewRemaining() { return st.phaseEnd ? Math.max(0, Math.ceil((st.phaseEnd - Date.now()) / 1000)) : null; }
   async function nextQuestion(lastAnswer) {
     const cs = set(), s = S(), ai = AI.resolve(sessionAi());
     if (st.mode === "all") {
@@ -505,7 +517,7 @@
     }
     if (ai.configured) {
       st.thinking = true; st.aiNote = ai.label + " · 난이도 " + D.levels.difficulty[s.difficulty].label + " · 변형도 " + D.levels.variation[s.variation].label; renderQcard();
-      try { const r = await AI.nextQuestion(cs, st.history, s.difficulty, s.variation, sessionAi(), st.plan); st.cur = { q: r.question, focus: r.focus, group: "AI 면접관" }; }
+      try { const r = await AI.nextQuestion(cs, st.history, s.difficulty, s.variation, sessionAi(), st.plan, interviewRemaining()); st.cur = { q: r.question, focus: r.focus, group: "AI 면접관" }; }
       catch (e) { st.err = "AI 호출 실패: " + e.message + " — 복기 질문 은행으로 대체."; st.cur = bankNext(cs); }
       st.thinking = false; showQuestion(); return;
     }
@@ -524,7 +536,7 @@
   async function nextQuestionLive() {
     const cs = set(), s = S(), ai = AI.resolve(sessionAi());
     st.thinking = true; st.aiNote = "트리 종료 → 실시간 생성 · " + ai.label; renderQcard();
-    try { const r = await AI.nextQuestion(cs, st.history, s.difficulty, s.variation, sessionAi(), st.plan); st.cur = { q: r.question, focus: r.focus, group: "AI 면접관" }; }
+    try { const r = await AI.nextQuestion(cs, st.history, s.difficulty, s.variation, sessionAi(), st.plan, interviewRemaining()); st.cur = { q: r.question, focus: r.focus, group: "AI 면접관" }; }
     catch (e) { st.err = "AI 호출 실패: " + e.message + " — 복기 질문 은행으로 대체."; st.cur = bankNext(cs); }
     st.thinking = false; showQuestion();
   }
@@ -538,15 +550,19 @@
 
   /* ---------------- 종료 ---------------- */
   async function endInterview() {
+    if (st.ending) return;                            // 시간 종료와 [면접 종료]가 겹쳐도 한 번만 마친다
+    st.ending = true;
     clearInterval(st.tick);
     if (st.recording) await stopAnswer();
-    if (st.cur && (st.answered || (st.answerMode === "text" && $("#answerText") && $("#answerText").value.trim()))) { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); st.history.push({ q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null }); }
+    if (st.cur && (st.answered || (st.answerMode === "text" && $("#answerText") && $("#answerText").value.trim()))) { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); st.history.push({ q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null, group: st.cur.group || "" }); }
+    st.cur = null;                                    // 남은 [제출]이 같은 질문을 다시 넣지 않게
     try { speechSynthesis.cancel(); } catch (e) {}
-    st.phase = "done"; finishSession();
+    st.phase = "done"; await finishSession();
   }
-  function finishSession() {
+  async function finishSession() {
     recorder.release(); stt.stop(); if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
     app.classList.remove("in-session");
+    const saved = !!(st.history.length || st.memo.trim()), sessionId = st.sessionId;   // 저장할 기록이 있는지(저장은 화면을 그린 뒤)
     const cs = set(), m = mode();
     const total = st.history.reduce((n, h) => n + (h.rec ? h.rec.duration : 0), 0);
     app.innerHTML = `
@@ -554,8 +570,10 @@
         <div class="eyebrow">${esc(db.label(cs))} · ${esc(cs.variantLabel)} · ${m.code} ${esc(m.label)} · ${st.answerMode === "voice" ? "음성" : "텍스트"}</div>
         <h1 class="h1">면접 종료</h1>
         <div class="row"><span class="chip">질문 ${st.history.length}</span>${st.answerMode === "voice" ? `<span class="chip">녹음 ${st.history.filter(h => h.rec).length} · ${fmtClock(total)}</span>` : `<span class="chip">답변 ${st.history.filter(h => h.a).length}</span>`}${st.memo ? `<span class="chip">메모 ${st.memo.length}자</span>` : ""}</div>
-        <div class="row"><button type="button" class="btn primary" id="again">같은 세트 다시</button><a class="btn" href="practice.html">다른 세트</a><a class="btn ghost" href="db.html#${esc(cs.id)}">기출DB에서 보기</a></div>
+        <div class="row"><button type="button" class="btn primary" id="again">같은 세트 다시</button><a class="btn" href="practice.html">다른 세트</a><a class="btn ghost" href="db.html#${esc(cs.id)}">기출DB에서 보기</a>${saved ? '<button type="button" class="btn ghost" id="openRecord" disabled>기록 보기</button>' : ""}</div>
+        <p class="callout warn" id="saveErr" hidden></p>
       </section>
+      ${saved && st.history.length ? '<section class="sec"><div class="sec-head"><h2 class="h2">AI 피드백</h2></div><div class="stack" id="feedback"><p class="small muted">저장 중…</p></div></section>' : ""}
       ${st.answerMode === "voice" ? `<section class="sec"><div class="sec-head"><h2 class="h2">이번 세션 녹음</h2></div><div class="reclist" id="sessionRecs"></div></section>` : ""}
       <section class="sec"><div class="sec-head"><h2 class="h2">문답 기록</h2></div>
         <ol class="qlist">${st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted">${esc(h.a || "(답변 기록 없음)")}</span></span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : "—"}</span></li>`).join("") || '<li><span></span><span class="muted">기록 없음</span><span></span></li>'}</ol></section>
@@ -565,9 +583,17 @@
     $("#again").addEventListener("click", () => { st.phase = "setup"; st.step = 3; st.variant = ""; renderSetup(); });
     const el = $("#sessionRecs");
     if (el) {
-      if (st.recordings.length) { el.innerHTML = st.recordings.map(recItem).join(""); $$("[data-del]", el).forEach(b => b.addEventListener("click", async () => { await dbDel(b.dataset.del); b.closest(".recitem").remove(); })); }
+      if (st.recordings.length) { el.innerHTML = st.recordings.map(recItem).join(""); $$("[data-del]", el).forEach(b => b.addEventListener("click", async () => { await Records.deleteRecording(b.dataset.del, sessionId); b.closest(".recitem").remove(); })); }
       else el.innerHTML = '<p class="small muted">녹음 없음</p>';
     }
+    /* 종료 시각을 남긴 뒤 [기록 보기]·피드백 영역을 붙인다. 그 사이 다른 화면으로 옮겼으면 붙이지 않는다. */
+    if (!saved) return;
+    const record = $("#openRecord"), fb = $("#feedback"), err = $("#saveErr");
+    await saveRecord(true);
+    if (!record.isConnected) return;
+    record.disabled = false; record.addEventListener("click", () => Records.open(sessionId));
+    if (st.saveErr) { err.textContent = st.saveErr; err.hidden = false; }
+    if (fb) Records.mountFeedback(fb, sessionId);
   }
 
   renderSetup();

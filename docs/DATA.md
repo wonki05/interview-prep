@@ -96,24 +96,50 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 | 키 | 내용 |
 |---|---|
 | `localStorage["snu-iv-settings-v1"]` | 설정. 키 이름을 바꾸면 `app.js`에서 마이그레이션(예: 이전 `lastSet: "2023-A"` → `"snu-2023-A"`, `openaiModel: "gpt-5"` → 새 기본값). `variant`(기본 복기본)는 추가된 키라 마이그레이션 없음 |
-| IndexedDB `snu-interview` v1 `recordings` | 녹음. P1-2에서 `sessions` store 추가 시 DB 버전 2로 올리고 `onupgradeneeded`에서 생성 |
+| IndexedDB `snu-interview` v2 `recordings`·`sessions` | 녹음(질문별 blob)과 면접 기록(`assets/records.js`, 아래 구조). v1(`recordings`만)을 v2로 열면 `onupgradeneeded`가 `sessions`만 만들고 기존 녹음은 그대로 둔다 |
 | `localStorage["snu-db-threads-v1"]` | 기출DB 문답. 질문 key = `task-<n>`(문제지 문항, 묶음 "문제"), `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
-| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설 캐시. 문답과 분리, 아래 구조 참조 |
+| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설 결과 목록(생성할 때마다 쌓인다). 문답과 분리, 아래 구조 참조 |
 | `localStorage["snu-library-progress-v1"]` | 서가 진도 |
 
-학습 캐시(`assets/db-study.js`):
+학습 캐시(`assets/db-study.js`, 형식 v2):
 
 ```js
-{ version: 1, entries: {
+{ version: 2, entries: {
   [JSON.stringify([setId, variant])]: {
-    context: "버전·세트 입력 전문·복기 교재·제시문 출전의 JSON 문자열",
-    examples: { [questionKey]: { question, data, model, effort, at } },
-    explanation: { libraryContext: "도서 요약 목록의 JSON 문자열", data, model, effort, at } // 생성 후에만 존재
+    examples: { [questionKey]: [ { question, data, model, effort, at, ctx } ] },   // 생성 순서(오래된 것부터)
+    explanations: [ { data, model, effort, at, ctx, lib } ]
   }
 } }
 ```
 
-`data`는 `docs/AI.md`의 예시답변·해설 응답 구조다. `model`은 생성 당시 표시명, `effort`는 지원 값 또는 `null`, `at`는 생성 시각(ms)이다. 캐시에는 API 키를 넣지 않는다. 원문·문항·질문·출전 변경은 `context`로, 해설의 서가 변경은 `libraryContext`로 판별한다. 다시 열 때도 AI 응답 검증기를 통과해야 재사용한다. 손상된 캐시는 무시하고 저장 용량 부족은 현재 페이지 메모리로 대체한다. `tests/db-study.js`가 구조 검증·무효화·동시 호출·설정 마이그레이션을 검사한다.
+`data`는 `docs/AI.md`의 예시답변·해설 응답 구조다. `model`은 생성 당시 표시명, `effort`는 지원 값 또는 `null`, `at`는 생성 시각(ms)이자 결과의 식별자(같은 화면에서 겹치지 않게 1ms씩 늘린다)다. 캐시에는 API 키를 넣지 않는다. 입력 전문 대신 지문만 남긴다: `ctx`는 입력(지문 버전 1·`setContext`·복기 교재·제시문 출전) JSON의 cyrb53 해시, `lib`는 서가 후보 목록 JSON의 해시다.
+
+- **현재 결과**: `ctx`(예시답변은 질문 문장도, 해설은 `lib`도)가 지금 입력과 같고 AI 응답 검증기를 통과한 가장 최신 결과. `DBStudy.examples`·`explain`은 현재 결과가 있으면 그것을, 없으면 새로 생성한다. 화면의 [예시답변]·[제시문 해설] 버튼은 저장된 결과가 하나도 없을 때만 생성을 부르고(그 밖에는 열고 닫기만 한다), 원문이 바뀐 뒤의 새 결과와 추가 결과는 [다시 생성]으로 받는다. [다시 생성]은 늘 새 결과를 목록 끝에 더한다.
+- **이전 결과**: 형식 검증(`AIClient.validateJson(data, AIClient.schemas.*)`)만 통과하면 지우지 않고 보인다. 원문이 바뀐 뒤의 결과(`ctx` 불일치)는 '이전 원문'으로 표시한다. 결과마다 지울 수 있다(`at`로 하나).
+- **v1 → v2**: v1(세트마다 질문별 결과 하나·해설 하나, 입력 전문 `context`·`libraryContext` 보관)은 읽을 때 결과 목록으로 옮긴다. 지문 버전이 같아 기존 결과는 그대로 현재 결과다. 다음 저장부터 v2로 쓴다.
+- 읽기만으로는 빈 자리를 만들지 않는다. 결과를 더하거나 지우기 직전에 저장소를 다시 읽어(`storage` 이벤트로도) 다른 탭이 쌓은 결과를 덮거나 지운 결과를 되살리지 않는다. 손상된 캐시·레코드는 무시하고 저장 용량 부족은 현재 페이지 메모리로 대체하며 화면에 한 줄 경고한다(그 뒤로는 다시 읽지 않는다). `tests/db-study.js`가 구조 검증·이전·누적·무효화·삭제·동시 호출·설정 마이그레이션을 검사한다.
+
+면접 기록(`assets/records.js`, IndexedDB `snu-interview` / `sessions`, keyPath `id`):
+
+```js
+{
+  id: "mw0zrggw",                     // 세션 id(Date.now().toString(36)) = 녹음 레코드의 sessionId
+  setId, variant, school, setLabel, variantLabel,
+  mode: "timed" | "endless" | "all", modeLabel: "1-A 면접시간 AI 면접관", answerMode: "voice" | "text",
+  plan: { prep, wait, interview },    // 분. interview 0 = 제한 없음
+  options: { difficulty, variation, flow } | null,    // AI 모드만
+  ai: { provider, model, effort, label } | null,      // 면접관 모델. 키 없이 치렀으면 null
+  createdAt, updatedAt, endedAt: number | null,       // endedAt 없음 = 중단(면접 중 탭을 닫음)
+  history: [ { q, a, group, recFilename, duration } ],  // 질문·답변(텍스트 또는 전사)·출처 묶음·녹음 파일명·길이(초)
+  memo: "",
+  feedbacks: [ { data, model, effort, at } ]          // AI 피드백(docs/AI.md §3.4). 오래된 것부터
+}
+```
+
+- 모의면접은 답변을 제출할 때마다 위 기록을 다시 쓰고(첫 답변 뒤의 메모 수정은 1초 뒤), 종료 때 `endedAt`을 채운다. 문답·메모가 모두 없으면 저장하지 않는다. 옵션과 면접관 모델은 시작할 때 고정한다.
+- `feedbacks`는 피드백 영역만 고친다. 모의면접의 저장은 이 필드를 지키고, 읽고 고쳐 쓰기는 한 트랜잭션에서 한다(종료 저장과 피드백 저장이 서로 덮어쓰지 않는다).
+- 녹음 레코드(`recordings`)의 형식은 그대로다. 세션 기록 없이 남은 녹음(v1 시절)은 `sessionId`로 묶어 '녹음만' 기록으로 보인다. 기록을 지우면 그 녹음도 지운다.
+- IndexedDB를 쓸 수 없으면 그 화면 메모리에만 두고 한 줄 경고한다. 업데이트 전 코드로 연 탭이 v1 연결을 쥐고 있어 v2 업그레이드가 막히면(blocked) 막힌 동안 새로 열지 않고 메모리로 대체하며 "다른 탭이 이전 버전 저장소를 쓰고 있다" 경고를 보인다. 그 탭이 닫혀 늦게 열리면 메모리의 기록을 IndexedDB로 옮긴다. 내보내기(P1-1·P1-3)의 `session-<id>.json`은 이 구조에서 만든다.
 
 ## 5. 검증 스크립트 `tools/validate-data.js`
 

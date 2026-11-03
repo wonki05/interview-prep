@@ -153,8 +153,9 @@
     drawer.scrollTop = 0; $("#dClose", drawer).focus({ preventScroll: true });
     if (location.hash !== "#b" + id) history.replaceState(null, "", "#b" + id);
   }
-  function closeBook() { if (!drawer) return; drawer.remove(); shade.remove(); drawer = shade = null; document.body.style.overflow = ""; if (/^#b\d+$/.test(location.hash)) history.replaceState(null, "", "#" + (cur || "books")); if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer) closeBook(); if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-b]")) { e.preventDefault(); openBook(+e.target.dataset.b); } });
+  function closeBook() { if (!drawer) return; drawer.remove(); shade.remove(); drawer = shade = null; document.body.style.overflow = document.querySelector(".drawer, .bdrawer") ? "hidden" : ""; if (/^#b\d+$/.test(location.hash)) history.replaceState(null, "", "#" + (cur || "books")); if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
+  /* Esc는 맨 위 서랍만 닫는다(기록 서랍이 위에 열려 있으면 그쪽이 닫는다). */
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && drawer && window.SNU.topDrawer() === drawer) closeBook(); if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-b]")) { e.preventDefault(); openBook(+e.target.dataset.b); } });
   document.addEventListener("click", e => {
     if (e.target.closest("#dClose")) { closeBook(); return; }
     const pr = e.target.closest("[data-progress]"); if (pr) { setProgress(+pr.dataset.progressBook, +pr.dataset.progress); return; }

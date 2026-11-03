@@ -34,6 +34,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   const fresh = async p => { await goto(p); await page.reload({ waitUntil: "domcontentloaded" }); await sleep(300); };   // 같은 주소로 가면 새로 불러오지 않아 앞 단계 상태가 남는다
   const setSettings = async (obj) => { await page.evaluate(o => localStorage.setItem("snu-iv-settings-v1", JSON.stringify(o)), obj); };
   const noOverflow = async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  const drawerFits = async () => page.$eval("#recordsDrawer", d => d.scrollWidth <= d.clientWidth);   // 서랍 안쪽 가로 넘침
   const setEffort = async (selector, value) => page.$eval(selector, (input, n) => {
     input.value = String(n); input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
@@ -54,7 +55,8 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   }
 
   console.log("모의면접 설정 3단계");
-  await goto("practice.html"); await setSettings({ tts: false, answerMode: "text" }); await goto("practice.html");
+  /* 해설 설정을 면접관(Claude 기본값)과 다르게 저장해 둔다: 면접 피드백의 기본 모델이 해설 설정을 따르는지 확인한다 */
+  await goto("practice.html"); await setSettings({ tts: false, answerMode: "text", explanationProvider: "openai", explanationOpenaiModel: "gpt-6-luna", explanationOpenaiEffort: "low" }); await goto("practice.html");
   check((await page.$$("[data-school]")).length === 10, "학교 토글 10개");
   await page.click('[data-set="snu-2023-A"]'); await sleep(300);
   check(await page.$("#step2.active"), "세트 선택 → 2단계");
@@ -108,6 +110,54 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   await page.click("#endBtn"); await sleep(600);
   check(await page.$("#again") && (await page.$$(".qlist li.done")).length >= 1, "종료 화면 + 문답 기록");
   await shot("practice-done", 1280, 900, true);
+
+  console.log("면접 기록: 저장·AI 피드백 누적·기록 서랍");
+  await page.waitForSelector("#openRecord:not([disabled])"); await page.waitForSelector("#feedback .aibar");   // 종료 화면을 그린 뒤 저장을 마치고 붙인다
+  const savedSession = await page.evaluate(async () => { const list = await Records.listSessions(); const s = list[0] && await Records.getSession(list[0].id); return s && { id: s.id, n: s.history.length, ended: !!s.endedAt, memo: s.memo, answerMode: s.answerMode, first: s.history[0] && s.history[0].a }; });
+  check(savedSession && savedSession.n >= 1 && savedSession.ended && savedSession.memo === "메모 테스트" && savedSession.answerMode === "text" && savedSession.first === "네 제시문은 모두 통념을 뒤집는다.", "텍스트 면접 기록 저장(문답·메모·종료 시각)");
+  check(await page.$("#feedback [data-fb-run][disabled]"), "종료 화면: 기록 보기·AI 피드백(키 없으면 비활성)");
+  /* 피드백 응답만 지연 mock으로 바꾸고 실제 UI·저장소·누적·모델 선택을 확인한다. 키 저장·외부 호출 없음. */
+  await page.evaluate(() => {
+    const mock = window.__fbMock = { calls: [], pending: [] };
+    const resolve = AIClient.resolve;
+    AIClient.resolve = override => Object.assign({}, resolve(override), { configured: true });
+    AIClient.review = (cs, s, ai) => { mock.calls.push({ id: cs.id, variant: cs.variant, n: s.history.length, ai }); return new Promise(done => mock.pending.push(() => done({ summary: "회귀검증 총평 " + mock.calls.length, strengths: [], gaps: ["반론 처리"], items: s.history.map((h, i) => ({ no: i + 1, comment: "회귀검증 검토", better: "회귀검증 보완 <b>굵게</b>" })), next: ["다음 연습"] }))); };
+    SNU.save({});
+  });
+  await page.waitForSelector("#feedback [data-fb-run]:not([disabled])");
+  await page.$eval("#feedback [data-fb-run]", b => { b.click(); b.click(); });
+  await page.waitForFunction(() => __fbMock.calls.length === 1);
+  check(await page.$eval("#feedback [data-fb-run]", b => b.disabled) && await page.evaluate(() => __fbMock.calls.length === 1), "피드백 생성 중 중복 요청 막음");
+  check(await page.evaluate(() => { const ai = __fbMock.calls[0].ai; return SNU.settings.provider === "anthropic" && ai.provider === "openai" && ai.model === "gpt-6-luna" && ai.effort === "low"; }), "피드백 기본 모델 = AI 면접해설 설정(면접관 설정과 다름)");
+  await page.evaluate(() => __fbMock.pending[0]());
+  await page.waitForSelector("#feedback details.run[open]");
+  await page.click('#feedback [data-fbseg] [data-v="anthropic"]');
+  await page.waitForSelector('#feedback .modelsel[data-provider="anthropic"]');
+  await page.select("#feedback .modelsel select", "claude-opus-5-5");
+  await page.waitForSelector("#feedback [data-fb-run]:not([disabled])");
+  await page.click("#feedback [data-fb-run]");
+  await page.waitForFunction(() => __fbMock.calls.length === 2);
+  await page.evaluate(() => __fbMock.pending[1]());
+  await page.waitForFunction(() => document.querySelectorAll("#feedback details.run").length === 2);
+  check(await page.evaluate(() => { const ai = __fbMock.calls[1].ai; return ai.provider === "anthropic" && ai.model === "claude-opus-5-5"; }), "피드백 제공사·모델을 그 자리에서 바꿔 다시 받기");
+  check(await page.$$eval("#feedback details.run", d => d[0].open && !d[1].open && d[0].querySelector("summary b").textContent === "2차"), "피드백 누적: 최신 펼침·이전 접힘");
+  check(await page.$eval("#feedback details.run", d => d.textContent.includes("<b>굵게</b>") && !d.querySelector(".study-text b")), "피드백 텍스트를 HTML로 실행하지 않음");
+  check(await page.evaluate(async id => (await Records.getSession(id)).feedbacks.length === 2, savedSession.id), "피드백은 세션 기록 안에 저장");
+  await page.click("#openRecords"); await page.waitForSelector("#recordsDrawer [data-rec]");
+  check(await page.evaluate(() => document.activeElement && document.activeElement.id === "rClose" && document.body.style.overflow === "hidden"), "기록 서랍: 닫기 버튼 초점·배경 스크롤 잠금");
+  await page.click(`#recordsDrawer [data-rec="${savedSession.id}"]`); await page.waitForSelector("#recordsDrawer details.run");
+  check((await page.$$("#recordsDrawer details.run")).length === 2 && await page.$eval("#recordsDrawer", d => d.textContent.includes("메모 테스트") && d.textContent.includes("네 제시문은 모두 통념을 뒤집는다.")), "기록 서랍 상세: 문답·메모·피드백");
+  await page.keyboard.press("Escape");
+  check(!(await page.$("#recordsDrawer")) && await page.evaluate(() => document.body.style.overflow === ""), "Esc로 기록 서랍 닫기");
+  await goto("library.html");
+  await page.click("#openRecords"); await page.waitForSelector(`#recordsDrawer [data-rec="${savedSession.id}"]`);
+  await page.click(`#recordsDrawer [data-rec="${savedSession.id}"]`); await page.waitForSelector("#recordsDrawer [data-fb-run]");
+  check((await page.$$("#recordsDrawer details.run")).length === 2 && await page.evaluate(() => !!window.INTERVIEW_DB && !!window.AIClient), "새 화면(서가)에서 기록·피드백 유지, 세트·AI 지연 로드");
+  await clickVisible("#recordsDrawer details.run[open] [data-run-del]");
+  await page.waitForFunction(() => document.querySelectorAll("#recordsDrawer details.run").length === 1);
+  check(await page.evaluate(async id => (await Records.getSession(id)).feedbacks.length === 1, savedSession.id), "피드백 하나 삭제(저장소 반영)");
+  await shot("records-drawer", 1280, 900);
+  await page.click("#rClose");
 
   console.log("세션: 분류 실패 후 수동 분기");
   await setSettings({ tts: false, answerMode: "text", waitEnabled: false, flow: "tree", variant: "kim" });
@@ -196,6 +246,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   console.log("기출DB: 예시답변·제시문 해설");
   await setSettings({ variant: "kim", provider: "anthropic", explanationProvider: "openai", explanationOpenaiModel: "gpt-6.1-terra", explanationOpenaiEffort: "max" });
   await fresh("db.html#snu-2023-A");
+  check(await page.$eval("#dbExplanationAi .modelsel select", el => el.value === "gpt-6.1-terra") && (await effortState("#db-explanation-effort")).value === "5", "해설 모델 바는 별도 해설 기본값 표시");
   /* 생성 응답만 지연 mock으로 바꾸고 실제 UI·역할별 설정·캐시·경합 처리를 확인한다. */
   await page.evaluate(() => {
     const mock = window.__studyMock = { exampleCalls: [], passageCalls: [], pending: [], source: JSON.stringify(INTERVIEW_DB), threads: localStorage.getItem("snu-db-threads-v1") };
@@ -204,8 +255,8 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     AIClient.exampleAnswers = (cs, question, ai) => {
       mock.exampleCalls.push({ id: cs.id, variant: cs.variant, question, ai });
       return new Promise(done => mock.pending.push(() => done({ examples: [
-        { label: "회귀검증 기준 중심", answer: "첫 번째 예시 <b>판단 기준</b>", importance: "판단 기준의 중요성", cautions: "제시문 근거 확인" },
-        { label: "회귀검증 반론 중심", answer: "두 번째 예시와 반론 검토", importance: "반론의 중요성", cautions: "적용 한계 확인" }
+        { label: "회귀검증 기준 중심", answer: "구체적인 피해를 <b>판단 기준</b>으로 삼겠습니다.", importance: "판단 기준의 중요성", cautions: "제시문 근거 확인" },
+        { label: "회귀검증 반론 중심", answer: "실질적인 선택 가능성을 먼저 검토하겠습니다.", importance: "반론의 중요성", cautions: "적용 한계 확인" }
       ] })));
     };
     AIClient.explainPassages = (cs, books, ai) => {
@@ -231,31 +282,61 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   check(await page.$eval("#ta-A-3", el => el.value === "작성 중인 답변"), "생성 결과 표시 후 작성 내용 유지");
   await page.click('[data-example="A-3"]'); await page.click('[data-example="A-3"]');
   check(await page.evaluate(() => __studyMock.exampleCalls.length === 1), "예시답변 다시 열 때 캐시 사용");
+  const interviewerModel = await page.$eval("#dbInterviewerAi .modelsel select", el => el.value);
+  const interviewerEffort = await effortState("#db-effort");
+  await page.select("#dbExplanationAi .modelsel select", "gpt-6-astra");
+  await setEffort("#db-explanation-effort", 2);
+  check(await page.$eval("#dbInterviewerAi .modelsel select", (el, model) => el.value === model, interviewerModel) && (await effortState("#db-effort")).value === interviewerEffort.value, "해설 모델·강도 변경은 면접관 바와 독립");
+  check(await page.$eval("#ta-A-3", el => el.value === "작성 중인 답변") && await page.evaluate(() => __studyMock.exampleCalls.length === 1), "해설 모델 변경 시 작성 내용·기존 결과 유지, 자동 호출 없음");
+  await clickVisible('[data-example-refresh="A-3"]');
+  await page.waitForFunction(() => __studyMock.exampleCalls.length === 2);
+  check(await page.evaluate(() => { const ai = __studyMock.exampleCalls[1].ai; return ai.provider === "openai" && ai.model === "gpt-6-astra" && ai.effort === "high" && SNU.settings.explanationOpenaiModel === "gpt-6.1-terra" && SNU.settings.explanationOpenaiEffort === "max"; }), "예시답변 재생성은 화면 모델·강도 적용, 기본 설정 유지");
+  check(await page.$$eval("#examples-A-3 details.run", d => d.length === 1) && await page.$("#examples-A-3 .study-status"), "다시 생성 중 이전 결과 유지");
+  await page.evaluate(() => __studyMock.pending[1]());
+  await page.waitForFunction(() => document.querySelectorAll("#examples-A-3 details.run").length === 2);
+  check(await page.$$eval("#examples-A-3 details.run", d => d[0].open && !d[1].open && d[0].querySelector("summary b").textContent === "2차" && d[1].querySelector("summary b").textContent === "1차"), "예시답변 누적: 2차 펼침·1차 접힘");
+  await page.$eval("#examples-A-3 details.run:not([open]) summary", s => s.click());
+  check(await page.$$eval("#examples-A-3 details.run[open]", d => d.length === 2), "이전 결과를 함께 펼쳐 비교");
+  await clickVisible('#q-A-3 [data-toggle="A-3"]'); await clickVisible('#q-A-3 [data-toggle="A-3"]');
+  check(await page.$$eval("#examples-A-3 details.run[open]", d => d.length === 2), "질문 행을 다시 그려도 펼침 상태 유지");
+  await clickVisible("#examples-A-3 .runs > details:last-of-type [data-run-del]");
+  check(await page.$$eval("#examples-A-3 details.run", d => d.length === 1) && await page.evaluate(() => JSON.parse(localStorage.getItem("snu-db-study-v1")).entries[JSON.stringify(["snu-2023-A", "kim"])].examples["A-3"].length === 1), "결과 하나 삭제(저장소 반영)");
   await clickVisible("#explainPassages");
   await page.waitForFunction(() => __studyMock.passageCalls.length === 1);
   check(await page.evaluate(() => __studyMock.passageCalls.length === 1 && __studyMock.passageCalls[0].books.length > 0), "제시문 해설에 서가 후보 도서 포함");
+  check(await page.evaluate(() => { const ai = __studyMock.passageCalls[0].ai; return ai.provider === "openai" && ai.model === "gpt-6-astra" && ai.effort === "high"; }), "제시문 해설도 같은 해설 모델 바 적용");
   await page.evaluate(() => __studyMock.finishPassages());
   await page.waitForFunction(() => document.querySelector("#passageExplanation").textContent.includes("회귀검증 해설 개관"));
   check(await page.$('#passageExplanation a[href^="library.html#"]'), "해설 추천 도서는 서가 내부 링크");
   await clickVisible("#explainPassages"); await clickVisible("#explainPassages");
   check(await page.evaluate(() => __studyMock.passageCalls.length === 1), "제시문 해설 다시 열 때 캐시 사용");
+  await clickVisible('[data-explanationseg] [data-v="anthropic"]');
+  check(await page.$eval("#dbExplanationAi .modelsel select", el => el.value === SNU.settings.explanationAnthropicModel), "해설 제공사 전환 시 해당 제공사의 해설 기본 모델 사용");
+  await page.select("#dbExplanationAi .modelsel select", "claude-opus-5-5");
+  await setEffort("#db-explanation-effort", 4);
+  await clickVisible("#refreshPassages");
+  await page.waitForFunction(() => __studyMock.passageCalls.length === 2);
+  check(await page.evaluate(() => { const ai = __studyMock.passageCalls[1].ai; return ai.provider === "anthropic" && ai.model === "claude-opus-5-5" && ai.effort === "max"; }), "제시문 해설 재생성은 변경한 제공사·모델·강도 적용");
+  await page.evaluate(() => __studyMock.finishPassages());
+  await page.waitForFunction(() => document.querySelectorAll("#passageExplanation details.run").length === 2);
+  check(await page.$$eval("#passageExplanation details.run", d => d[0].open && !d[1].open) && await page.$('#passageExplanation details.run[open] a[href^="library.html#"]'), "제시문 해설 누적: 최신 펼침, 서가 링크 유지");
   check(await page.evaluate(() => JSON.stringify(INTERVIEW_DB) === __studyMock.source && localStorage.getItem("snu-db-threads-v1") === __studyMock.threads), "예시답변·해설은 기출 원문과 내 문답 기록에 섞이지 않음");
 
   await page.click('[data-example="A-2"]');
-  await page.waitForFunction(() => __studyMock.exampleCalls.length === 2);
+  await page.waitForFunction(() => __studyMock.exampleCalls.length === 3);
   await page.click('.dbside [data-set="snu-2021-A"]');
-  await page.evaluate(async () => { __studyMock.pending[1](); await new Promise(done => setTimeout(done, 0)); });
+  await page.evaluate(async () => { __studyMock.pending[2](); await new Promise(done => setTimeout(done, 0)); });
   check(!(await page.$(".study-example")), "세트 이동 뒤 도착한 응답을 현재 세트에 표시하지 않음");
   await page.click('.dbside [data-set="snu-2023-A"]');
   if (await page.$('[data-vseg] [data-v="hwang"]:not([disabled])')) {
     await page.click('[data-example="A-1"]');
-    await page.waitForFunction(() => __studyMock.exampleCalls.length === 3);
+    await page.waitForFunction(() => __studyMock.exampleCalls.length === 4);
     await page.click('[data-vseg] [data-v="hwang"]');
-    await page.evaluate(async () => { __studyMock.pending[2](); await new Promise(done => setTimeout(done, 0)); });
+    await page.evaluate(async () => { __studyMock.pending[3](); await new Promise(done => setTimeout(done, 0)); });
     check(!(await page.$(".study-example")), "복기본 전환 뒤 도착한 응답을 다른 복기본에 표시하지 않음");
     await page.click('[data-vseg] [data-v="kim"]');
     await page.waitForSelector("#examples-A-1 .study-example", { visible: true });
-    check(await page.evaluate(() => __studyMock.exampleCalls.length === 3), "원래 복기본의 늦은 응답을 재호출 없이 표시");
+    check(await page.evaluate(() => __studyMock.exampleCalls.length === 4), "원래 복기본의 늦은 응답을 재호출 없이 표시");
   }
 
   console.log("기출DB: 면접관 응답 중 세트 이동");
@@ -359,10 +440,18 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   console.log("모바일 가로 넘침");
   await page.setViewport({ width: 400, height: 820 });
   for (const p of ["index.html", "practice.html", "db.html", "library.html#issues"].concat(tk ? ["db.html#" + tk.id] : [])) { await goto(p); check(await noOverflow(), p); }
+  const appbar = await page.evaluate(() => { const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; }, nav = document.querySelector(".nav"); return { row: Math.abs(mid(document.querySelector(".brand")) - mid(document.querySelector("#openRecords"))) < 12 && Math.abs(mid(document.querySelector("#openRecords")) - mid(document.querySelector("#openSettings"))) < 2, below: nav.getBoundingClientRect().top >= document.querySelector("#openRecords").getBoundingClientRect().bottom - 1, fits: nav.scrollWidth <= nav.clientWidth }; });
+  check(appbar.row && appbar.below && appbar.fits, "모바일 앱바: 브랜드·기록·설정 한 줄, 메뉴는 다음 줄에 넘침 없이");
   await goto("practice.html?set=snu-2021-A"); await setSettings({ tts: false, answerMode: "text", lastMode: "all" }); await goto("practice.html?set=snu-2021-A");
   await page.click('[data-mode="all"]'); await sleep(200); await page.click("#startBtn"); await sleep(500);
   check(await noOverflow(), "세션 화면(모바일)");
   await shot("session-mobile", 400, 820);
+  await goto("index.html"); await page.click("#openRecords"); await page.waitForSelector("#recordsDrawer [data-rec]");
+  check(await noOverflow() && await drawerFits(), "기록 서랍 목록(모바일)");
+  await page.click("#recordsDrawer [data-rec]"); await page.waitForSelector("#recordsDrawer .sethead");
+  check(await noOverflow() && await drawerFits(), "기록 서랍 상세(모바일)");
+  await shot("records-mobile", 400, 820);
+  await page.click("#rClose");
 
   console.log("새 컨트롤: 밝음·어둠·아주 크게");
   for (const width of [1280, 400]) {
@@ -376,6 +465,17 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
       check(Math.abs(inset - expectedInset) < 1, `질문 번호 왼쪽 여백 ${width}px (${inset}px, 기존의 75%)`);
       await page.$eval(".aibar", el => el.scrollIntoView({ block: "start" }));
       await shot(`db-controls-${width}-${theme}-xl`, width, 900);
+      await page.click("#openRecords"); await page.waitForSelector(`#recordsDrawer [data-rec="${savedSession.id}"]`);
+      await page.click(`#recordsDrawer [data-rec="${savedSession.id}"]`); await page.waitForSelector("#recordsDrawer [data-fb-run]");
+      const headButtons = await page.$$eval("#recordsDrawer .sethead .row .btn", b => b.map(x => Math.round(x.getBoundingClientRect().height)));
+      check(await noOverflow() && await drawerFits() && headButtons.length === 3 && headButtons.every(h => h === headButtons[0]), `기록 서랍 ${width}px ${theme} 아주 크게 (버튼 ${headButtons.join(",")})`);
+      await shot(`records-${width}-${theme}-xl`, width, 900);
+      if (width === 1280 && theme === "light") {
+        await page.click("#recordsDrawer [data-fb-settings]"); await page.waitForSelector("#dTitle");
+        await page.keyboard.press("Escape");
+        check(!(await page.$("#dTitle")) && await page.$("#recordsDrawer") && await page.evaluate(() => document.body.style.overflow === "hidden" && !!document.activeElement.closest("#recordsDrawer")), "기록 서랍 위 설정 서랍: Esc는 위 서랍만 닫고 초점은 기록 서랍에");
+      }
+      await page.click("#rClose");
       await page.click("#openSettings");
       check(await noOverflow(), `설정 서랍 ${width}px ${theme} 아주 크게`);
       await page.click("#closeSettings");

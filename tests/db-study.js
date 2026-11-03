@@ -112,6 +112,21 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     assert.equal(ai.model, "claude-fable-5-1");
     assert.equal(ai.effort, "low");
   });
+  await test("화면 해설 모델 선택은 제공사별 해설 기본값을 쓰고 설정과 독립", async () => {
+    const h = setup();
+    h.snu.save({ explanationProvider: "openai", explanationOpenaiModel: "gpt-6.1-terra", explanationOpenaiEffort: "max", explanationAnthropicModel: "claude-opus-5-5", explanationAnthropicEffort: "high", anthropicModel: "claude-haiku-5-5" });
+    const before = JSON.stringify(h.settings);
+    const ai = h.study.resolveAi({ provider: "anthropic" });
+    assert.equal(ai.model, "claude-opus-5-5");
+    assert.equal(ai.effort, "high");
+    const override = h.study.resolveAi({ provider: "openai", model: "gpt-6-astra", effort: "low" });
+    await h.study.examples(fixtureSet(), "A-1", "개입의 기준은 무엇입니까?", override);
+    await h.study.explain(fixtureSet(), override);
+    for (const call of [h.calls.examples[0], h.calls.explain[0]]) assert.deepEqual(call.ai, { provider: "openai", model: "gpt-6-astra", effort: "low" });
+    assert.equal(JSON.stringify(h.settings), before);
+    assert.equal(h.study.resolveAi().model, "gpt-6.1-terra");
+    assert.equal(h.study.resolveAi({ model: "custom-model" }).effort, null);
+  });
   await test("예시답변 동시 요청은 한 번 생성하고 설정 스냅샷 사용", async () => {
     const h = setup(), waiting = gate();
     h.settings.explanationAnthropicModel = "claude-opus-5-5";
@@ -142,26 +157,47 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     assert.equal(h.calls.explain.length, 1);
     assert.equal(left, right);
     assert.ok(left.books.length);
-    assert.equal(entryOf(h).explanation.books, undefined);
+    assert.equal(entryOf(h).explanations[0].books, undefined);
   });
-  await test("캐시 저장 구조와 키 없는 재열기", async () => {
+  await test("캐시 저장 구조(v2 결과 목록·입력 지문)와 키 없는 재열기", async () => {
     const h = setup();
     const originalExamples = await examples(h), originalExplanation = await explain(h);
     const saved = JSON.parse(h.storage.get(CACHE));
-    assert.equal(saved.version, 1);
+    assert.equal(saved.version, 2);
     assert.deepEqual(Object.keys(saved.entries), [JSON.stringify([fixtureSet().id, "kim"])]);
     const entry = entryOf(h);
-    assert.equal(entry.examples["A-1"].question, "개입의 기준은 무엇입니까?");
-    assert.equal(typeof entry.context, "string");
-    assert.equal(typeof entry.explanation.libraryContext, "string");
+    assert.equal(entry.examples["A-1"].length, 1);
+    assert.equal(entry.examples["A-1"][0].question, "개입의 기준은 무엇입니까?");
+    assert.match(entry.examples["A-1"][0].ctx, /^[0-9a-z]{1,12}$/);
+    assert.equal(entry.context, undefined);
+    assert.equal(entry.explanations.length, 1);
+    assert.match(entry.explanations[0].lib, /^[0-9a-z]{1,12}$/);
+    assert.equal(entry.explanations[0].libraryContext, undefined);
+    assert.ok(h.storage.get(CACHE).length < JSON.stringify(await h.study.loadBooks()).length, "서가 후보 목록을 결과마다 저장하지 않는다");
     const reload = setup({ storage: new Map([[CACHE, h.storage.get(CACHE)]]), key: false });
     assert.deepEqual(copy(await examples(reload)), copy(originalExamples));
     assert.deepEqual(copy((await explain(reload)).data), copy(originalExplanation.data));
     assert.equal(reload.calls.examples.length + reload.calls.explain.length, 0);
   });
-  await test("새로 생성 요청은 캐시를 갱신하되 중복 요청은 합침", async () => {
-    const h = setup();
-    await examples(h); await explain(h);
+  await test("v1 캐시를 v2로 옮기고 기존 결과를 현재 결과로 재사용", async () => {
+    const seed = setup(), set = fixtureSet(), books = await seed.study.loadBooks(), question = "개입의 기준은 무엇입니까?";
+    const v1 = { version: 1, entries: { [JSON.stringify([set.id, "kim"])]: {
+      context: JSON.stringify([1, seed.client.setContext(set), set.source || null, set.passages.map(p => [p.no, p.source || ""])]),
+      examples: { "A-1": { question, data: fixtureExamples(" v1"), model: "Claude Sonnet 5.5", effort: "medium", at: 1000 } },
+      explanation: { libraryContext: JSON.stringify(books), data: fixtureExplanation(set, books, " v1"), model: "Claude Sonnet 5.5", effort: null, at: 2000 }
+    } } };
+    const h = setup({ storage: new Map([[CACHE, JSON.stringify(v1)]]), key: false });
+    assert.equal((await examples(h)).at, 1000);
+    assert.equal((await explain(h)).at, 2000);
+    assert.equal(h.calls.examples.length + h.calls.explain.length, 0);
+    const exampleList = h.study.exampleHistory(set, "A-1", question), explanationList = h.study.explanationHistory(set);
+    assert.deepEqual(copy(exampleList.map(r => [r.at, r.stale])), [[1000, false]]);
+    assert.deepEqual(copy(explanationList.map(r => [r.at, r.stale])), [[2000, false]]);
+    assert.ok(exampleList[0].data.examples[0].answer.endsWith(" v1"));
+  });
+  await test("새로 생성 요청은 결과를 쌓되 중복 요청은 합침", async () => {
+    const h = setup(), question = "개입의 기준은 무엇입니까?";
+    const first = await examples(h), firstExplanation = await explain(h);
     h.hooks.examples = () => fixtureExamples(" 새 답변");
     h.hooks.explain = (set, books) => fixtureExplanation(set, books, " 새 해설");
     const [a, b] = await Promise.all([examples(h, fixtureSet(), true), examples(h, fixtureSet(), true)]);
@@ -172,6 +208,66 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     assert.ok(c.data.overview.endsWith(" 새 해설"));
     assert.equal(h.calls.examples.length, 2);
     assert.equal(h.calls.explain.length, 2);
+    assert.deepEqual(copy(h.study.exampleHistory(fixtureSet(), "A-1", question).map(r => r.at)), [a.at, first.at]);
+    assert.deepEqual(copy(h.study.explanationHistory(fixtureSet()).map(r => r.at)), [c.at, firstExplanation.at]);
+    assert.ok(a.at > first.at && c.at > firstExplanation.at);
+    assert.deepEqual(copy(await examples(h)), copy(a));
+    assert.equal(h.calls.examples.length, 2);
+  });
+  await test("원문이 바뀐 뒤 이전 결과는 지우지 않고 stale로 남김", async () => {
+    const h = setup(), set = fixtureSet(), question = "개입의 기준은 무엇입니까?";
+    await examples(h, set); await explain(h, set);
+    set.passages[0].text += " 새로운 판단 조건";
+    assert.deepEqual(copy(h.study.exampleHistory(set, "A-1", question).map(r => r.stale)), [true]);
+    assert.deepEqual(copy(h.study.explanationHistory(set).map(r => r.stale)), [true]);
+    h.hooks.examples = () => fixtureExamples(" 새 원문");
+    await examples(h, set); await explain(h, set);
+    assert.equal(h.calls.examples.length, 2);
+    assert.equal(h.calls.explain.length, 2);
+    const list = h.study.exampleHistory(set, "A-1", question);
+    assert.deepEqual(copy(list.map(r => r.stale)), [false, true]);
+    assert.ok(list[0].data.examples[0].answer.endsWith(" 새 원문"));
+    assert.deepEqual(copy(h.study.explanationHistory(set).map(r => r.stale)), [false, true]);
+    assert.equal(entryOf(h, set).examples["A-1"].length, 2);
+  });
+  await test("결과 하나 지우기는 저장소에 반영하고 나머지는 유지", async () => {
+    const h = setup(), set = fixtureSet();
+    const first = await examples(h); h.hooks.examples = () => fixtureExamples(" 2차");
+    const second = await examples(h, set, true);
+    assert.equal(h.study.removeExample(set, "A-1", first.at), true);
+    assert.deepEqual(entryOf(h).examples["A-1"].map(r => r.at), [second.at]);
+    assert.equal(h.study.removeExample(set, "A-1", 123), true);
+    assert.equal(h.study.removeExample(set, "A-1", second.at), true);
+    assert.equal(entryOf(h).examples["A-1"], undefined);
+    const explanation = await explain(h);
+    assert.equal(h.study.removeExplanation(set, explanation.at), true);
+    assert.deepEqual(entryOf(h).explanations, []);
+    assert.deepEqual(copy(h.study.explanationHistory(set)), []);
+    h.failures.write = true;
+    const third = await examples(h, set);
+    assert.equal(h.study.saved(), false);
+    assert.equal(h.study.removeExample(set, "A-1", third.at), false);
+  });
+  await test("다른 탭이 쌓은 결과를 덮지 않고 지운 결과를 되살리지 않음", async () => {
+    const storage = new Map(), a = setup({ storage }), b = setup({ storage }), set = fixtureSet(), other = fixtureSet();
+    other.id = "snu-2024-A"; other.year = 2024;
+    const first = await examples(a, set);
+    await examples(b, other);
+    let entries = JSON.parse(storage.get(CACHE)).entries;
+    assert.ok(entries[a.study.identity(set)] && entries[b.study.identity(other)]);
+    assert.equal(a.study.removeExample(set, "A-1", first.at), true);
+    await explain(b, other);
+    entries = JSON.parse(storage.get(CACHE)).entries;
+    assert.equal(entries[a.study.identity(set)].examples["A-1"], undefined);
+    assert.equal(entries[b.study.identity(other)].explanations.length, 1);
+    assert.deepEqual(copy(b.study.exampleHistory(set, "A-1", "개입의 기준은 무엇입니까?")), []);
+  });
+  await test("목록 읽기만으로는 캐시에 빈 자리를 만들지 않음", async () => {
+    const h = setup(), other = fixtureSet(); other.id = "snu-2024-A";
+    assert.deepEqual(copy(h.study.exampleHistory(other, "A-1", "질문")), []);
+    assert.deepEqual(copy(h.study.explanationHistory(other)), []);
+    await examples(h);
+    assert.deepEqual(Object.keys(JSON.parse(h.storage.get(CACHE)).entries), [h.study.identity(fixtureSet())]);
   });
   await test("재생성 실패 뒤 이전 성공 결과 유지, 다음 재시도 허용", async () => {
     const h = setup();
@@ -180,7 +276,7 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     await assert.rejects(examples(h, fixtureSet(), true), /모의 서버 오류/);
     await assert.rejects(explain(h, fixtureSet(), true), /모의 서버 오류/);
     assert.equal(h.storage.get(CACHE), saved);
-    assert.equal(await examples(h), beforeExamples);
+    assert.deepEqual(copy(await examples(h)), copy(beforeExamples));
     assert.deepEqual(copy((await explain(h)).data), copy(beforeExplanation.data));
     h.hooks.examples = () => fixtureExamples(" 복구");
     h.hooks.explain = (set, books) => fixtureExplanation(set, books, " 복구");
@@ -201,7 +297,7 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     await examples(h);
     await examples(h, fixtureSet(), false, "개입하지 않을 기준은 무엇입니까?");
     assert.equal(h.calls.examples.length, 2);
-    assert.equal(entryOf(h).examples["A-1"].question, "개입하지 않을 기준은 무엇입니까?");
+    assert.deepEqual(entryOf(h).examples["A-1"].map(r => r.question), ["개입의 기준은 무엇입니까?", "개입하지 않을 기준은 무엇입니까?"]);
   });
   await test("제시문 본문·출전·문제·복기 질문 변경은 캐시 무효화", async () => {
     for (const change of [
@@ -262,22 +358,23 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     assert.equal(h.calls.explain.length, 2);
   });
   await test("손상·다른 버전·잘못된 최상위 캐시는 무시", async () => {
-    for (const value of ["{", "null", '{"version":2,"entries":{}}', '{"version":1,"entries":[]}', '{"version":1,"entries":null}']) {
+    for (const value of ["{", "null", '{"version":3,"entries":{}}', '{"version":2,"entries":[]}', '{"version":1,"entries":[]}', '{"version":1,"entries":null}', '{"version":2,"entries":{"x":{"examples":[],"explanations":{}}}}']) {
       const h = setup({ storage: new Map([[CACHE, value]]) });
       await examples(h); await explain(h);
       assert.equal(h.calls.examples.length, 1);
       assert.equal(h.calls.explain.length, 1);
-      assert.equal(JSON.parse(h.storage.get(CACHE)).version, 1);
+      assert.equal(JSON.parse(h.storage.get(CACHE)).version, 2);
     }
   });
   await test("손상된 캐시 레코드·필수값·서가 ID는 실제 검증기로 거부 후 재생성", async () => {
     const seed = setup(); await examples(seed); await explain(seed);
     for (const mutate of [
-      entry => { entry.examples["A-1"].data.examples = []; entry.explanation.data.passages = []; },
-      entry => { entry.examples["A-1"].model = ""; entry.explanation.model = ""; },
-      entry => { entry.examples["A-1"].at = "어제"; entry.explanation.at = "어제"; },
-      entry => { entry.examples["A-1"].effort = "unknown"; entry.explanation.effort = "unknown"; },
-      entry => { entry.examples["A-1"].data.examples[0].importance = ""; entry.explanation.data.books[0].id = 999999; }
+      entry => { entry.examples["A-1"][0].data.examples = []; entry.explanations[0].data.passages = []; },
+      entry => { entry.examples["A-1"][0].model = ""; entry.explanations[0].model = ""; },
+      entry => { entry.examples["A-1"][0].at = "어제"; entry.explanations[0].at = "어제"; },
+      entry => { entry.examples["A-1"][0].effort = "unknown"; entry.explanations[0].effort = "unknown"; },
+      entry => { entry.examples["A-1"][0].data.examples[0].importance = ""; entry.explanations[0].data.books[0].id = 999999; },
+      entry => { entry.examples["A-1"] = { question: "v1 형식" }; entry.explanations = null; }
     ]) {
       const saved = JSON.parse(seed.storage.get(CACHE));
       mutate(saved.entries[seed.study.identity(fixtureSet())]);

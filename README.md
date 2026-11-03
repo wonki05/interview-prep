@@ -30,7 +30,7 @@ SMOKE_BASE_URL=https://<id>.github.io/<repo>/ npm run test:smoke   # 배포본 �
 
 ## 저장되는 것
 
-모두 브라우저 안: 설정·API 키(`localStorage`), 녹음(IndexedDB), 기출DB 문답·서가 진도(`localStorage`). API 키는 선택한 제공사 API로만 전송되고 저장소에는 넣지 않는다.
+모두 브라우저 안: 설정·API 키(`localStorage`), 녹음·면접 기록과 AI 피드백(IndexedDB), 기출DB 문답·AI 예시답변·해설·서가 진도(`localStorage`). API 키는 선택한 제공사 API로만 전송되고 저장소에는 넣지 않는다.
 
 ## 자료
 
