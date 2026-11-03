@@ -35,7 +35,7 @@ assets/db-study.js  기출DB 학습 도우미: AI 면접해설 설정, 서가 �
 assets/records.js   면접 기록: IndexedDB "snu-interview"(sessions·recordings), 기록 서랍(앱바, 모든 화면), AI 피드백
 assets/library.js   서가: 개요/도서/쟁점/읽는 순서, 책 상세 서랍, 진도(localStorage "snu-library-progress-v1")
 data/sets/          세트 원본(<set id>/meta·kim·hwang·merged.json, _db.json의 levels·학교 format). 고친 뒤 tools/build_questions.js
-data/questions.js   INTERVIEW_DB = { levels, schools[] } — data/sets/에서 생성. 서울대 18 · 고려대 7 · 연세대 9 · 성균관대 14 · 한양대 7 · 서강대 14 · 중앙대 28세트, 결정 트리 예시(snu-2023-A), 다른 3개 학교 빈 자리
+data/questions.js   INTERVIEW_DB = { levels, schools[] } — data/sets/에서 생성. 서울대 18 · 고려대 7 · 연세대 9 · 성균관대 14 · 한양대 7 · 서강대 14 · 중앙대 28 · 경희대 7 · 이화여대 11 · 한국외대 28세트(10개 학교 143), 결정 트리 예시(snu-2023-A)
 data/models.js      MODEL_CATALOG — 선택 가능한 모델 목록(표시명·API id)
 data/library.js     도서 100선 데이터(크다, 720KB)
 docs/               SPEC, BUILD_PLAN, DESIGN, AI, DATA, TRANSCRIPTION, DECISIONS
