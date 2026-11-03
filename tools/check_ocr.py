@@ -50,7 +50,8 @@ def check_page(book, pj, txt):
     if book == "kim":
         group_started = False; expect_main = None
         for bl in blocks:
-            if bl["type"] == "q-group": group_started = True; expect_main = 1
+            if bl["type"] in ("set-head", "year-head"): group_started = False; expect_main = None   # 새 세트·해설 머리: 번호를 다시 센다
+            elif bl["type"] == "q-group": group_started = True; expect_main = 1
             elif bl["type"] == "q":
                 lab = bl.get("label", "")
                 if not lab:
