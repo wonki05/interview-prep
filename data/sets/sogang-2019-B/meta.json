@@ -1,0 +1,26 @@
+{
+ "id": "sogang-2019-B",
+ "school": "sogang",
+ "year": 2019,
+ "name": "서강대 B",
+ "session": "나군 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 다음 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": false,
+  "followup": true
+ },
+ "themes": [
+  "존엄성과 자율(난쟁이 던지기)"
+ ],
+ "tags": [
+  "법철학",
+  "윤리",
+  "사회·공동체",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

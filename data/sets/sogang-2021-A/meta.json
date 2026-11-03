@@ -1,0 +1,26 @@
+{
+ "id": "sogang-2021-A",
+ "school": "sogang",
+ "year": 2021,
+ "name": "서강대 A",
+ "session": "가군 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": false,
+  "followup": true
+ },
+ "themes": [
+  "목적과 수단의 정당화(원폭 투하)"
+ ],
+ "tags": [
+  "윤리",
+  "법철학",
+  "법·제도",
+  "정치·민주주의"
+ ],
+ "variant": "kim"
+}

@@ -1,0 +1,26 @@
+{
+ "id": "sogang-2022-B",
+ "school": "sogang",
+ "year": 2022,
+ "name": "서강대 B",
+ "session": "나군 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": false,
+  "followup": true
+ },
+ "themes": [
+  "최저임금과 계약의 자유(사납금제)",
+  "플랫폼 배차 강제와 휴식권"
+ ],
+ "tags": [
+  "경제·시장",
+  "법·제도",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

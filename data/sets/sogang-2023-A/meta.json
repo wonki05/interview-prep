@@ -1,0 +1,26 @@
+{
+ "id": "sogang-2023-A",
+ "school": "sogang",
+ "year": 2023,
+ "name": "서강대 A",
+ "session": "가군 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": false,
+  "followup": true
+ },
+ "themes": [
+  "경인고속도로 통행료 무료화",
+  "명절 통행료 면제 폐지"
+ ],
+ "tags": [
+  "경제·시장",
+  "법·제도",
+  "사회·공동체"
+ ],
+ "variant": "kim"
+}

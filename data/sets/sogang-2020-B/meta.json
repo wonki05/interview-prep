@@ -1,0 +1,28 @@
+{
+ "id": "sogang-2020-B",
+ "school": "sogang",
+ "year": 2020,
+ "name": "서강대 B",
+ "session": "나군 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": false,
+  "followup": true
+ },
+ "themes": [
+  "장애의 병리화와 보호",
+  "형식적 평등과 동등 대우",
+  "실질적 평등과 적극적 우대조치",
+  "개인 특성으로서의 장애"
+ ],
+ "tags": [
+  "법철학",
+  "사회·공동체",
+  "법·제도"
+ ],
+ "variant": "kim"
+}

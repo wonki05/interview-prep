@@ -1,0 +1,26 @@
+{
+ "id": "sogang-2022-A",
+ "school": "sogang",
+ "year": 2022,
+ "name": "서강대 A",
+ "session": "가군 면접",
+ "track": "일반전형",
+ "instruction": "제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "2:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": false,
+  "followup": true
+ },
+ "themes": [
+  "문화재 보존과 주택 공급(장릉)"
+ ],
+ "tags": [
+  "법·제도",
+  "문화·예술",
+  "사회·공동체",
+  "경제·시장"
+ ],
+ "variant": "kim"
+}
