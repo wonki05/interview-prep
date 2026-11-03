@@ -2,7 +2,7 @@
   "name": "interviewprep",
   "version": "0.2.0",
   "private": true,
-  "description": "서울대학교 법학전문대학원 면접전형 대비 — 정적 사이트(GitHub Pages)",
+  "description": "서울대학교 법학전문대학원 면접 및 구술고사 대비 — 정적 사이트(GitHub Pages)",
   "scripts": {
     "serve": "npx -y serve -l 5173 .",
     "validate": "node tools/validate-data.js",

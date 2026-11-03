@@ -5,7 +5,7 @@
 (function () {
   "use strict";
   const KEY = "snu-iv-settings-v1";
-  const SITE = "서울대학교 법학전문대학원 면접전형 대비";
+  const SITE = "서울대학교 법학전문대학원 면접 및 구술고사 대비";
   const DEFAULTS = {
     theme: "system",            // system | light | dark
     bluelight: "off",           // off | low | mid | high

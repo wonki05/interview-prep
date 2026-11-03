@@ -1,4 +1,4 @@
-# CLAUDE.md — 서울대학교 법학전문대학원 면접전형 대비 (interviewprep)
+# CLAUDE.md — 서울대학교 법학전문대학원 면접 및 구술고사 대비 (interviewprep)
 
 Claude Code가 이 저장소에서 작업할 때 따르는 규칙. Codex는 같은 내용의 `AGENTS.md`를 읽는다. 두 파일은 항상 같은 내용으로 유지한다.
 
