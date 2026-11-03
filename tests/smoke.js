@@ -30,6 +30,8 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   page.on("console", m => { if (m.type() === "error" && !/ERR_TUNNEL|ERR_INTERNET|fonts\.g/.test(m.text())) errors.push("console.error: " + m.text()); });
   const shot = async (name, w, h, full) => { await page.setViewport({ width: w || 1280, height: h || 900 }); await sleep(250); await page.screenshot({ path: path.join(OUT, name + ".png"), fullPage: !!full }); };
   const goto = async (p) => { await page.goto(ROOT + p, { waitUntil: "domcontentloaded", timeout: BASE_URL ? 60000 : 30000 }); await sleep(300); };   // 배포본 60초(기본 30초)
+  const clickVisible = async sel => { await page.$eval(sel, el => el.scrollIntoView({ block: "center" })); await page.click(sel); };   // 붙박이 앱바 아래로 스크롤된 버튼 대신 앱바 링크를 누르지 않게
+  const fresh = async p => { await goto(p); await page.reload({ waitUntil: "domcontentloaded" }); await sleep(300); };   // 같은 주소로 가면 새로 불러오지 않아 앞 단계 상태가 남는다
   const setSettings = async (obj) => { await page.evaluate(o => localStorage.setItem("snu-iv-settings-v1", JSON.stringify(o)), obj); };
   const noOverflow = async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   const setEffort = async (selector, value) => page.$eval(selector, (input, n) => {
@@ -193,7 +195,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
 
   console.log("기출DB: 예시답변·제시문 해설");
   await setSettings({ variant: "kim", provider: "anthropic", explanationProvider: "openai", explanationOpenaiModel: "gpt-6.1-terra", explanationOpenaiEffort: "max" });
-  await goto("db.html#snu-2023-A");
+  await fresh("db.html#snu-2023-A");
   /* 생성 응답만 지연 mock으로 바꾸고 실제 UI·역할별 설정·캐시·경합 처리를 확인한다. */
   await page.evaluate(() => {
     const mock = window.__studyMock = { exampleCalls: [], passageCalls: [], pending: [], source: JSON.stringify(INTERVIEW_DB), threads: localStorage.getItem("snu-db-threads-v1") };
@@ -229,13 +231,13 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   check(await page.$eval("#ta-A-3", el => el.value === "작성 중인 답변"), "생성 결과 표시 후 작성 내용 유지");
   await page.click('[data-example="A-3"]'); await page.click('[data-example="A-3"]');
   check(await page.evaluate(() => __studyMock.exampleCalls.length === 1), "예시답변 다시 열 때 캐시 사용");
-  await page.click("#explainPassages");
+  await clickVisible("#explainPassages");
   await page.waitForFunction(() => __studyMock.passageCalls.length === 1);
   check(await page.evaluate(() => __studyMock.passageCalls.length === 1 && __studyMock.passageCalls[0].books.length > 0), "제시문 해설에 서가 후보 도서 포함");
   await page.evaluate(() => __studyMock.finishPassages());
   await page.waitForFunction(() => document.querySelector("#passageExplanation").textContent.includes("회귀검증 해설 개관"));
   check(await page.$('#passageExplanation a[href^="library.html#"]'), "해설 추천 도서는 서가 내부 링크");
-  await page.click("#explainPassages"); await page.click("#explainPassages");
+  await clickVisible("#explainPassages"); await clickVisible("#explainPassages");
   check(await page.evaluate(() => __studyMock.passageCalls.length === 1), "제시문 해설 다시 열 때 캐시 사용");
   check(await page.evaluate(() => JSON.stringify(INTERVIEW_DB) === __studyMock.source && localStorage.getItem("snu-db-threads-v1") === __studyMock.threads), "예시답변·해설은 기출 원문과 내 문답 기록에 섞이지 않음");
 
@@ -292,12 +294,12 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     return origin[origin.length - 2].text === "면접관 경합 검증 답변" && origin[origin.length - 1].text === "회귀검증 면접관 피드백" && !(records["snu-2021-A"] || {})[key];
   }, newSetQuestionKey), "면접관 결과는 요청한 세트·질문에만 저장");
 
-  await goto("db.html#snu-2023-A");
+  await fresh("db.html#snu-2023-A");
   await page.evaluate(() => {
     window.__cachedStudyCalls = 0;
     AIClient.exampleAnswers = async () => { window.__cachedStudyCalls++; throw new Error("캐시 재호출 오류"); };
   });
-  await page.click('[data-example="A-3"]'); await page.waitForSelector("#examples-A-3 .study-example", { visible: true });
+  await clickVisible('[data-example="A-3"]'); await page.waitForSelector("#examples-A-3 .study-example", { visible: true });
   check(await page.evaluate(() => __cachedStudyCalls === 0 && !AIClient.resolve().configured), "새로고침 후 API 키 없이 저장된 예시답변 열람");
   if (await page.evaluate(() => !!window.SNU.db.set("snu-2019-C"))) {
     await goto("db.html#snu-2019-C");
