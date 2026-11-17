@@ -388,6 +388,203 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     check(await page.evaluate(() => document.querySelector(".paper .ptitle").textContent.includes("(가)")), "2019-C: 제시문 머리에 (가) 표기");
   }
 
+  console.log("기출DB: 녹음본 피드백");
+  /* 첨부 파일은 tests/shots/(git 무시)에 만든다. 녹음은 내용 없는 바이트이고 전사·평가·후속 질문 응답은 지연 mock이다(키 저장·외부 호출 없음).
+     AI 면접관 바와 해설 설정을 다르게 두어 평가가 면접관 바의 선택을 쓰는지 확인한다. 내려받기는 a.click을 가로채 파일 이름과 Blob 내용만 본다.
+     끝에 설정·학습 캐시·화면 크기를 되돌리고 다시 불러온다. */
+  const recSettings = await page.evaluate(() => localStorage.getItem("snu-iv-settings-v1"));
+  const recStudy = await page.evaluate(() => localStorage.getItem("snu-db-study-v1"));
+  const recFile = (name, content) => { const p = path.join(OUT, name); fs.writeFileSync(p, content); return p; };
+  const recTxt = recFile("rec-qa.txt", "Q1: 네 제시문의 공통점은 무엇입니까?\r\nA1: 회귀검증 텍스트 답변입니다.\r\n");
+  const recJson = recFile("rec-session.json", JSON.stringify({ history: [{ q: "회귀검증 세션 질문", a: "회귀검증 세션 답변" }] }));
+  const recQ10 = recFile("rec_Q10.webm", Buffer.alloc(2048, 1)), recQ2 = recFile("rec_Q2.webm", Buffer.alloc(1024, 1)), recQ3 = recFile("rec_Q3.webm", Buffer.alloc(1536, 1)), recPdf = recFile("rec-note.pdf", "pdf");
+  const recKey = JSON.stringify(["snu-2023-A", "kim"]);
+  const recStored = id => page.evaluate(id => { const entries = (JSON.parse(localStorage.getItem("snu-db-study-v1") || "{}").entries) || {}; return entries[id] || { reviews: [], transcripts: {} }; }, id);
+  const recRun = "#recResults details.run[open]";
+  await setSettings({ variant: "kim", explanationProvider: "openai", explanationOpenaiModel: "gpt-6-luna" }); await fresh("db.html#snu-2023-A");
+  check(await page.$eval("#recordingPanel", el => el.hidden) && await page.evaluate(() => { const after = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING), button = document.querySelector("#recordingFeedback"); return after(document.querySelector("#passageExplanation"), button) && after(button, document.querySelector(".qgroup")); }), "녹음본 피드백 버튼: 제시문 해설 아래·복기 추가질문 위, 처음엔 닫힘");
+  await clickVisible("#recordingFeedback");
+  check(await page.$eval("#recordingPanel", el => !el.hidden) && await page.$eval("#recordingFeedback", el => el.getAttribute("aria-expanded") === "true") && await page.$("#recReview[disabled]") && !(await page.$("#recStt")) && await page.$eval("#recClear", el => el.hidden) && await page.$('[data-rec-copy="text"][disabled]'), "패널 열기: 문답 칸, [피드백 받기]·[복사] 비활성(문답 없음), 전사 줄 없음");
+  await (await page.$("#recFiles")).uploadFile(recTxt, recJson, recPdf);
+  await page.waitForFunction(() => document.querySelector("#recText").value.includes("회귀검증 세션 답변"));
+  const recDraft = await page.$eval("#recText", el => el.value);
+  check(recDraft === "Q1: 네 제시문의 공통점은 무엇입니까?\nA1: 회귀검증 텍스트 답변입니다.\n\nQ1: 회귀검증 세션 질문\nA1: 회귀검증 세션 답변", "텍스트·세션 JSON 첨부 → 문답 칸 채움(JSON은 Q/A로)");
+  check(await page.$eval("#recStatus", el => el.textContent.includes("지원하지 않는 형식: rec-note.pdf")) && (await page.$$("#recList li")).length === 2, "지원하지 않는 형식은 한 줄 오류, 첨부 목록 2개");
+  check(await page.$("#recReview[disabled]") && await page.$eval("#recForm", el => el.textContent.includes("API 키 없음") && !!el.querySelector("[data-study-settings]")), "키 없으면 [피드백 받기] 비활성 + API 키 없음 + 설정");
+  await (await page.$("#recFiles")).uploadFile(recQ10, recQ2);
+  await page.waitForSelector("#recStt");
+  check(await page.$eval("#recStt", el => el.textContent.includes("전사(OpenAI)") && el.textContent.includes("OpenAI API 키 없음")) && await page.$("#recTranscribe[disabled]") && await page.$eval("#recModel", el => el.value === "gpt-transcribe" && el.options.length === 3), "녹음 첨부 → 전사(OpenAI) 줄과 전사 모델, OpenAI 키 없으면 [전사] 비활성");
+  /* 면접관(Claude) 키만 있고 OpenAI 키는 없는 상태: 전사하지 않은 녹음이 있으면 [피드백 받기]도 막히고, [빼기]로 녹음을 빼면 글만으로 받을 수 있다. */
+  await page.evaluate(() => { const resolve = AIClient.resolve; window.__recResolve = resolve; AIClient.resolve = o => Object.assign({}, resolve(o), { configured: (o && o.provider) !== "openai" }); SNU.save({}); });
+  check(await page.$("#recReview[disabled]") && (await page.$$("#recList [data-rec-remove]")).length === 2, "OpenAI 키 없이 전사하지 않은 녹음이 있으면 [피드백 받기] 비활성, 녹음마다 [빼기]");
+  await clickVisible('#recList [data-rec-remove="3"]'); await clickVisible('#recList [data-rec-remove="2"]');
+  check((await page.$$("#recList li")).length === 2 && !(await page.$("#recStt")) && !(await page.$("#recReview[disabled]")) && await page.$eval("#recText", (el, draft) => el.value === draft, recDraft), "[빼기]로 녹음을 빼면 글만으로 [피드백 받기] 가능, 문답 칸 유지");
+  await (await page.$("#recFiles")).uploadFile(recQ10, recQ2);
+  await page.waitForSelector("#recStt");
+  await page.evaluate(() => {
+    const mock = window.__recMock = { transcribed: [], reviews: [], pending: [], asks: [], askPending: [] };
+    AIClient.resolve = override => Object.assign({}, __recResolve(override), { configured: true });
+    AIClient.transcribe = async (file, cs, model) => { mock.transcribed.push({ name: file.name, size: file.size, set: cs.id, model }); return "회귀검증 전사 " + file.name; };
+    AIClient.reviewRecording = (cs, transcript, books, ai) => {
+      mock.reviews.push({ id: cs.id, variant: cs.variant, transcript, books: books.length, ai });
+      const units = AIClient.recordUnits(transcript).units.filter(u => !u.head).length;
+      return new Promise(done => mock.pending.push(() => done({
+        analysis: { overview: "회귀검증 문제 개관 " + mock.reviews.length, passages: cs.passages.map(p => ({ no: p.no, summary: "회귀검증 제시문 요약", keyPoints: ["회귀검증 논점"] })).reverse(), demands: ["회귀검증 요구"] },
+        qa: [{ no: 2, from: units, to: units, question: "(추정) 회귀검증 질문 둘", answer: "회귀검증 답변 요지 둘", evaluation: "회귀검증 평가 <b>굵게</b>", improvement: "회귀검증 개선 둘" }, { no: 1, from: 1, to: 2, question: "회귀검증 질문 하나", answer: "회귀검증 답변 요지 하나", evaluation: "회귀검증 평가 하나", improvement: "회귀검증 개선 하나" }, { no: 3, from: 0, to: 0, question: "회귀검증 질문 셋", answer: "요지 셋", evaluation: "평가 셋", improvement: "개선 셋" }],
+        evaluation: { summary: "회귀검증 종합 평가", strengths: [], gaps: ["회귀검증 부족한 점"] },
+        improvements: ["회귀검증 개선 방안 하나", "회귀검증 개선 방안 둘"],
+        books: [{ id: books[0].id, reason: "회귀검증 추천 이유" }]
+      })));
+    };
+    AIClient.recordingFollowup = (cs, run, books, ai) => { mock.asks.push({ id: cs.id, question: run.thread[run.thread.length - 1].text, n: run.thread.length, transcript: run.transcript, ai }); return new Promise((done, fail) => mock.askPending.push({ done: () => done({ reply: "회귀검증 후속 답 " + mock.asks.length + " <i>기울임</i>" }), fail: () => fail(new Error("모의 서버 오류")) })); };
+    window.__downloads = []; window.__blobs = [];
+    const create = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = blob => { __blobs.push(blob); return create(blob); };
+    HTMLAnchorElement.prototype.click = function () { if (this.download) __downloads.push(this.download); };
+    SNU.save({});
+  });
+  check(await page.$eval("#recText", (el, draft) => el.value === draft, recDraft) && (await page.$$("#recList li")).length === 4 && await page.evaluate(() => __recMock.transcribed.length === 0) && !(await page.$("#recReview[disabled]")) && !(await page.$("#recTranscribe[disabled]")), "다시 그려도 문답 칸·첨부 유지, 파일을 고른 것만으로는 전사하지 않음");
+  const recAppend = async (selector, text) => { await page.focus(selector); await page.keyboard.down("Control"); await page.keyboard.press("End"); await page.keyboard.up("Control"); await page.keyboard.type(text); };   // 칸 끝에 이어 쓴다
+  await recAppend("#recText", " 직접 고친 문장 ");
+  await page.select("#recModel", "gpt-4o-mini-transcribe");
+  await page.select("#dbInterviewerAi .modelsel select", "claude-opus-5-5");
+  await setEffort("#db-effort", 2);
+  await page.click("#toggleThemes"); await page.click("#toggleThemes");
+  check(await page.$eval("#recText", el => el.value.includes("직접 고친 문장") && el.value.includes("회귀검증 세션 답변")) && (await page.$$("#recList li")).length === 4 && await page.evaluate(() => SNU.settings.transcriptionModel === "gpt-4o-mini-transcribe" && document.querySelector("#recModel").value === "gpt-4o-mini-transcribe"), "설정 변경(전사 모델·면접관 모델·주제 가림)으로 다시 그려도 문답 칸·첨부 유지, 전사 모델 저장");
+  const recHeights = await page.$$eval("#recPick, #recClear, #recTranscribe, #recReview, [data-rec-copy='text'], [data-rec-save='text']", els => els.map(el => Math.round(el.getBoundingClientRect().height)));
+  check(recHeights.length === 6 && recHeights.every(h => h === recHeights[0]), "패널 버튼 높이 동일 " + recHeights.join(","));
+  await clickVisible('[data-rec-copy="text"]');
+  await page.waitForFunction(() => /복사(함| 실패)/.test(document.querySelector('[data-copy-status="text"]').textContent));
+  await clickVisible('[data-rec-save="text"]');
+  check(await page.evaluate(async () => __downloads[0] && /^snu-2023-A_kim_transcript_\d{8}-\d{4}\.txt$/.test(__downloads[0]) && (await __blobs[0].text()).includes("직접 고친 문장") && __blobs[0].type.startsWith("text/plain")), "문답 칸 복사·내려받기(.txt, 세트·복기본·시각 이름)");
+  /* [전사]: 둘째 녹음에서 실패하면 첫째까지만 붙고 멈추며, 다시 누르면 남은 것만 보낸다. */
+  await page.evaluate(() => { const ok = AIClient.transcribe; __recMock.okTranscribe = ok; AIClient.transcribe = async (file, cs, model) => { if (file.name === "rec_Q10.webm") { __recMock.transcribed.push({ name: file.name, failed: true }); throw new Error("OpenAI: 호출 한도에 도달했다 (429)."); } return ok(file, cs, model); }; });
+  await clickVisible("#recTranscribe");
+  await page.waitForFunction(() => document.querySelector("#recStatus").textContent.includes("전사 실패(rec_Q10.webm)"));
+  check(await page.$eval("#recText", el => el.value.includes("[녹음 1: rec_Q2.webm]\n회귀검증 전사 rec_Q2.webm") && !el.value.includes("[녹음 2")) && await page.$$eval("#recList li", li => li.filter(x => x.textContent.includes("전사됨 · GPT-4o mini Transcribe")).length === 1), "[전사] 중간 실패: 끝난 녹음까지만 붙고(전사 모델 표시) 멈춤");
+  await page.evaluate(() => { AIClient.transcribe = __recMock.okTranscribe; });
+  await clickVisible("#recTranscribe");
+  await page.waitForFunction(() => document.querySelector("#recText").value.includes("[녹음 2: rec_Q10.webm]"));
+  check(await page.evaluate(() => JSON.stringify(__recMock.transcribed.filter(t => !t.failed).map(t => t.name)) === JSON.stringify(["rec_Q2.webm", "rec_Q10.webm"]) && __recMock.transcribed.every(t => t.failed || (t.model === "gpt-4o-mini-transcribe" && t.set === "snu-2023-A"))) && await page.$("#recTranscribe[disabled]"), "다시 누르면 남은 녹음만 전사(이름 자연 정렬 Q2 → Q10, 고른 전사 모델)");
+  await (await page.$("#recFiles")).uploadFile(recQ3);
+  await page.waitForSelector("#recTranscribe:not([disabled])");
+  await page.$eval("#recReview", b => { b.scrollIntoView({ block: "center" }); b.click(); b.click(); });
+  await page.waitForFunction(() => __recMock.reviews.length === 1);
+  check(await page.evaluate(() => __recMock.transcribed.filter(t => !t.failed).map(t => t.name).join() === "rec_Q2.webm,rec_Q10.webm,rec_Q3.webm"), "[피드백 받기]는 남은 녹음을 먼저 전사하고 평가(한 번의 클릭)");
+  check(await page.evaluate(() => __recMock.reviews.length === 1) && await page.$("#recReview[disabled]") && await page.$("#recText[disabled]") && await page.$eval("#recStatus", el => el.textContent.includes("평가 중")) && await page.$eval("#recForm", el => el.getAttribute("aria-busy") === "true"), "요청 중 중복 클릭 막음·진행 표시·문답 칸 잠금");
+  check(await page.evaluate(() => { const t = __recMock.reviews[0].transcript; return t.includes("회귀검증 텍스트 답변입니다.") && t.includes("직접 고친 문장") && t.indexOf("[녹음 1: rec_Q2.webm]") < t.indexOf("[녹음 2: rec_Q10.webm]") && t.indexOf("[녹음 2: rec_Q10.webm]") < t.indexOf("[녹음 3: rec_Q3.webm]") && __recMock.reviews[0].books > 50; }), "평가 입력 = 문답 칸의 글(텍스트 + 파일 경계를 표시한 전사 + 직접 고친 내용), 서가 후보 포함");
+  check(await page.evaluate(() => { const ai = __recMock.reviews[0].ai; return ai.provider === "anthropic" && ai.model === "claude-opus-5-5" && ai.effort === "high" && SNU.settings.anthropicModel !== "claude-opus-5-5" && SNU.settings.explanationProvider === "openai"; }), "평가 모델 = AI 면접관 바의 선택(해설 설정·기본 설정이 아님)");
+  await page.evaluate(() => __recMock.pending[0]());
+  await page.waitForSelector(recRun);
+  check(await page.$eval(recRun, d => JSON.stringify([...d.querySelectorAll("h3")].map(h => h.textContent)) === JSON.stringify(["문제 분석", "답변 평가", "개선 방안", "추천 도서", "후속 질문"])), "(i)~(iv) 순서: 문제 분석 → 답변 평가 → 개선 방안 → 추천 도서, 이어서 후속 질문");
+  check(await page.$eval(recRun, d => JSON.stringify([...d.querySelectorAll(".study-passage h4")].map(h => h.textContent)) === JSON.stringify(["<제시문 1>", "<제시문 2>", "<제시문 3>", "<제시문 4>", "문제의 요구"]) && JSON.stringify([...d.querySelectorAll("[data-rec-qa] > summary")].map(s => s.textContent)) === JSON.stringify(["Q1. 회귀검증 질문 하나", "Q2. (추정) 회귀검증 질문 둘", "Q3. 회귀검증 질문 셋"]) && d.textContent.includes("원문 위치 없음 1")), "제시문별 분석·문제의 요구, 문답별 평가는 번호순 접는 목록(위치 못 찾은 수 표시)");
+  check(await page.$eval(recRun, d => ["회귀검증 문제 개관 1", "회귀검증 종합 평가", "회귀검증 부족한 점", "회귀검증 개선 방안 둘", "회귀검증 추천 이유"].every(text => d.textContent.includes(text)) && d.querySelectorAll("ol.study-list li").length === 2 && !d.querySelector("[data-rec-qa] .study-notes")), "종합 평가·개선 방안(순서 목록)·추천 이유 표시, 문답 본문은 펼칠 때 채움");
+  await page.$eval(recRun + ' [data-rec-qa$=":1"] > summary', s => s.click());
+  await page.waitForSelector(recRun + ' [data-rec-qa$=":1"] .study-notes');
+  check(await page.$eval(recRun + ' [data-rec-qa$=":1"]', d => { const dt = [...d.querySelectorAll("dt")].map(x => x.textContent).join(), src = d.querySelector(".study-transcript").textContent; return dt === "원문,답변 요지,평가,개선" && src.startsWith("Q1: 네 제시문의 공통점은 무엇입니까?") && src.includes("A1: 회귀검증 텍스트 답변입니다.") && !src.includes("회귀검증 세션 질문") && d.textContent.includes("회귀검증 답변 요지 하나"); }), "문답을 펼치면 원문 구간(from·to)·답변 요지·평가·개선이 함께");
+  await page.$eval(recRun + ' [data-rec-qa$=":2"] > summary', s => s.click());
+  await page.waitForSelector(recRun + ' [data-rec-qa$=":2"] .study-notes');
+  check(await page.$eval(recRun + ' [data-rec-qa$=":2"]', d => d.querySelector(".study-transcript").textContent === "회귀검증 전사 rec_Q3.webm" && d.textContent.includes("<b>굵게</b>") && !d.querySelector(".study-text b")) && await page.$eval(recRun + ' [data-rec-qa$=":3"]', d => !d.open), "녹음 하나의 원문, AI 평가는 HTML로 실행하지 않음");
+  await page.$eval(recRun + ' [data-rec-qa$=":3"] > summary', s => s.click());
+  await page.waitForSelector(recRun + ' [data-rec-qa$=":3"] .study-notes');
+  check(await page.$eval(recRun + ' [data-rec-qa$=":3"]', d => d.textContent.includes("위치 없음")), "범위가 틀린 문답은 '위치 없음'");
+  check(await page.$eval(recRun + ' a[href^="library.html#b"]', a => a.textContent.trim().length > 0 && !a.textContent.includes("회귀검증")), "추천 도서는 실제 서가 제목·내부 링크");
+  await page.$eval(recRun + " [data-rec-full] > summary", s => s.click());
+  await page.waitForSelector(recRun + " [data-rec-full] .study-transcript");
+  check(await page.$eval(recRun + " [data-rec-full]", d => { const labels = [...d.querySelectorAll(".study-transcript > .small")].map(p => p.textContent); return labels.join() === "Q1,문답 밖,Q2" && d.textContent.includes("회귀검증 전사 rec_Q10.webm") && d.querySelector(".small").textContent.includes("rec_Q2.webm · 1KB · 녹음 · GPT-4o mini Transcribe"); }), "평가한 문답 전문: 문답 구간마다 Q 번호·'문답 밖', 첨부 이름·전사 모델");
+  await clickVisible(recRun + ' [data-rec-save]:not([data-rec-save="text"])');
+  check(await page.evaluate(async () => { const name = __downloads[__downloads.length - 1], md = await __blobs[__blobs.length - 1].text(); return /^snu-2023-A_kim_feedback_\d{8}-\d{4}\.md$/.test(name) && md.startsWith("# 2023학년도 서울대 A 녹음본 피드백") && md.includes("### Q1. 회귀검증 질문 하나") && md.includes("> Q1: 네 제시문의 공통점은 무엇입니까?") && md.includes("## 평가한 문답") && md.includes("[녹음 3: rec_Q3.webm]") && !md.includes(SNU.settings.anthropicKey || "키없음"); }), "결과 내려받기(.md: 평가·문답별 원문·평가한 문답 전문)");
+  check(await page.evaluate(async id => { const e = JSON.parse(localStorage.getItem("snu-db-study-v1")).entries[id], r = e.reviews[0], t = e.transcripts[r.tx]; return e.reviews.length === 1 && t.includes("회귀검증 전사 rec_Q2.webm") && r.files.length === 5 && r.files.filter(f => f.kind === "audio").every(f => f.model === "GPT-4o mini Transcribe" && Object.keys(f).sort().join() === "kind,model,name,size") && r.spans.length === 2 && r.model.includes("Opus") && r.effort === "high"; }, recKey), "결과는 학습 캐시의 세트·복기본에 저장(전문은 지문으로 한 번, 녹음 파일은 저장하지 않음)");
+  check(await page.$eval("#recText", el => !el.disabled && el.value.includes("직접 고친 문장")) && await page.$$eval("#recList li", li => li.length === 5 && li.filter(x => x.textContent.includes("전사됨")).length === 3), "평가 뒤에도 문답 칸·첨부 유지, 녹음은 '전사됨'");
+  await page.$eval("#recForm", el => el.scrollIntoView({ block: "start" }));
+  await shot("db-recording", 1280, 900);
+  /* 후속 질문: 질문은 먼저 저장되고, 답을 기다리는 동안 그 결과는 지울 수 없으며, 답은 그 질문 뒤에 붙는다. */
+  const recAt = await page.$eval(recRun, d => d.dataset.run);
+  check(await page.$(`#rq-${recAt}`) && await page.$eval(`[data-rec-ask="${recAt}"]`, b => !b.disabled && b.textContent === "질문하기") && !(await page.$(`[data-rec-ask-clear="${recAt}"]`)), "후속 질문 칸과 [질문하기](스레드 없음)");
+  await page.type(`#rq-${recAt}`, "제시문 2를 오독했다는 근거는?");
+  await page.$eval(`[data-rec-ask="${recAt}"]`, b => { b.scrollIntoView({ block: "center" }); b.click(); b.click(); });
+  await page.waitForFunction(() => __recMock.asks.length === 1);
+  check(await page.evaluate(at => __recMock.asks.length === 1 && __recMock.asks[0].question === "제시문 2를 오독했다는 근거는?" && __recMock.asks[0].transcript.includes("[녹음 3: rec_Q3.webm]") && __recMock.asks[0].ai.model === "claude-opus-5-5" && document.querySelector(`[data-rec-thread="${at}"] .msg.user`).textContent.includes("제시문 2를 오독했다는 근거는?") && document.querySelector(`[data-rec-ask="${at}"]`).disabled && document.querySelector(`[data-run-del="${at}"]`).disabled && document.querySelector(`#rq-${at}`).value === "", recAt), "후속 질문: 질문을 먼저 보이고 저장, 답 대기 중 중복·삭제 막음, AI 면접관 모델로 전사·피드백과 함께 보냄");
+  check((await recStored(recKey)).reviews[0].thread.length === 1, "질문은 답을 받기 전에 저장");
+  await recAppend("#recText", " 대기 중 입력");
+  await page.evaluate(() => __recMock.askPending[0].done());
+  await page.waitForFunction(at => document.querySelector(`[data-rec-thread="${at}"] .msg.ai`), {}, recAt);
+  check(await page.evaluate(at => { const box = document.querySelector(`[data-rec-thread="${at}"]`), ai = box.querySelector(".msg.ai"); return ai.querySelector(".who").textContent.includes("Opus") && ai.textContent.includes("<i>기울임</i>") && !ai.querySelector("i") && !document.querySelector(`[data-run-del="${at}"]`).disabled && document.querySelector("#recText").value.endsWith(" 대기 중 입력"); }, recAt), "답은 면접관 말풍선(모델 이름, 텍스트로), 답이 오면 삭제 다시 가능, 문답 칸 입력 유지");
+  check(await page.evaluate(async id => { const t = JSON.parse(localStorage.getItem("snu-db-study-v1")).entries[id].reviews[0].thread; return t.length === 2 && t[1].role === "ai" && t[1].re === t[0].at; }, recKey), "후속 문답은 그 결과와 함께 저장(답은 질문을 가리킴)");
+  await page.type(`#rq-${recAt}`, "실패할 질문");
+  await clickVisible(`[data-rec-ask="${recAt}"]`);
+  await page.waitForFunction(() => __recMock.asks.length === 2);
+  await page.evaluate(() => __recMock.askPending[1].fail());
+  await page.waitForFunction(at => document.querySelector(`[data-rec-thread="${at}"] .callout.warn`), {}, recAt);
+  check(await page.evaluate(at => document.querySelector(`[data-rec-thread="${at}"]`).textContent.includes("AI 호출 실패: 모의 서버 오류") && document.querySelector(`[data-rec-ask="${at}"]`).textContent === "다시 묻기", recAt), "후속 질문 실패: 한 줄 오류, 질문은 남고 버튼은 [다시 묻기]");
+  await clickVisible(`[data-rec-ask="${recAt}"]`);
+  await page.waitForFunction(() => __recMock.asks.length === 3);
+  await page.evaluate(() => __recMock.askPending[2].done());
+  await page.waitForFunction(at => document.querySelectorAll(`[data-rec-thread="${at}"] .msg`).length === 4, {}, recAt);
+  check(await page.evaluate(() => __recMock.asks[2].question === "실패할 질문" && __recMock.asks[2].n === 3), "[다시 묻기]는 새 질문 없이 같은 질문에 답을 받음");
+  await page.$eval(`[data-rec-ask-prompt="${recAt}"] > summary`, s => s.click());
+  await page.waitForFunction(at => document.querySelector(`[data-rec-ask-prompt="${at}"] pre`).textContent.includes("[이번 질문"), {}, recAt);
+  check(await page.$eval(`[data-rec-ask-prompt="${recAt}"] pre`, pre => pre.textContent.includes("[system]") && pre.textContent.includes("<<<피드백 시작>>>") && pre.textContent.includes("지원자: 제시문 2를 오독했다는 근거는?") && pre.textContent.includes("(지금 적는 질문이 여기에 들어간다)")), "후속 질문 AI 입력 보기(피드백·앞선 문답·이번 질문 자리)");
+  await clickVisible("#recReview");
+  await page.waitForFunction(() => __recMock.reviews.length === 2);
+  await page.evaluate(() => __recMock.pending[1]());
+  await page.waitForFunction(() => document.querySelectorAll("#recResults details.run").length === 2);
+  check(await page.evaluate(() => __recMock.transcribed.filter(t => !t.failed).length === 3) && await page.$$eval("#recResults details.run", d => d[0].open && !d[1].open && d[0].querySelector("summary b").textContent === "2차" && d[1].querySelector("summary b").textContent === "1차" && d[0].textContent.includes("회귀검증 문제 개관 2")), "다시 받으면 2차로 쌓임(이미 전사한 녹음은 다시 보내지 않음)");
+  check(await page.evaluate(async id => { const e = JSON.parse(localStorage.getItem("snu-db-study-v1")).entries[id]; return e.reviews.length === 2 && Object.keys(e.transcripts).length === 2; }, recKey), "문답 글마다 전문 하나");
+  await clickVisible("#recResults .runs > details.run:last-of-type > summary");
+  await clickVisible(`[data-rec-ask-clear="${recAt}"]`);
+  check(await page.$$eval(`[data-rec-thread="${recAt}"] .msg`, m => m.length === 0) && (await recStored(recKey)).reviews.find(r => String(r.at) === recAt).thread.length === 0, "[후속 질문 지우기]: 그 결과의 스레드만 비움");
+  await clickVisible("#recResults .runs > details.run:last-of-type > .fold-b > .row [data-run-del]");
+  await page.waitForFunction(() => document.querySelectorAll("#recResults details.run").length === 1);
+  check((await recStored(recKey)).reviews.length === 1 && Object.keys((await recStored(recKey)).transcripts).length === 1 && await page.$eval("#recText", el => el.value.includes("직접 고친 문장")) && await page.$eval(recRun, d => d.textContent.includes("회귀검증 문제 개관 2")), "결과 하나 삭제(스레드·쓰지 않는 전문도 함께), 문답 칸 유지");
+  await clickVisible("#recReview");
+  await page.waitForFunction(() => __recMock.reviews.length === 3);
+  await page.click('.dbside [data-set="snu-2021-A"]');
+  check(await page.$("#recordingPanel[hidden]") && await page.$eval("#recText", el => el.value === "") && !(await page.$("#recList")), "다른 세트의 패널·문답 칸·첨부는 따로");
+  await page.evaluate(() => __recMock.pending[2]());
+  await page.waitForFunction(id => JSON.parse(localStorage.getItem("snu-db-study-v1")).entries[id].reviews.length === 2, {}, recKey);
+  check(!(await page.$("#recResults details.run")) && (await recStored(JSON.stringify(["snu-2021-A", "kim"]))).reviews.length === 0, "요청 중 세트 이동: 늦은 결과를 현재 세트에 표시·저장하지 않음");
+  await page.click('.dbside [data-set="snu-2023-A"]');
+  check((await page.$$("#recResults details.run")).length === 2 && await page.$eval("#recordingPanel", el => !el.hidden) && await page.$eval("#recForm", el => el.getAttribute("aria-busy") === "false") && await page.$eval("#recText", el => el.value.includes("직접 고친 문장")) && (await page.$$("#recList li")).length === 5 && !(await page.$("#recReview[disabled]")), "원래 세트로 돌아오면 결과 2개, 문답 칸·첨부 그대로");
+  await page.evaluate(() => SNU.save({ theme: "dark", fontScale: "xl" }));
+  await page.setViewport({ width: 400, height: 820 }); await sleep(250);
+  const recOpenRun = await page.$eval(recRun, d => d.dataset.run);
+  await page.$eval(`#recResults details.run[data-run="${recOpenRun}"] [data-rec-qa$=":1"] > summary`, s => s.click());
+  await page.$eval(`#recResults details.run[data-run="${recOpenRun}"] [data-rec-full] > summary`, s => s.click());
+  await page.$eval("#recPrompt summary", s => s.click());
+  await page.waitForFunction(() => document.querySelector("#recPrompt pre").textContent.includes("[user]"));
+  check(await page.$eval("#recPrompt pre", pre => pre.textContent.includes("[system]") && pre.textContent.includes("<제시문 4>") && pre.textContent.includes("<<<기록 시작>>>") && pre.textContent.includes("[제시문 번호] 1 = <제시문 1>") && pre.textContent.includes("⟦1⟧ Q1: 네 제시문의 공통점은 무엇입니까?") && pre.textContent.includes("직접 고친 문장") && pre.textContent.includes("[서가 후보")), "AI 입력 보기 = 실제 system/user(제시문 전문 + 서가 후보 + 번호 붙은 문답 칸의 글)");
+  check(await noOverflow() && await page.$eval("#recordingPanel", el => el.scrollWidth <= el.clientWidth), "녹음본 피드백 400px 어둠 아주 크게: 문답·전문·입력 보기를 펼쳐도 가로 넘침 없음");
+  await page.$eval("#recForm", el => el.scrollIntoView({ block: "start" }));
+  await shot("db-recording-400-dark-xl", 400, 820);
+  await page.$eval("#recResults", el => el.scrollIntoView({ block: "start" }));
+  await shot("db-recording-result-400-dark-xl", 400, 820);
+  await page.evaluate(() => SNU.save({ theme: "light" }));
+  await page.setViewport({ width: 1280, height: 900 }); await sleep(250);
+  check(await noOverflow() && await page.$eval("#recPrompt", d => d.open) && await page.$eval(`#recResults details.run[data-run="${recOpenRun}"] [data-rec-full]`, d => d.open), "녹음본 피드백 1280px 밝음 아주 크게: 가로 넘침 없음, 펼친 상태 유지");
+  await page.$eval("#recResults", el => el.scrollIntoView({ block: "start" }));
+  await shot("db-recording-result-1280-light-xl", 1280, 900);
+  await clickVisible("#recClear");
+  check(await page.$eval("#recText", el => el.value === "") && !(await page.$("#recList")) && !(await page.$("#recStt")) && await page.$("#recReview[disabled]") && (await page.$$("#recResults details.run")).length === 2, "[비우기]: 첨부·문답을 비우고 결과는 유지");
+  await page.type("#recText", "실패 경로 문답");
+  await page.evaluate(() => { AIClient.reviewRecording = async () => { __recMock.reviews.push("실패"); throw new Error("모의 서버 오류"); }; });
+  await clickVisible("#recReview");
+  await page.waitForFunction(() => document.querySelector("#recStatus").textContent.includes("피드백 생성 실패: 모의 서버 오류"));
+  check(await page.$eval("#recText", el => el.value === "실패 경로 문답") && !(await page.$("#recReview[disabled]")) && (await recStored(recKey)).reviews.length === 2, "평가 실패: 한 줄 오류, 문답 칸 유지, 저장된 결과 그대로");
+  await page.$eval("#recText", el => { el.value = "가".repeat(60001); el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await (await page.$("#recFiles")).uploadFile(recQ2);
+  await page.waitForSelector("#recTranscribe:not([disabled])");
+  const recBefore = await page.evaluate(() => __recMock.transcribed.length);
+  await clickVisible("#recReview");
+  await page.waitForFunction(() => document.querySelector("#recStatus").textContent.includes("6만 자"));
+  check(await page.evaluate(n => __recMock.transcribed.length === n, recBefore), "6만 자를 넘는 문답은 녹음을 보내기 전에 멈춤");
+  await fresh("db.html#snu-2023-A");
+  await clickVisible("#recordingFeedback");
+  await page.waitForSelector('#recResults details.run[open] a[href^="library.html#b"]');
+  check((await page.$$("#recResults details.run")).length === 2 && await page.evaluate(() => !AIClient.resolve().configured) && await page.$eval("#recText", el => el.value === "") && await page.$('#recResults details.run[open] [data-rec-ask][disabled]'), "새로고침 후 키 없이 저장된 피드백 열람(서가 링크), 문답 칸·첨부는 남지 않음, 후속 질문은 비활성");
+  await page.evaluate((settings, study) => { localStorage.setItem("snu-iv-settings-v1", settings); if (study === null) localStorage.removeItem("snu-db-study-v1"); else localStorage.setItem("snu-db-study-v1", study); }, recSettings, recStudy);
+  await fresh("db.html#snu-2023-A");
+
   console.log("문제지 문항(tasks)");
   /* 문항만 있고 추가질문이 없는 세트를 먼저 고른다(없으면 문항이 있는 아무 세트) */
   const tk = await page.evaluate(() => { const all = window.SNU.db.schools().flatMap(s => s.sets); const s = all.find(x => (x.tasks || []).length && !x.followups.length) || all.find(x => (x.tasks || []).length); return s && { id: s.id, n: s.tasks.length }; });

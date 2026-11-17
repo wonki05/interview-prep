@@ -427,6 +427,16 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .study-list { padding-left: 1.2em; margin: 0; font-size: .92rem; line-height: 1.7; }
 .study-list li + li { margin-top: 6px; }
 .study-books a { font-weight: 600; }
+/* 녹음본 피드백: 결과의 첫 구획은 머리 아래 선 없이, 문답 칸은 넉넉히·후속 질문 칸은 문답 스레드만큼, 원문·전문은 높이를 제한해 안에서 스크롤,
+   문답별 접는 목록은 .runs처럼 이웃한 선을 한 줄로 */
+.fold-b > .study-section:first-child { border-top: 0; padding-top: 0; }
+.rec-form textarea.input { min-height: 180px; }
+.rec-ask textarea.input { min-height: 96px; }
+.study-transcript { max-height: 360px; overflow: auto; }
+.folds { display: flex; flex-direction: column; min-width: 0; }
+.folds > .fold > summary { font-weight: 500; }
+.folds > .fold + .fold > summary { border-top: 0; }
+.folds > .fold[open] + .fold > summary { border-top: 1px solid var(--line); }
 /* 누적 AI 결과(예시답변·제시문 해설·면접 피드백): 결과마다 접는 블록, 최신이 위 */
 .runs { display: flex; flex-direction: column; min-width: 0; }
 .runs > .fold + .fold > summary, .study-result > .runs:first-child > .fold:first-child > summary { border-top: 0; }
