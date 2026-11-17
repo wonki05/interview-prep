@@ -11,7 +11,8 @@
   "prep": 14,
   "duration": 11,
   "memo": true,
-  "followup": true
+  "followup": true,
+  "keynote": 6
  },
  "themes": [
   "인간중심주의와 인간의 포악성",

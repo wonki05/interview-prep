@@ -11,7 +11,8 @@
   "prep": 15,
   "duration": 13,
   "memo": true,
-  "followup": true
+  "followup": true,
+  "keynote": 7
  },
  "themes": [
   "수명 연장과 불평등·인구 문제",

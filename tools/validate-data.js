@@ -66,6 +66,7 @@ for (const sc of D.schools) {
   if (sc.format) {
     const t = sc.format.timeline || {};
     if (!(t.prep > 0) || !(t.interview > 0) || !(t.wait >= 0)) err(sc.id + ": format.timeline 값 오류");
+    if (t.keynote !== undefined && !(Number.isInteger(t.keynote) && t.keynote > 0 && t.keynote < t.interview)) err(sc.id + ": format.timeline.keynote는 0보다 크고 interview보다 작은 정수(분)");   // 기조발언 기본값(docs/DATA.md 규칙 7)
     if (!Array.isArray(sc.format.basics) || !Array.isArray(sc.format.details)) err(sc.id + ": format.basics/details 누락");
   }
   for (const s of sc.sets) {
@@ -77,6 +78,7 @@ for (const sc of D.schools) {
     if (!s.year || !s.name || !s.session || !s.track || !s.instruction) err(tag + ": 기본 필드 누락");
     if (!s.name.startsWith(sc.short + " ")) warn(tag + ": name은 '" + sc.short + " …' 꼴 권장(" + s.name + ")");
     if (!s.format || !(s.format.prep > 0)) err(tag + ": set.format 누락(ai.js가 format.prep을 읽는다)");
+    if (s.format && s.format.keynote !== undefined && !(Number.isInteger(s.format.keynote) && s.format.keynote > 0 && s.format.keynote < s.format.duration)) err(tag + ": format.keynote는 0보다 크고 duration보다 작은 정수(분)");
     if (!s.variants || typeof s.variants !== "object" || !Object.keys(s.variants).length) { err(tag + ": variants 없음"); continue; }
     const keys = Object.keys(s.variants);
     keys.forEach(k => { if (!VARIANTS.includes(k)) err(tag + ": 모르는 변형 " + k); if (!s.variants[k].label) err(tag + "/" + k + ": label 없음"); });

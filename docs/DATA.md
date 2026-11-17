@@ -9,7 +9,7 @@
   levels: { difficulty: { low|mid|high|max: { label, desc } }, variation: { low|mid|high: { label, desc } } },
   schools: [
     { id: "snu", name: "서울대학교", short: "서울대",
-      format: { year: 2025, timeline: { prep: 20, wait: 5, interview: 15 },
+      format: { year: 2025, timeline: { prep: 20, wait: 5, interview: 15, keynote?: 6 },   // keynote: 기조발언(분). 있으면 세트 시간표(규칙 7)
                 basics: ["교수:학생 = 3:1", …], details: [["메모 및 휴대 여부", "…"], …] } | null,
       sets: [ SET, … ] },
     { id: "korea", name: "고려대학교", short: "고려대", format: null, sets: [] }, …
@@ -19,7 +19,7 @@ SET = {
   id: "snu-2023-A",            // "<schoolId>-<year>-<세션 기호>" 전 학교에서 유일. 영문·숫자·하이픈
   school: "snu", year: 2023, name: "서울대 A", session: "오전 면접", track: "일반전형",
   instruction: "제시문을 읽고, …",
-  format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true },
+  format: { ratio: "3:1", prep: 20, duration: 15, memo: true, followup: true, keynote?: 7 },   // keynote: 그해 기조발언(분), 교재에 있을 때만
   themes: ["…", "…"],          // 제시문 순서대로 한 구절씩(세트 행·칩에 표시). 모든 복기본이 공유
   tags: ["…"],                 // 주제 태그(P4-3 태그 필터용). 없으면 []
   variant: "merged",           // 기본 복기본. SNU.db가 해석한다(아래)
@@ -63,7 +63,7 @@ data/sets/<set id>/merged.json
 4. 질문 문장은 복기 그대로(존댓말·반말 혼재 허용). 제시문 참조는 `<제시문 1>` 꼴로 통일(TTS가 "제시문 1"로 읽는다). 예외: 제시문이 `(가)`~`(라)`로 표기된 세트(2019 서울대)는 질문의 `(나)`·`<제시문 다>` 참조도 원문대로 둔다.
 5. `themes`는 제시문 수와 같은 수의 짧은 구절. 사례 블록도 하나로 센다.
 6. 한 세트를 넣은 뒤 `node tools/build_questions.js` → `node tools/validate-data.js`로 확인한다.
-7. 학교에 진행 방식 복기가 있으면 `format`을 채운다. `timeline`은 분 단위, 대기 시간이 없으면 `wait: 0`. 옵션 창의 기준값 표시에만 쓰이고 실제 세션 시간은 설정값이다.
+7. 학교에 진행 방식 복기가 있으면 `format`을 채운다. `timeline`은 분 단위, 대기 시간이 없으면 `wait: 0`. 옵션 창의 기준값 표시에만 쓰이고 실제 세션 시간은 설정값이다. 예외: `timeline.keynote`(기조발언 분)가 있는 학교(지금은 고려대, 2025 기준 6)는 세트 시간표를 쓴다. 옵션 창이 세트의 `format.prep`·`format.duration`·`format.keynote`(없으면 학교 `timeline.keynote`)와 학교 `timeline.wait`로 시작하고, 고친 값은 세션에만 둔다(`SPEC.md` §2.1). 세트 `format.keynote`는 교재에 그해 기조발언 시간이 있을 때만 넣고 지어내지 않는다(고려대 2025 6·2023 7·2019 5, 김종수 3권). `keynote`는 0보다 크고 면접 시간(학교 `interview`, 세트 `duration`)보다 작은 정수다.
 8. 세트 `name`은 `school.short` + 공백 + 세션 기호(교재의 A/B/C 또는 책의 표기). 교재가 학교 약칭을 줄여 적어도("서울 A", "시립 A") 사이트에서는 `school.short`를 쓴다("서울대 A", "서울시립대 A"). 화면의 세트 라벨은 `SNU.db.label(set)` = `<year>학년도 <name>`이다.
 9. 세션 기호는 서울대 오전 = A, 오후 = B, 특별전형 = C. 다른 학교는 김종수 교재의 세션 기호(해마다 한 세트면 A)를 쓰고, 황변의 세션은 학교 설정(`tools/schools/<id>.json`의 `books.hwang.mode`)으로 같은 기호에 맞춘다. 세트 id는 `<schoolId>-<year>-<기호>`.
 10. 문제지 문항(면접 전에 받는 문제: 황변 `문제 1>`·`문제〉`, 김종수는 추가질문 머리 앞의 `Q1.`)은 변형의 `tasks`에 순서대로 둔다(label은 번호 `1`·`1-1`, 없으면 `""`). 복기본마다 문항 표현이 달라 세트 공통이 아니라 변형에 둔다. 세트 공통 `instruction`은 김종수 지시문.
@@ -133,21 +133,23 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
   id: "mw0zrggw",                     // 세션 id(Date.now().toString(36)) = 녹음 레코드의 sessionId
   setId, variant, school, setLabel, variantLabel,
   mode: "timed" | "endless" | "all", modeLabel: "1-A 면접시간 AI 면접관", answerMode: "voice" | "text",
-  plan: { prep, wait, interview },    // 분. interview 0 = 제한 없음
+  plan: { prep, wait, interview, keynote? },   // 분. interview 0 = 제한 없음. keynote = 기조발언 제한(쓰지 않으면 없음)
   options: { difficulty, variation, flow } | null,    // AI 모드만
   ai: { provider, model, effort, label } | null,      // 면접관 모델. 키 없이 치렀으면 null
   createdAt, updatedAt, endedAt: number | null,       // endedAt 없음 = 중단(면접 중 탭을 닫음)
-  history: [ { q, a, group, recFilename, duration } ],  // 질문·답변(텍스트 또는 전사)·출처 묶음·녹음 파일명·길이(초)
+  history: [ { q, a, group, recFilename, duration, elapsed?, cut? } ],  // 질문·답변(텍스트 또는 전사)·출처 묶음·녹음 파일명·길이(초)
+                                      // elapsed: 기조발언 문답(group "기조발언")의 경과 초, cut: 면접관이 끊었을 때만 true
   memo: "",
   feedbacks: [ { data, model, effort, at } ]          // AI 피드백(docs/AI.md §3.4). 오래된 것부터
 }
 ```
 
 - 모의면접은 답변을 제출할 때마다 위 기록을 다시 쓰고(첫 답변 뒤의 메모 수정은 1초 뒤), 종료 때 `endedAt`을 채운다. 문답·메모가 모두 없으면 저장하지 않는다. 옵션과 면접관 모델은 시작할 때 고정한다.
+- 기조발언 필드(`plan.keynote`, `elapsed`, `cut`)는 기조발언 제한을 쓴 세션에만 있다. 없는 기록(이전 기록 포함)은 그대로 읽히고 표시·피드백 입력도 이전과 같다. 종료 화면·기록 서랍은 `cut`을 문답 시간 칸에 "끊김"으로 보인다.
 - `feedbacks`는 피드백 영역만 고친다. 모의면접의 저장은 이 필드를 지키고, 읽고 고쳐 쓰기는 한 트랜잭션에서 한다(종료 저장과 피드백 저장이 서로 덮어쓰지 않는다).
 - 녹음 레코드(`recordings`)의 형식은 그대로다. 세션 기록 없이 남은 녹음(v1 시절)은 `sessionId`로 묶어 '녹음만' 기록으로 보인다. 기록을 지우면 그 녹음도 지운다.
 - IndexedDB를 쓸 수 없으면 그 화면 메모리에만 두고 한 줄 경고한다. 업데이트 전 코드로 연 탭이 v1 연결을 쥐고 있어 v2 업그레이드가 막히면(blocked) 막힌 동안 새로 열지 않고 메모리로 대체하며 "다른 탭이 이전 버전 저장소를 쓰고 있다" 경고를 보인다. 그 탭이 닫혀 늦게 열리면 메모리의 기록을 IndexedDB로 옮긴다. 내보내기(P1-1·P1-3)의 `session-<id>.json`은 이 구조에서 만든다.
 
 ## 5. 검증 스크립트 `tools/validate-data.js`
 
-`node tools/validate-data.js [--in <파일>]` — 세트 id 유일성, `school` 일치, `name` 규칙, `variants`·기본 `variant`·`merged.basis`·`tree.basis` 참조, 변형마다 제시문 번호 연속·`label`(12자 이하, 숫자 아님, 한 글자 라벨 순서)·`kind`·본문 길이(비면 오류, 50자 미만 경고)·`tasks` 문장·`passages`·`followups` 비어 있지 않음(`tasks`가 있으면 비어도 됨, 제시문 없음은 경고)·`student` 중복 없음, 변형 간 제시문 수(경고), `themes` 길이, 트리 참조 무결성(모든 `next`가 존재, root 도달, 순환 없음), 모델 목록 id 중복을 검사하고 세트·변형별 제시문·질문 수를 출력한다. `--in`은 `build_questions.js --school <id> --out <파일>`로 만든 학교별 파일을 검사한다(`INGEST.md` §8). 데이터 구조를 바꾸면 이 스크립트도 같이 고친다.
+`node tools/validate-data.js [--in <파일>]` — 세트 id 유일성, `school` 일치, `name` 규칙, `variants`·기본 `variant`·`merged.basis`·`tree.basis` 참조, 변형마다 제시문 번호 연속·`label`(12자 이하, 숫자 아님, 한 글자 라벨 순서)·`kind`·본문 길이(비면 오류, 50자 미만 경고)·`tasks` 문장·`passages`·`followups` 비어 있지 않음(`tasks`가 있으면 비어도 됨, 제시문 없음은 경고)·`student` 중복 없음, 변형 간 제시문 수(경고), `themes` 길이, 기조발언(학교 `format.timeline.keynote`는 0 < keynote < `interview`, 세트 `format.keynote`는 0 < keynote < `duration`인 정수), 트리 참조 무결성(모든 `next`가 존재, root 도달, 순환 없음), 모델 목록 id 중복을 검사하고 세트·변형별 제시문·질문 수를 출력한다. `--in`은 `build_questions.js --school <id> --out <파일>`로 만든 학교별 파일을 검사한다(`INGEST.md` §8). 데이터 구조를 바꾸면 이 스크립트도 같이 고친다.
