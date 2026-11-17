@@ -38,8 +38,17 @@ function fixtureExplanation(set, books, suffix = "") {
     books: books.length ? [{ id: books[0].id, reason: "제시문의 판단 기준과 연결되는 연관 독서입니다. 실제 출전으로 확인된 것은 아닙니다." }] : []
   };
 }
+function fixtureReview(set, books, suffix = "") {
+  return {
+    analysis: { overview: "제시문들은 개입 기준과 선택의 조건을 비교합니다." + suffix, passages: set.passages.map(p => ({ no: p.no, summary: "해당 제시문의 주장을 정리합니다.", keyPoints: ["판단 기준의 적용 범위"] })), demands: ["개입의 기준을 제시한다."] },
+    qa: [{ no: 1, from: 1, to: 1, question: "(추정) 개입의 기준을 말하시오.", answer: "피해를 기준으로 삼는다고 답했습니다.", evaluation: "제시문 1의 구별을 정확히 읽었습니다.", improvement: "제시문 2의 선택 조건을 함께 적용합니다." }],
+    evaluation: { summary: "제시문 1은 정확히 읽었으나 제시문 2를 쓰지 않았습니다.", strengths: [], gaps: ["제시문 2의 조건을 다루지 않았습니다."] },
+    improvements: ["제시문 2의 선택 조건을 근거로 반론을 처리합니다."],
+    books: books.length ? [{ id: books[0].id, reason: "개입 기준의 약점을 보완하는 연관 독서입니다." }] : []
+  };
+}
 function setup(options = {}) {
-  const storage = options.storage || new Map(), calls = { examples: [], explain: [] }, inserted = [], events = [];
+  const storage = options.storage || new Map(), calls = { examples: [], explain: [], review: [] }, inserted = [], events = [];
   const hooks = {}, failures = { read: false, write: false };
   let context;
   const document = {
@@ -52,7 +61,7 @@ function setup(options = {}) {
     } }
   };
   context = vm.createContext({
-    window: {}, document,
+    window: {}, document, TextDecoder,
     CustomEvent: class { constructor(type, value) { this.type = type; this.detail = value.detail; } },
     localStorage: {
       getItem(key) { if (failures.read) throw new Error("저장소 읽기 불가"); return storage.get(key) || null; },
@@ -76,6 +85,17 @@ function setup(options = {}) {
     if (!client.resolve(ai).configured) throw new Error("API 키가 없다.");
     return hooks.explain ? hooks.explain(set, books, ai) : fixtureExplanation(set, books);
   };
+  client.reviewRecording = async (set, transcript, books, ai) => {
+    calls.review.push({ set: copy(set), transcript, books: copy(books), ai: copy(ai) });
+    if (!client.resolve(ai).configured) throw new Error("API 키가 없다.");
+    return hooks.review ? hooks.review(set, transcript, books, ai) : fixtureReview(set, books);
+  };
+  calls.followup = [];
+  client.recordingFollowup = async (set, run, books, ai) => {
+    calls.followup.push({ run: copy(run), books: books.length, ai: copy(ai) });
+    if (!client.resolve(ai).configured) throw new Error("API 키가 없다.");
+    return hooks.followup ? hooks.followup(set, run, books, ai) : { reply: "검증용 답: 제시문 1의 구절과 발언을 맞대면 판정을 유지합니다." };
+  };
   vm.runInContext(scripts["assets/db-study.js"], context, { filename: "assets/db-study.js" });
   return { study: window.DBStudy, snu: window.SNU, client, window, context, storage, settings, calls, hooks, inserted, failures, events,
     completeLibrary(index = inserted.length - 1) { vm.runInContext(librarySource, context, { filename: "data/library.js" }); inserted[index].onload(); }
@@ -85,6 +105,10 @@ function gate() { let resolve, reject; const promise = new Promise((yes, no) => 
 async function test(label, run) { await run(); checks++; console.log("통과: " + label); }
 const examples = (h, set = fixtureSet(), refresh = false, question = "개입의 기준은 무엇입니까?") => h.study.examples(set, "A-1", question, undefined, refresh);
 const explain = (h, set = fixtureSet(), refresh = false) => h.study.explain(set, undefined, refresh);
+/* 녹음본 피드백은 AI 면접관 선택을 넘겨받는다(해설 설정이 아니다). */
+const TRANSCRIPT = "[녹음 1: snu-2023-A_timed_x_Q01.webm]\n검증용 전사: 피해를 기준으로 삼겠습니다";
+const INTERVIEWER = { provider: "anthropic", model: "claude-opus-5-5", effort: "high" };
+const review = (h, set = fixtureSet(), transcript = TRANSCRIPT, files = [{ name: "snu-2023-A_timed_x_Q01.webm", size: 2048, kind: "audio", file: { secret: "녹음 본문" }, done: true }], ai = INTERVIEWER) => h.study.reviewRecording(set, transcript, files, ai);
 const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entries[h.study.identity(set)];
 
 (async () => {
@@ -415,6 +439,243 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     assert.equal(h.calls.explain.length, 0);
     assert.equal(h.inserted.length, 0);
     assert.equal(h.storage.has(CACHE), false);
+  });
+
+  /* ---------- 녹음본 피드백(P2-12) ---------- */
+  await test("녹음본 피드백: AI 면접관 선택으로 평가하고 문답 전문·첨부 정보·지문을 저장, 녹음·키는 저장하지 않음", async () => {
+    const h = setup(), settingsBefore = JSON.stringify(h.settings);
+    const first = await review(h);
+    assert.equal(h.calls.review.length, 1);
+    assert.deepEqual(h.calls.review[0].ai, INTERVIEWER);
+    assert.equal(h.calls.review[0].transcript, TRANSCRIPT);
+    assert.ok(h.calls.review[0].books.length > 50 && first.books.length > 50);
+    assert.ok(first.model.includes("Opus") && first.effort === "high" && Number.isFinite(first.at));
+    const entry = entryOf(h), saved = entry.reviews[0];
+    assert.equal(entry.reviews.length, 1);
+    assert.deepEqual(Object.keys(saved).sort(), ["at", "ctx", "data", "effort", "files", "lib", "model", "spans", "thread", "tx"]);
+    assert.equal(entry.transcripts[saved.tx], TRANSCRIPT, "전문은 세트 항목의 transcripts에 지문으로");
+    assert.deepEqual(saved.files, [{ name: "snu-2023-A_timed_x_Q01.webm", size: 2048, kind: "audio" }]);
+    assert.deepEqual(saved.spans, [{ no: 1, start: TRANSCRIPT.indexOf("검증용"), end: TRANSCRIPT.length }], "from·to를 저장할 때 글자 위치로 바꾼다");
+    assert.deepEqual(saved.thread, []);
+    assert.equal(h.study.reviewHistory(fixtureSet())[0].transcript, TRANSCRIPT);
+    assert.match(saved.ctx, /^[0-9a-z]{1,12}$/);
+    assert.match(saved.lib, /^[0-9a-z]{1,12}$/);
+    const raw = h.storage.get(CACHE);
+    assert.ok(!raw.includes(h.settings.anthropicKey) && !raw.includes("녹음 본문"), "키와 녹음은 캐시에 넣지 않는다");
+    assert.equal(JSON.stringify(h.settings), settingsBefore);
+    assert.deepEqual(entry.examples, {});
+    assert.deepEqual(entry.explanations, []);
+  });
+  await test("녹음본 피드백 누적: 받을 때마다 새 결과(재사용 없음), 최신순 목록, 문답이 달라도 같은 목록", async () => {
+    const h = setup();
+    const first = await review(h);
+    h.hooks.review = (set, transcript, books) => fixtureReview(set, books, " 2차");
+    const second = await review(h);
+    const third = await review(h, fixtureSet(), "  Q1: 다른 문답\nA1: 다른 답변  ", []);
+    assert.equal(h.calls.review.length, 3);
+    assert.ok(first.at < second.at && second.at < third.at);
+    const list = h.study.reviewHistory(fixtureSet());
+    assert.deepEqual(copy(list.map(r => r.at)), [third.at, second.at, first.at]);
+    assert.deepEqual(copy(list.map(r => r.stale)), [false, false, false]);
+    assert.equal(list[0].transcript, "Q1: 다른 문답\nA1: 다른 답변");
+    assert.deepEqual(copy(list[0].files), []);
+    assert.ok(list[1].data.analysis.overview.endsWith(" 2차"));
+    assert.equal(list[2].transcript, TRANSCRIPT);
+  });
+  await test("같은 문답·모델의 동시 요청은 한 번, 문답이나 모델이 다르면 따로", async () => {
+    const h = setup(), waiting = gate();
+    h.hooks.review = (set, transcript, books) => waiting.promise.then(() => fixtureReview(set, books));
+    const a = review(h), b = review(h), c = review(h, fixtureSet(), "다른 문답"), d = review(h, fixtureSet(), TRANSCRIPT, [], { provider: "openai", model: "gpt-6.1-sol", effort: "low" });
+    assert.equal(a, b);
+    assert.notEqual(a, c);
+    assert.notEqual(a, d);
+    waiting.resolve();
+    const results = await Promise.all([a, b, c, d]);
+    assert.equal(results[0], results[1]);
+    assert.equal(h.calls.review.length, 3);
+    assert.equal(entryOf(h).reviews.length, 3);
+    assert.equal(new Set(entryOf(h).reviews.map(r => r.at)).size, 3);
+    assert.ok(results[3].model.includes("GPT") && results[3].effort === "low");
+  });
+  await test("이 기능 이전의 v2 캐시(reviews 없음)와 호환: 예시답변·해설은 그대로, 피드백을 더해도 유지", async () => {
+    const seed = setup(); await examples(seed); await explain(seed);
+    const old = JSON.parse(seed.storage.get(CACHE));
+    Object.values(old.entries).forEach(entry => { delete entry.reviews; });
+    const stored = JSON.stringify(old), question = "개입의 기준은 무엇입니까?";
+    const h = setup({ storage: new Map([[CACHE, stored]]), key: false });
+    assert.deepEqual(copy(h.study.reviewHistory(fixtureSet())), []);
+    assert.equal(h.study.exampleHistory(fixtureSet(), "A-1", question).length, 1);
+    assert.equal(h.study.explanationHistory(fixtureSet()).length, 1);
+    await examples(h); await explain(h);
+    assert.equal(h.calls.examples.length + h.calls.explain.length, 0);
+    assert.equal(h.storage.get(CACHE), stored, "읽기만으로 저장소를 고치지 않는다");
+    const keyed = setup({ storage: new Map([[CACHE, stored]]) });
+    await review(keyed);
+    const saved = JSON.parse(keyed.storage.get(CACHE)), entry = saved.entries[keyed.study.identity(fixtureSet())];
+    assert.equal(saved.version, 2);
+    assert.equal(entry.reviews.length, 1);
+    assert.deepEqual(entry.examples, old.entries[keyed.study.identity(fixtureSet())].examples);
+    assert.deepEqual(entry.explanations, old.entries[keyed.study.identity(fixtureSet())].explanations);
+  });
+  await test("원문이 바뀐 피드백은 '이전 원문'으로 남고, 삭제는 저장소에 반영하며 다른 결과를 건드리지 않음", async () => {
+    const h = setup(), set = fixtureSet();
+    await examples(h, set);
+    const first = await review(h, set);
+    set.passages[0].text += " 새로운 판단 조건";
+    assert.deepEqual(copy(h.study.reviewHistory(set).map(r => r.stale)), [true]);
+    const second = await review(h, set);
+    assert.deepEqual(copy(h.study.reviewHistory(set).map(r => [r.at, r.stale])), [[second.at, false], [first.at, true]]);
+    assert.equal(h.study.removeReview(set, first.at), true);
+    assert.deepEqual(entryOf(h, set).reviews.map(r => r.at), [second.at]);
+    assert.equal(h.study.removeReview(set, 123), true);
+    assert.equal(h.study.removeReview(set, second.at), true);
+    assert.deepEqual(entryOf(h, set).reviews, []);
+    assert.deepEqual(copy(h.study.reviewHistory(set)), []);
+    assert.equal(entryOf(h, set).examples["A-1"].length, 1);
+    const other = fixtureSet(); other.id = "snu-2024-A";
+    assert.equal(h.study.removeReview(other, 123), true);
+    assert.deepEqual(Object.keys(JSON.parse(h.storage.get(CACHE)).entries), [h.study.identity(set)], "지우기만으로 다른 세트 자리를 만들지 않는다");
+  });
+  await test("키가 없으면 서가도 읽지 않고, 검증에 실패하거나 호출이 실패한 평가는 저장하지 않음", async () => {
+    const h = setup({ key: false });
+    await assert.rejects(review(h), /API 키/);
+    assert.equal(h.calls.review.length, 0);
+    assert.equal(h.inserted.length, 0);
+    assert.equal(h.storage.has(CACHE), false);
+    const bad = setup();
+    bad.hooks.review = (set, transcript, books) => Object.assign(fixtureReview(set, books), { books: [{ id: 999999, reason: "서가에 없는 책" }] });
+    await assert.rejects(review(bad), /추천 도서/);
+    bad.hooks.review = (set, transcript, books) => Object.assign(fixtureReview(set, books), { qa: [] });
+    await assert.rejects(review(bad), /문답을 찾지 못했다/);
+    bad.hooks.review = () => { throw new Error("모의 서버 오류"); };
+    await assert.rejects(review(bad), /모의 서버 오류/);
+    assert.equal(bad.storage.has(CACHE), false);
+    delete bad.hooks.review;
+    await review(bad);
+    assert.equal(entryOf(bad).reviews.length, 1);
+  });
+  await test("저장 공간 부족: 평가 결과는 이 화면 메모리에 남고 saved()가 false, 복구되면 다시 저장", async () => {
+    const h = setup(); h.failures.write = true;
+    const first = await review(h);
+    assert.equal(h.storage.has(CACHE), false);
+    assert.equal(h.study.saved(), false);
+    assert.deepEqual(copy(h.study.reviewHistory(fixtureSet()).map(r => r.at)), [first.at]);
+    assert.equal(h.study.removeReview(fixtureSet(), first.at), false);
+    h.failures.write = false;
+    const second = await review(h);
+    assert.ok(h.storage.has(CACHE) && h.study.saved());
+    assert.deepEqual(entryOf(h).reviews.map(r => r.at), [second.at]);
+  });
+  await test("다른 탭이 쌓은 피드백을 덮지 않고, 손상된 피드백 레코드는 목록에서 뺀다", async () => {
+    const storage = new Map(), a = setup({ storage }), b = setup({ storage }), set = fixtureSet(), id = a.study.identity(set);
+    await review(a, set);
+    await review(b, set, "다른 탭의 문답");
+    const stored = JSON.parse(storage.get(CACHE)).entries[id];
+    assert.deepEqual(stored.reviews.map(r => stored.transcripts[r.tx]), [TRANSCRIPT, "다른 탭의 문답"]);
+    for (const mutate of [r => { r.data.qa[0].no = "1"; }, r => { delete r.data.improvements; }, r => { r.data.analysis.extra = "추가 필드"; }, r => { r.tx = "없는지문"; }, r => { r.model = ""; }, r => { r.effort = "ultra"; }, r => { r.at = "어제"; }]) {
+      const saved = JSON.parse(storage.get(CACHE));
+      mutate(saved.entries[id].reviews[0]);
+      const h = setup({ storage: new Map([[CACHE, JSON.stringify(saved)]]) });
+      assert.deepEqual(copy(h.study.reviewHistory(set).map(r => r.transcript)), ["다른 탭의 문답"]);
+    }
+    const saved = JSON.parse(storage.get(CACHE));
+    saved.entries[id].reviews[0].files = "손상";
+    saved.entries[id].reviews[1].data.books = [{ id: 999999, reason: "지금 서가에 없는 책" }];
+    const h = setup({ storage: new Map([[CACHE, JSON.stringify(saved)]]) }), list = h.study.reviewHistory(set);
+    assert.equal(list.length, 2, "이전 결과는 형식만 검사한다(서가가 바뀐 결과도 보인다)");
+    assert.deepEqual(copy(list[1].files), []);
+  });
+  await test("전문은 세트 항목에 한 번만: 같은 문답을 다시 평가해도 하나, 마지막 결과를 지우면 함께 지움", async () => {
+    const h = setup(), set = fixtureSet();
+    const first = await review(h, set), second = await review(h, set, TRANSCRIPT, [], { provider: "openai", model: "gpt-6.1-sol", effort: "low" }), third = await review(h, set, "Q1: 다른 문답\nA1: 다른 답변");
+    let entry = entryOf(h, set);
+    assert.equal(Object.keys(entry.transcripts).length, 2);
+    assert.equal(entry.reviews[0].tx, entry.reviews[1].tx);
+    h.study.removeReview(set, first.at);
+    entry = entryOf(h, set);
+    assert.equal(Object.keys(entry.transcripts).length, 2, "다른 결과가 가리키는 전문은 남긴다");
+    h.study.removeReview(set, second.at);
+    entry = entryOf(h, set);
+    assert.deepEqual(Object.values(entry.transcripts), ["Q1: 다른 문답\nA1: 다른 답변"]);
+    assert.deepEqual(copy(h.study.reviewHistory(set).map(r => r.at)), [third.at]);
+  });
+  await test("원문 대조 구간: 범위가 맞지 않는 문답은 빼고, 저장된 구간이 전문을 벗어나면 읽을 때 뺀다", async () => {
+    const h = setup(), set = fixtureSet(), text = "[녹음 1: a_Q01.webm]\n첫 답변입니다. 이어서 말합니다.\n\n[녹음 2: a_Q02.webm]\n둘째 답변입니다.";
+    h.hooks.review = (s, transcript, books) => Object.assign(fixtureReview(s, books), { qa: [1, 2, 3].map(no => ({ no, from: [1, 3, 9][no - 1], to: [2, 3, 9][no - 1], question: "(추정) 질문 " + no, answer: "요지", evaluation: "평가", improvement: "개선" })) });
+    const run = await review(h, set, text, []);
+    assert.deepEqual(copy(run.spans.map(s => [s.no, text.slice(s.start, s.end)])), [[1, "첫 답변입니다. 이어서 말합니다."], [2, "둘째 답변입니다."]]);
+    const saved = JSON.parse(h.storage.get(CACHE));
+    saved.entries[h.study.identity(set)].reviews[0].spans.push({ no: 3, start: 5, end: 99999 }, { no: "4", start: 0, end: 3 }, null);
+    const reread = setup({ storage: new Map([[CACHE, JSON.stringify(saved)]]) });
+    assert.deepEqual(copy(reread.study.reviewHistory(set)[0].spans.map(s => s.no)), [1, 2]);
+  });
+  await test("후속 질문: 질문을 먼저 저장하고 답을 그 질문 뒤에 붙이며, AI 면접관 선택·전문·스레드를 넘긴다", async () => {
+    const h = setup(), set = fixtureSet(), run = await review(h, set);
+    const qAt = h.study.addReviewQuestion(set, run.at, "  제시문 2를 오독했다는 근거는?  ");
+    let thread = entryOf(h, set).reviews[0].thread;
+    assert.deepEqual(copy(thread.map(m => [m.role, m.text, m.at])), [["user", "제시문 2를 오독했다는 근거는?", qAt]]);
+    const result = await h.study.answerReviewQuestion(set, run.at, INTERVIEWER);
+    assert.equal(result.reply, "검증용 답: 제시문 1의 구절과 발언을 맞대면 판정을 유지합니다.");
+    const call = h.calls.followup[0];
+    assert.deepEqual(call.ai, INTERVIEWER);
+    assert.equal(call.run.transcript, TRANSCRIPT);
+    assert.deepEqual(copy(call.run.thread.map(m => m.text)), ["제시문 2를 오독했다는 근거는?"]);
+    assert.ok(call.books > 50);
+    thread = entryOf(h, set).reviews[0].thread;
+    assert.deepEqual(copy(thread.map(m => [m.role, m.re || null])), [["user", null], ["ai", qAt]]);
+    assert.ok(thread[1].model.includes("Opus"));
+    const list = h.study.reviewHistory(set)[0].thread;
+    assert.deepEqual(copy(list.map(m => m.role)), ["user", "ai"]);
+    for (const [bad, pattern] of [["  ", /비어/], ["가".repeat(2001), /2,000자/]]) assert.throws(() => h.study.addReviewQuestion(set, run.at, bad), pattern);
+    assert.throws(() => h.study.addReviewQuestion(set, 123, "질문"), /결과를 찾지 못했다/);
+    await assert.rejects(h.study.answerReviewQuestion(set, run.at, INTERVIEWER), /답할 질문이 없다/);
+  });
+  await test("후속 질문 실패 뒤 질문은 남고 [다시 묻기]로 같은 질문에 답을 받으며, 기다리는 동안 지운 질문의 답은 버린다", async () => {
+    const h = setup(), set = fixtureSet(), run = await review(h, set);
+    h.study.addReviewQuestion(set, run.at, "첫 질문");
+    h.hooks.followup = () => { throw new Error("모의 서버 오류"); };
+    await assert.rejects(h.study.answerReviewQuestion(set, run.at, INTERVIEWER), /모의 서버 오류/);
+    assert.deepEqual(copy(entryOf(h, set).reviews[0].thread.map(m => m.role)), ["user"]);
+    delete h.hooks.followup;
+    await h.study.answerReviewQuestion(set, run.at, INTERVIEWER);
+    assert.deepEqual(copy(entryOf(h, set).reviews[0].thread.map(m => m.role)), ["user", "ai"]);
+    const waiting = gate();
+    h.hooks.followup = () => waiting.promise.then(() => ({ reply: "늦은 답" }));
+    h.study.addReviewQuestion(set, run.at, "둘째 질문");
+    const pending = h.study.answerReviewQuestion(set, run.at, INTERVIEWER);
+    assert.equal(h.study.answerReviewQuestion(set, run.at, INTERVIEWER), pending, "같은 결과의 중복 요청은 하나로");
+    await Promise.resolve();
+    assert.equal(h.study.clearReviewThread(set, run.at), true);
+    waiting.resolve();
+    assert.deepEqual(copy(await pending), { dropped: true });
+    assert.deepEqual(entryOf(h, set).reviews[0].thread, []);
+    h.study.addReviewQuestion(set, run.at, "셋째 질문");
+    const late = gate();
+    h.hooks.followup = () => late.promise.then(() => ({ reply: "지운 결과의 답" }));
+    const gone = h.study.answerReviewQuestion(set, run.at, INTERVIEWER);
+    await Promise.resolve();
+    h.study.removeReview(set, run.at);
+    late.resolve();
+    assert.deepEqual(copy(await gone), { dropped: true });
+    assert.deepEqual(entryOf(h, set).reviews, []);
+    const keyless = setup({ key: false });
+    await assert.rejects(keyless.study.answerReviewQuestion(set, 1, INTERVIEWER), /API 키/);
+  });
+  await test("문답 파일 읽기: UTF-8·EUC-KR·UTF-16, 세션·전사 JSON은 Q/A로 펴고 그 밖은 원문 그대로", async () => {
+    const { study } = setup(), utf8 = text => Uint8Array.from(Buffer.from(text, "utf8")).buffer;
+    assert.equal(study.readTranscriptText(utf8("﻿Q1: 질문\r\nA1: 답변\r\n\r\n")), "Q1: 질문\nA1: 답변");
+    assert.equal(study.readTranscriptText(Uint8Array.from([0xb0, 0xa1, 0xb3, 0xaa, 0xb4, 0xd9]).buffer), "가나다");
+    assert.equal(study.readTranscriptText(Uint8Array.from(Buffer.from("﻿가나다", "utf16le")).buffer), "가나다");
+    assert.throws(() => study.readTranscriptText(Uint8Array.from([0xff, 0xff, 0x00, 0x81]).buffer), /읽지 못했다/);
+    const session = { id: "mw0zrggw", history: [{ q: "질문 하나", a: " 답변 하나 ", group: "AI 면접관" }, { q: "질문 둘", a: "  " }], memo: "메모" };
+    assert.equal(study.readTranscriptText(utf8(JSON.stringify(session))), "Q1: 질문 하나\nA1: 답변 하나\n\nQ2: 질문 둘\nA2: (답변 없음)");
+    const transcript = { sessionId: "x", items: [{ n: 1, question: "질문", text: "전사", segments: [] }, { n: 2, text: "질문 없는 전사" }] };
+    assert.equal(study.readTranscriptText(utf8(JSON.stringify(transcript))), "Q1: 질문\nA1: 전사\n\nQ2: (질문 없음)\nA2: 질문 없는 전사");
+    for (const text of ['{"a":1}', "[1,2]", '{"history":[]}', '{"history":[1]}', '{"history":[{"q":"","a":""}]}', '{"items":"x"}', "Q1 자유 형식 문답 { 괄호"]) assert.equal(study.readTranscriptText(utf8(text)), text);
+    assert.deepEqual(["a.WEBM", "b.m4a", "c.mp3", "d.txt", "e.MD", "f.json", "g.aac", "h.pdf", "확장자없음"].map(study.fileKind), ["audio", "audio", "audio", "text", "text", "text", "", "", ""]);
+    assert.deepEqual(copy([{ name: "s_Q10.webm" }, { name: "s_Q2.webm" }, { name: "s_Q01.webm" }].sort(study.byName).map(f => f.name)), ["s_Q01.webm", "s_Q2.webm", "s_Q10.webm"]);
+    assert.equal(study.recordingHead(2, "a[b]\n.webm"), "[녹음 2: a b .webm]");
+    assert.equal(study.TEXT_BYTES, 1024 * 1024);
   });
   console.log(`기출DB 학습 도우미 회귀 ${checks}개 통과 (브라우저·실제 API 호출 없음)`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -18,6 +18,7 @@
     explanationAnthropicModel: "claude-sonnet-5-5", explanationAnthropicEffort: "medium",
     explanationOpenaiModel: "gpt-6.1-sol", explanationOpenaiEffort: "medium",
     dbHideThemes: false, dbSort: "newest",
+    transcriptionModel: "gpt-transcribe",   // 기출DB 녹음본 피드백의 전사 모델(MODEL_CATALOG.transcription)
     /* 모의면접 기본값 — 옵션 창에서 고른 값이 마지막에 쓴 값으로 저장된다 */
     answerMode: "voice",        // voice | text
     stt: "webspeech",           // webspeech | manual

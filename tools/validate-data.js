@@ -131,6 +131,7 @@ for (const provider of ["anthropic", "openai"]) {
 if (!["anthropic", "openai"].includes(defaults.explanationProvider)) err("설정 explanationProvider는 anthropic/openai");
 if (typeof defaults.dbHideThemes !== "boolean") err("설정 dbHideThemes는 불리언");
 if (!["newest", "oldest"].includes(defaults.dbSort)) err("설정 dbSort는 newest/oldest");
+if (!(M.transcription || []).some(m => m.id === defaults.transcriptionModel)) err("설정 transcriptionModel이 전사 모델 목록에 없다");
 
 /* 해설에 전달할 서가 필드와 책 상세 링크 id를 검사하며 원본은 수정하지 않는다. */
 const shelf = { window: {} };
