@@ -90,15 +90,16 @@ data/sets/<set id>/merged.json
 | `explanationAnthropicEffort`, `explanationOpenaiEffort` | AI 면접해설 전용 effort. 모델별 지원 범위는 면접관과 동일 |
 | `dbHideThemes` | 불리언, 기본 `false`. 기출DB 목록·상세 주제 가림 |
 | `dbSort` | `newest`(기본) / `oldest`. 학교별 세트 목록의 연도 정렬. 원본 배열은 변경하지 않음 |
+| `transcriptionModel` | 기본 `gpt-transcribe`. 기출DB 녹음본 피드백의 전사 모델(`MODEL_CATALOG.transcription`의 id). 패널에서 고르면 저장한다. 목록에 없는 값이면 목록의 첫 모델을 쓴다(`AIClient.transcriptionModel`) |
 
-effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의 AI 호출에만 적용한다. 설정 서랍과 모의면접의 [기본값으로 저장]만 위 저장 필드에 반영한다. 해설 필드가 없는 기존 설정은 면접관의 해당 값을 이어받고, 이후 저장부터 독립적으로 유지한다. 해설도 기존 `anthropicKey`·`openaiKey`를 공유하며 별도 키 필드를 만들지 않는다. 기존 API 키·문답·복기본 데이터에는 변화가 없다. `tools/validate-data.js`가 두 역할의 기본 모델·effort와 서가 입력 필드를 검사한다.
+effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의 AI 호출에만 적용한다. 설정 서랍과 모의면접의 [기본값으로 저장]만 위 저장 필드에 반영한다. 해설 필드가 없는 기존 설정은 면접관의 해당 값을 이어받고, 이후 저장부터 독립적으로 유지한다. 해설도 기존 `anthropicKey`·`openaiKey`를 공유하며 별도 키 필드를 만들지 않는다. 기존 API 키·문답·복기본 데이터에는 변화가 없다. `tools/validate-data.js`가 두 역할의 기본 모델·effort, 전사 모델 기본값, 서가 입력 필드를 검사한다.
 
 | 키 | 내용 |
 |---|---|
 | `localStorage["snu-iv-settings-v1"]` | 설정. 키 이름을 바꾸면 `app.js`에서 마이그레이션(예: 이전 `lastSet: "2023-A"` → `"snu-2023-A"`, `openaiModel: "gpt-5"` → 새 기본값). `variant`(기본 복기본)는 추가된 키라 마이그레이션 없음 |
 | IndexedDB `snu-interview` v2 `recordings`·`sessions` | 녹음(질문별 blob)과 면접 기록(`assets/records.js`, 아래 구조). v1(`recordings`만)을 v2로 열면 `onupgradeneeded`가 `sessions`만 만들고 기존 녹음은 그대로 둔다 |
 | `localStorage["snu-db-threads-v1"]` | 기출DB 문답. 질문 key = `task-<n>`(문제지 문항, 묶음 "문제"), `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
-| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설 결과 목록(생성할 때마다 쌓인다). 문답과 분리, 아래 구조 참조 |
+| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설·녹음본 피드백 결과 목록(생성할 때마다 쌓인다). 문답과 분리, 아래 구조 참조 |
 | `localStorage["snu-library-progress-v1"]` | 서가 진도 |
 
 학습 캐시(`assets/db-study.js`, 형식 v2):
@@ -107,7 +108,12 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 { version: 2, entries: {
   [JSON.stringify([setId, variant])]: {
     examples: { [questionKey]: [ { question, data, model, effort, at, ctx } ] },   // 생성 순서(오래된 것부터)
-    explanations: [ { data, model, effort, at, ctx, lib } ]
+    explanations: [ { data, model, effort, at, ctx, lib } ],
+    reviews: [ { data, model, effort, at, ctx, lib, tx,                 // 녹음본 피드백. 없으면 빈 목록으로 읽는다
+                 files: [ { name, size, kind: "audio" | "text", model? } ],   // model: 녹음의 전사 모델 표시명
+                 spans: [ { no, start, end } ],                         // 문답별 원문 구간(평가한 문답의 글자 위치)
+                 thread: [ { role: "user" | "ai", text, at, model?, re? } ] } ],   // 후속 질문. re: 답이 가리키는 질문의 at
+    transcripts: { [tx]: "평가한 문답 전문" }                             // 지문 → 전문(같은 글은 한 번)
   }
 } }
 ```
@@ -116,8 +122,9 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 
 - **현재 결과**: `ctx`(예시답변은 질문 문장도, 해설은 `lib`도)가 지금 입력과 같고 AI 응답 검증기를 통과한 가장 최신 결과. `DBStudy.examples`·`explain`은 현재 결과가 있으면 그것을, 없으면 새로 생성한다. 화면의 [예시답변]·[제시문 해설] 버튼은 저장된 결과가 하나도 없을 때만 생성을 부르고(그 밖에는 열고 닫기만 한다), 원문이 바뀐 뒤의 새 결과와 추가 결과는 [다시 생성]으로 받는다. [다시 생성]은 늘 새 결과를 목록 끝에 더한다.
 - **이전 결과**: 형식 검증(`AIClient.validateJson(data, AIClient.schemas.*)`)만 통과하면 지우지 않고 보인다. 원문이 바뀐 뒤의 결과(`ctx` 불일치)는 '이전 원문'으로 표시한다. 결과마다 지울 수 있다(`at`로 하나).
+- **녹음본 피드백(`reviews`·`transcripts`)**: `data`는 `docs/AI.md` §3.7 응답이다. 평가한 문답 글 전문(문답 칸의 글, 6만 자 이하)은 세트 항목의 `transcripts`에 cyrb53 지문(`tx`)을 키로 한 번만 두고 결과에는 `tx`만 남긴다(같은 문답을 모델을 바꿔 다시 평가해도 전문이 쌓이지 않는다. 어느 결과도 가리키지 않는 전문은 결과를 지울 때 함께 지운다). `files`는 평가할 때 첨부돼 있던 파일의 이름·크기·종류와 녹음의 전사 모델 표시명, `spans`는 평가의 `qa[].from·to`(기록 단위 번호)를 저장할 때 전문의 글자 위치로 바꾼 문답별 원문 구간(범위가 맞지 않는 문답은 없다), `thread`는 후속 질문 스레드다(질문을 먼저 더하고 답은 그 질문 바로 뒤에 `re`로 이어 붙인다. 기다리는 동안 질문이나 결과가 지워지면 답을 버린다). 올린 녹음 자체와 API 키는 넣지 않는다. 입력이 올린 글이라 '현재 결과' 재사용이 없고 [피드백 받기]마다 새 결과를 목록 끝에 더한다(같은 문답·모델의 동시 요청만 하나로 합친다). 목록에는 형식 검증(`schemas.recordingReview`)을 통과하고 전문을 찾을 수 있는 결과가 보이며(`spans`·`thread`는 형식이 맞는 항목만) `ctx`가 다르면 '이전 원문'이다. 형식 버전은 v2 그대로다(필드 추가라 이 기능 이전의 캐시도 그대로 읽힌다). 결과 하나는 전문 6만 자를 빼고도 평가 1~2만 자에 스레드가 더해지므로, 오래 쓰면 저장 공간 부족 경고(한 줄)가 날 수 있다.
 - **v1 → v2**: v1(세트마다 질문별 결과 하나·해설 하나, 입력 전문 `context`·`libraryContext` 보관)은 읽을 때 결과 목록으로 옮긴다. 지문 버전이 같아 기존 결과는 그대로 현재 결과다. 다음 저장부터 v2로 쓴다.
-- 읽기만으로는 빈 자리를 만들지 않는다. 결과를 더하거나 지우기 직전에 저장소를 다시 읽어(`storage` 이벤트로도) 다른 탭이 쌓은 결과를 덮거나 지운 결과를 되살리지 않는다. 손상된 캐시·레코드는 무시하고 저장 용량 부족은 현재 페이지 메모리로 대체하며 화면에 한 줄 경고한다(그 뒤로는 다시 읽지 않는다). `tests/db-study.js`가 구조 검증·이전·누적·무효화·삭제·동시 호출·설정 마이그레이션을 검사한다.
+- 읽기만으로는 빈 자리를 만들지 않는다. 결과를 더하거나 지우기 직전에 저장소를 다시 읽어(`storage` 이벤트로도) 다른 탭이 쌓은 결과를 덮거나 지운 결과를 되살리지 않는다. 손상된 캐시·레코드는 무시하고 저장 용량 부족은 현재 페이지 메모리로 대체하며 화면에 한 줄 경고한다(그 뒤로는 다시 읽지 않는다). `tests/db-study.js`가 구조 검증·이전·누적·무효화·삭제·동시 호출·설정 마이그레이션과 녹음본 피드백(누적·이전 원문·삭제·이전 캐시 호환·저장 실패·전문 한 번 저장·원문 구간·후속 질문의 저장 순서와 경합·문답 파일 읽기)을 검사한다.
 
 면접 기록(`assets/records.js`, IndexedDB `snu-interview` / `sessions`, keyPath `id`):
 
