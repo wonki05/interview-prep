@@ -243,6 +243,19 @@ async function test(label, run) { await run(); checks++; console.log("통과: " 
     }
     assert.equal(models.normalizeEffort("openai", "gpt-6.1-sol", "none"), "medium");
     assert.equal(models.normalizeEffort("openai", "gpt-6.1-terra", "none"), "none");
+    /* Fable 5.2 추가(P2-11): 5.1과 함께 목록에 있고 effort 5단계·구조화 출력을 보낸다 */
+    const ids = models.list("anthropic").map(m => m.id);
+    assert.ok(ids.includes("claude-fable-5-2") && ids.includes("claude-fable-5-1"));
+    assert.deepEqual(copy(models.effortOptions("anthropic", "claude-fable-5-2")), ["low", "medium", "high", "xhigh", "max"]);
+    const fable = setup([anth(JSON.stringify(feedback))]);
+    fable.settings.anthropicModel = "claude-fable-5-2";
+    fable.settings.anthropicEffort = "max";
+    await respond(fable.client);
+    assert.equal(fable.requests[0].body.model, "claude-fable-5-2");
+    assert.equal(fable.requests[0].body.output_config.effort, "max");
+    assert.equal(fable.requests[0].body.output_config.format.type, "json_schema");
+    assert.equal(fable.requests[0].body.thinking, undefined);
+    assert.equal(fable.requests[0].body.temperature, undefined);
     settings.anthropicModel = "custom-model";
     assert.equal(client.resolve().effort, null);
     await respond(client);

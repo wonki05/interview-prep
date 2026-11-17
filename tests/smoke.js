@@ -63,7 +63,10 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   await page.click('[data-mode="timed"]'); await sleep(300);
   check(await page.$("#step3.active") && await page.$("#startBtn"), "모드 선택 → 3단계 + 시작 버튼");
   const opts = await page.evaluate(() => Array.from(document.querySelectorAll("#step3 .modelsel select option")).map(o => o.textContent));
-  check(opts.includes("Sonnet 5.5") && opts.includes("직접 입력…"), "모델 목록 표시명 " + opts.join("/"));
+  check(opts.includes("Sonnet 5.5") && opts.includes("Fable 5.2") && opts.includes("Fable 5.1") && opts.includes("직접 입력…"), "모델 목록 표시명 " + opts.join("/"));
+  await page.select("#step3 .modelsel select", "claude-fable-5-2");
+  check((await effortState("#practice-effort")).max === "4", "Fable 5.2 추론 강도 5단계");
+  await page.select("#step3 .modelsel select", "claude-sonnet-5-5");
   check(await page.$('#step3 [data-seg="variant"] [data-v="kim"][aria-pressed="true"]'), "복기본 seg(김종수 눌림, 통합 없음 → 대체)");
   await page.click("#pv summary"); await sleep(150);
   const pv = await page.evaluate(() => document.querySelector("#pv pre").textContent);

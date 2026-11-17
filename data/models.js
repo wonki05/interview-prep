@@ -9,7 +9,8 @@ window.MODEL_CATALOG = {
     { id: "claude-sonnet-5-5", label: "Sonnet 5.5", note: "기본. 속도·품질 균형" },
     { id: "claude-opus-5-5",   label: "Opus 5.5",   note: "가장 정교. 느리고 비쌈" },
     { id: "claude-haiku-5-5",  label: "Haiku 5.5",  note: "가장 빠름. 분기 분류에 알맞음" },
-    { id: "claude-fable-5-1",  label: "Fable 5.1",  note: "최상위. 트리 생성 같은 오프라인 작업용" }
+    { id: "claude-fable-5-2",  label: "Fable 5.2",  note: "최상위. 트리 생성 같은 오프라인 작업용" },
+    { id: "claude-fable-5-1",  label: "Fable 5.1",  note: "이전 최상위" }
   ],
   openai: [
     { id: "gpt-6.1-sol",   label: "GPT-6.1 Sol",   note: "기본" },

@@ -74,7 +74,7 @@
     /* 공식 문서로 확인한 모델만 effort를 보낸다. 직접 입력한 미확인 모델은 API 기본값을 쓴다. */
     effortOptions(provider, model) {
       const levels = ["low", "medium", "high", "xhigh", "max"];
-      if (provider === "anthropic" && ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-1"].includes(model)) return levels;
+      if (provider === "anthropic" && ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-2", "claude-fable-5-1"].includes(model)) return levels;
       if (provider === "openai") {
         if (["gpt-6.1-sol", "gpt-6-astra"].includes(model)) return levels;
         if (["gpt-6.1-terra", "gpt-6-luna"].includes(model)) return ["none"].concat(levels);
