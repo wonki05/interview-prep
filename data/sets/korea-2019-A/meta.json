@@ -11,7 +11,8 @@
   "prep": 15,
   "duration": 8,
   "memo": true,
-  "followup": false
+  "followup": false,
+  "keynote": 5
  },
  "themes": [
   "자연의 권리 주체성(왕가누이 강)",

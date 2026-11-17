@@ -92,7 +92,8 @@
     "timeline": {
      "prep": 14,
      "wait": 0,
-     "interview": 11
+     "interview": 11,
+     "keynote": 6
     },
     "basics": [
      "교수:학생 = 3:1",
