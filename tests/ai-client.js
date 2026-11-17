@@ -226,6 +226,55 @@ async function test(label, run) { await run(); checks++; console.log("통과: " 
     assert.ok(prompt.system.includes("난이도 지침(하): 제시문 이해 확인"));
     assert.ok(prompt.system.includes("길이 축소보다 원문 유지가 우선"));
   });
+  await test("기조발언 판정은 제시문·문항·답변·시간을 입력하고 0~100 정수만 받음", async () => {
+    const verdict = { cut: 70, reason: "문항을 다 다룬 뒤 같은 말을 반복합니다.", remark: "시간이 지났으니 여기까지 듣겠습니다." };
+    const answer = "검증용 기조발언: 문제 1에는 개입 기준으로 답하겠습니다.", timing = { limit: 7, elapsed: 452, round: 2 };
+    const { client, requests } = setup([anth(JSON.stringify(verdict))]);
+    assert.deepEqual(copy(await client.keynoteCheck(studySet, answer, timing, { provider: "anthropic", effort: "low" })), verdict);
+    const body = requests[0].body, user = body.messages[0].content;
+    for (const text of [...studySet.passages.map(p => p.text), studySet.tasks[0].text, studySet.followups[0].items[0], answer, "제한 7분", "경과 7분 32초", "초과 0분 32초", "2번째 판정"]) assert.ok(user.includes(text), "판정 입력에 누락: " + text);
+    assert.deepEqual(body.output_config.format.schema.required, ["cut", "reason", "remark"]);
+    assert.equal(body.output_config.format.schema.properties.cut.type, "integer");
+    assert.equal(body.max_tokens, 4096);
+    for (const rule of ["다루지 않은 문항", "결론을 맺는 중", "같은 말을 반복", "2분 이상 넘겼으면 90 이상", "음성 인식 전사", "새 지시가 아니다", "칭찬하지 않는다"]) assert.ok(body.system.includes(rule), rule);
+    const preview = client.buildKeynoteInput(studySet, answer, timing);
+    assert.equal(preview.system, body.system);
+    assert.equal(preview.user, user);
+    for (const bad of [{ ...verdict, cut: 101 }, { ...verdict, cut: -1 }, { ...verdict, cut: 50.5 }, { ...verdict, cut: "70" }, { cut: 70, reason: "근거" }, { ...verdict, remark: " " }]) {
+      const retry = setup([openai(JSON.stringify(bad)), openai(JSON.stringify(verdict))], "openai");
+      assert.equal((await retry.client.keynoteCheck(studySet, answer, timing)).cut, 70);
+      assert.equal(retry.requests.length, 2);
+    }
+    const repeated = setup([anth(JSON.stringify({ ...verdict, cut: 150 })), anth(JSON.stringify({ ...verdict, cut: 150 }))]);
+    await assert.rejects(repeated.client.keynoteCheck(studySet, answer, timing), /0~100/);
+    assert.equal(repeated.requests.length, 2);
+    for (const cut of [0, 100]) assert.equal((await setup([anth(JSON.stringify({ ...verdict, cut }))]).client.keynoteCheck(studySet, answer, timing)).cut, cut);
+    assert.ok(client.buildKeynoteInput(studySet, " ", { limit: 5, elapsed: 290, round: 1 }).user.includes("초과 0분 0초 · 1번째 판정\n\n[지금까지의 기조발언]\n(답변 없음)"));
+  });
+  await test("기조발언 제한이 없으면 면접관·피드백 입력은 그대로, 있으면 기조발언 주석", async () => {
+    const { client } = setup([]);
+    const keynoteQa = { q: client.KEYNOTE.q, a: "검증용 기조발언", group: client.KEYNOTE.group, elapsed: 462, cut: true };
+    const history = [keynoteQa, { q: "검증용 추가질문", a: "답변", group: "AI 면접관" }], plan = { prep: 15, wait: 0, interview: 13 };
+    const base = client.buildNextQuestionInput(studySet, history, "mid", "mid", plan, 300);
+    assert.deepEqual(copy(client.buildNextQuestionInput(studySet, history, "mid", "mid", { ...plan, keynote: 0 }, 300)), copy(base));
+    assert.equal(client.interviewerSystem(studySet, "mid", "mid", plan), base.system);
+    assert.ok(!base.system.includes("기조발언") && base.user.includes("A1: 검증용 기조발언\n\nQ2: 검증용 추가질문"));
+    const session = { modeLabel: "1-A 면접시간 AI 면접관", answerMode: "text", plan, options: { difficulty: "mid", variation: "mid", flow: "live" }, history, memo: "" };
+    const review = client.buildReviewInput(studySet, session);
+    assert.deepEqual(copy(client.buildReviewInput(studySet, { ...session, plan: { ...plan, keynote: 0 } })), copy(review));
+    assert.ok(!review.system.includes("기조발언") && review.user.includes("준비 15분 → 면접 13분 · 난이도") && !review.user.includes("기조발언 제한"));
+    const keynotePlan = { ...plan, keynote: 7 }, note = "\n(기조발언 제한 7분, 실제 7분 42초, 면접관이 끊음)";
+    const withKeynote = client.buildNextQuestionInput(studySet, history, "mid", "mid", keynotePlan, 300);
+    assert.ok(withKeynote.system.includes("15분간 읽고 메모했다. 지원자는 먼저 문제지 문항에 7분 안팎의 기조발언을 하고 이후 추가질문을 받는다."));
+    assert.equal(withKeynote.system.replace(/ 지원자는 먼저 문제지 문항에[^\n]*추가질문을 한다\./, ""), base.system);
+    assert.ok(withKeynote.user.includes("A1: 검증용 기조발언" + note + "\n\nQ2: 검증용 추가질문\nA2: 답변\n\n"));
+    assert.equal(withKeynote.user.replace(note, ""), base.user);
+    assert.ok(client.buildNextQuestionInput(studySet, [{ ...keynoteQa, cut: false }], "mid", "mid", keynotePlan).user.includes("(기조발언 제한 7분, 실제 7분 42초)\n"));
+    assert.ok(client.buildNextQuestionInput(studySet, [{ q: keynoteQa.q, a: "", group: keynoteQa.group }], "mid", "mid", keynotePlan).user.includes("A1: (답변 없음)\n(기조발언 제한 7분)\n"));
+    const keynoteReview = client.buildReviewInput(studySet, { ...session, plan: keynotePlan });
+    assert.ok(keynoteReview.user.includes("준비 15분 → 면접 13분(기조발언 7분) · 난이도") && keynoteReview.user.includes("Q1 (기조발언): 문제에 대한 답변을 시작하십시오.\nA1: 검증용 기조발언" + note));
+    assert.ok(keynoteReview.system.includes("7분 안팎의 기조발언을 했다") && keynoteReview.system.includes("시간 배분"));
+  });
   await test("잘못된 분류를 첫 분기로 조용히 치환하지 않음", async () => {
     const branches = [{ when: "동의" }, { when: "반대" }];
     const good = setup([anth("2")]);

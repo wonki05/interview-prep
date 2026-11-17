@@ -226,7 +226,7 @@
       !s ? '<span class="chip line">녹음만</span>' : !s.endedAt ? '<span class="chip warn">중단</span>' : ""
     ].join("");
     const links = info.setId ? `<a class="btn sm" href="practice.html?set=${esc(info.setId)}">같은 세트로 모의면접</a><a class="btn sm" href="db.html#${esc(info.setId)}">기출DB에서 보기</a>` : "";
-    const qa = history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted" style="white-space:pre-line">${esc(String(h.a || "").trim() || "(답변 없음)")}</span></span><span class="small muted">${h.duration ? fmtClock(h.duration) : String(h.a || "").trim() ? String(h.a).trim().length + "자" : "—"}</span></li>`).join("");
+    const qa = history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted" style="white-space:pre-line">${esc(String(h.a || "").trim() || "(답변 없음)")}</span></span><span class="small muted">${h.duration ? fmtClock(h.duration) : Number.isFinite(h.elapsed) ? fmtClock(h.elapsed) : String(h.a || "").trim() ? String(h.a).trim().length + "자" : "—"}${h.cut ? " · 끊김" : ""}</span></li>`).join("");   // elapsed·cut: 기조발언 문답(없는 이전 기록은 그대로)
     return { urls: created, html: `${top}
       <div class="sethead">
         <div class="eyebrow">${esc(new Date(info.createdAt).toLocaleString("ko-KR"))}${info.modeLabel ? " · " + esc(info.modeLabel) : ""}${s ? " · " + (s.answerMode === "voice" ? "음성" : "텍스트") : ""}</div>

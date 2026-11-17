@@ -29,7 +29,7 @@ index.html / practice.html / db.html / library.html   페이지 셸(헤드에서
 assets/app.css      토큰(밝음/어둠), 공통 컴포넌트, 시간표 띠(.tl), 단계 선택(.step), 세션 레이아웃(.session), 기출DB(.dbgrid), 서가
 assets/app.js       설정 저장소(localStorage "snu-iv-settings-v1"), 테마/블루라이트/글자 크기, 앱바, 설정 서랍, 시간표 띠 생성, 모델 목록 select, 누적 AI 결과 목록(SNU.runs), SNU.db 데이터 접근
 assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setContext(제시문 전문+복기 질문 전체), 프롬프트 빌더, nextQuestion/classify/respond/exampleAnswers/explainPassages/review(면접 피드백)
-assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder)·세션 기록 저장(records.js), STT/TTS, 결정 트리 보행, 종료 화면 AI 피드백
+assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder)·세션 기록 저장(records.js), STT/TTS, 결정 트리 보행, 세트 시간표·기조발언 시간 제한(고려대), 종료 화면 AI 피드백
 assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1"), 예시답변·제시문 해설 화면
 assets/db-study.js  기출DB 학습 도우미: AI 면접해설 설정, 서가 지연 로드, 예시답변·제시문 해설 결과 누적(localStorage "snu-db-study-v1")
 assets/records.js   면접 기록: IndexedDB "snu-interview"(sessions·recordings), 기록 서랍(앱바, 모든 화면), AI 피드백

@@ -104,7 +104,9 @@
     queue: [], qi: 0, cur: null, history: [], recordings: [],
     recording: false, answered: false, transcript: "", interim: "", thinking: false, aiNote: "",
     memo: "", tab: "interview", knocked: false, treeNode: null, pendingBranches: null, err: "", lastAnswer: null,
-    startedAt: 0, options: null, aiUsed: null, ending: false, saveChain: Promise.resolve(), saveErr: ""   // 세션 기록(assets/records.js)
+    startedAt: 0, options: null, aiUsed: null, ending: false, saveChain: Promise.resolve(), saveErr: "",   // 세션 기록(assets/records.js)
+    tm: null,                                         // 세트별 시간표·기조발언 스위치(timing()). 전역 설정과 분리
+    kn: null, cutNote: ""                             // 기조발언 시계 { start, end, round, pending, cut }, 끊김 알림(다음 질문 카드)
   };
   {
     const want = params.get("set") || S().lastSet;
@@ -118,6 +120,34 @@
   const set = () => db.set(st.setId, st.variant || undefined);
   const mode = () => MODES[st.mode];
   const school = () => db.school(st.schoolId);
+
+  /* ---------------- 시간표: 설정값 또는 세트 시간표 ----------------
+     학교 format.timeline에 keynote가 있는 학교(고려대)는 세트의 책 값(format.prep·duration·keynote, 없으면 학교 값)으로
+     시간표를 시작한다. 이 값과 기조발언 제한 스위치는 세션 상태(st.tm)에만 두고 전역 설정은 읽지도 쓰지도 않는다.
+     그 세트를 고르고 있는 동안([같은 세트 다시] 포함) 고친 값을 유지하고, 다른 세트를 고르면 그 세트의 기본값으로 돌아간다.
+     그 밖의 학교는 시간표를 설정값으로 정하고, 기조발언 스위치만 세션 상태(기본 꺼짐)다. */
+  function setTimeline(cs) {
+    const sc = (D.schools || []).find(x => x.id === cs.school), t = sc && sc.format && sc.format.timeline;
+    if (!t || !(t.keynote > 0)) return null;
+    const f = cs.format || {}, interview = f.duration > 0 ? f.duration : t.interview, own = f.keynote > 0;
+    return { short: sc.short, prep: f.prep > 0 ? f.prep : t.prep, wait: t.wait || 0, interview, keynote: Math.max(1, Math.min(interview - 1, own ? f.keynote : t.keynote)), basis: own ? 0 : sc.format.year };   // basis: 그해 값이 책에 없어 쓴 학교 기준 연도
+  }
+  function timing() {
+    if (st.tm && st.tm.setId === st.setId) return st.tm;
+    const base = setTimeline(db.set(st.setId));
+    st.tm = { setId: st.setId, base, on: !!base, keynote: base ? base.keynote : 0 };
+    if (base) Object.assign(st.tm, { prep: base.prep, waitOn: base.wait > 0, wait: base.wait || 5, interview: base.interview });
+    return st.tm;
+  }
+  const keynoteOffered = () => mode().timed && (set().tasks || []).length > 0;   // 1-A이고 문제지 문항이 있는 세트(실효 복기본)만
+  function currentPlan() {
+    const s = S(), m = mode(), tm = timing();
+    const plan = tm.base
+      ? { prep: tm.prep, wait: tm.waitOn ? tm.wait : 0, interview: m.timed ? tm.interview : 0 }
+      : { prep: Math.max(1, +s.prepMinutes || 20), wait: s.waitEnabled ? Math.max(1, +s.waitMinutes || 5) : 0, interview: m.timed ? Math.max(1, +s.interviewMinutes || 15) : 0 };
+    if (tm.on && keynoteOffered() && plan.interview > 1) plan.keynote = Math.max(1, Math.min(plan.interview - 1, tm.keynote || Math.round(plan.interview / 2)));   // 면접 시간보다 작게
+    return plan;
+  }
   let wakeLock = null;
   async function keepAwake() { try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} }
   window.addEventListener("beforeunload", e => { if (st.phase !== "setup" && st.phase !== "done") { e.preventDefault(); e.returnValue = ""; } });
@@ -176,8 +206,11 @@
   function optionsPanel() {
     const s = S(), m = mode(), cs = set(), sc = school();
     const ai = AI.resolve(sessionAi());
-    const plan = planFromSettings();
+    const plan = currentPlan(), tm = timing(), b = tm.base, kOffer = keynoteOffered();
     const voice = s.answerMode === "voice";
+    const minutes = (label, attr, value, on, max) => `<label class="minutes"><span class="small">${label}</span><input class="input sm num" type="number" min="1" max="${max || 60}" ${attr} value="${value}" ${on ? "" : "disabled"}><span class="small muted">분</span></label>`;
+    const capRight = b ? `${esc(b.short)} ${cs.year} 복기 ${b.prep}·${b.interview} · 기조발언 ${b.keynote}${b.basis ? `(${b.basis} 기준)` : ""}`
+      : sc.format ? `${esc(sc.short)} ${sc.format.year} 기준 ${sc.format.timeline.prep}·${sc.format.timeline.wait}·${sc.format.timeline.interview}` : "";
     const preview = /claude\.ai$/.test(location.hostname);
     return `
       <div class="opts">
@@ -197,13 +230,15 @@
         <div class="opt-group">
           <div class="opt-title">시간표</div>
           <div class="row" style="gap:18px">
-            <label class="minutes"><span class="small">준비</span><input class="input sm num" type="number" min="1" max="60" data-num="prepMinutes" value="${s.prepMinutes}"><span class="small muted">분</span></label>
-            <label class="minutes"><span class="small">대기</span><input class="input sm num" type="number" min="1" max="60" data-num="waitMinutes" value="${s.waitMinutes || 5}" ${s.waitEnabled ? "" : "disabled"}><span class="small muted">분</span></label>
-            ${m.timed ? `<label class="minutes"><span class="small">면접</span><input class="input sm num" type="number" min="1" max="60" data-num="interviewMinutes" value="${s.interviewMinutes}"><span class="small muted">분</span></label>` : `<span class="chip line">면접 시간 제한 없음</span>`}
+            ${b ? minutes("준비", 'data-tm="prep"', tm.prep, true) + minutes("대기", 'data-tm="wait"', tm.wait, tm.waitOn)
+                : minutes("준비", 'data-num="prepMinutes"', s.prepMinutes, true) + minutes("대기", 'data-num="waitMinutes"', s.waitMinutes || 5, s.waitEnabled)}
+            ${m.timed ? minutes("면접", b ? 'data-tm="interview"' : 'data-num="interviewMinutes"', b ? tm.interview : s.interviewMinutes, true) : `<span class="chip line">면접 시간 제한 없음</span>`}
+            ${kOffer ? minutes("기조발언", 'data-tm="keynote"', plan.keynote || tm.keynote || Math.max(1, Math.round(plan.interview / 2)), !!plan.keynote, Math.max(1, plan.interview - 1)) : ""}
           </div>
-          <label class="switch"><input type="checkbox" data-bool="waitEnabled" ${s.waitEnabled ? "checked" : ""}><span>대기 시간(준비와 면접 사이)</span></label>
+          <label class="switch"><input type="checkbox" ${b ? `data-tmbool="waitOn" ${tm.waitOn ? "checked" : ""}` : `data-bool="waitEnabled" ${s.waitEnabled ? "checked" : ""}`}><span>대기 시간(준비와 면접 사이)</span></label>
           ${m.timed ? `<label class="switch"><input type="checkbox" data-bool="knock" ${s.knock ? "checked" : ""}><span>종료 1분 전 노크</span></label>` : ""}
-          <div>${timeline(plan, { phase: null })}<div class="tl-cap"><span>준비 ${plan.prep}분${plan.wait ? ` → 대기 ${plan.wait}분` : ""} → 면접 ${plan.interview ? plan.interview + "분" : "무제한"}</span><span>${sc.format ? `${esc(sc.short)} ${sc.format.year} 기준 ${sc.format.timeline.prep}·${sc.format.timeline.wait}·${sc.format.timeline.interview}` : ""}</span></div></div>
+          ${kOffer ? `<label class="switch"><input type="checkbox" data-tmbool="on" ${tm.on ? "checked" : ""}><span>기조발언 시간 제한</span></label>${plan.keynote ? '<span class="help">30초 넘기면 면접관이 끊을 수 있다.</span>' : ""}` : ""}
+          <div>${timeline(plan, { phase: null })}<div class="tl-cap"><span>준비 ${plan.prep}분${plan.wait ? ` → 대기 ${plan.wait}분` : ""} → 면접 ${plan.interview ? plan.interview + "분" : "무제한"}${plan.keynote ? `(기조발언 ${plan.keynote}분)` : ""}</span><span>${capRight}</span></div></div>
         </div>
 
         ${m.ai ? `
@@ -232,13 +267,14 @@
   }
   function promptPreview(cs, plan) {
     const s = S();
-    const inp = AI.buildNextQuestionInput(cs, [], s.difficulty, s.variation, plan);
+    /* 기조발언 제한이 켜져 있으면 첫 AI 호출은 기조발언 뒤다. 자리표시 답변이 든 기조발언 문답 하나와 남은 시간으로 같은 모양을 보인다. */
+    const hist = plan.keynote ? [{ q: AI.KEYNOTE.q, a: "(기조발언 답변이 여기에 들어간다)", group: AI.KEYNOTE.group }] : [];
+    const inp = AI.buildNextQuestionInput(cs, hist, s.difficulty, s.variation, plan, plan.keynote ? (plan.interview - plan.keynote) * 60 : undefined);
     return `<details class="promptview" id="pv" ${st.promptOpen ? "open" : ""}><summary>AI 입력 미리 보기 — 제시문 ${cs.passages.length}편 전문 + 복기 질문 ${db.count(cs)}개 포함</summary>
-      <p class="small muted" style="margin-top:8px">첫 질문 생성 시 실제 입력. 이후 호출에는 '지금까지의 문답'이 덧붙는다. 결정 트리의 분기 분류 호출만 답변·분기 조건을 보내는 경량 호출.</p>
+      <p class="small muted" style="margin-top:8px">${plan.keynote ? "기조발언 뒤 " : ""}첫 질문 생성 시 실제 입력. 이후 호출에는 '지금까지의 문답'이 덧붙는다. 결정 트리의 분기 분류 호출만 답변·분기 조건을 보내는 경량 호출.</p>
       <pre><b>[system]</b>\n${esc(inp.system)}\n\n<b>[user]</b>\n${esc(inp.user)}</pre></details>`;
   }
   function sessionAi() { return { provider: st.ai.provider, model: st.ai.model || undefined, effort: st.ai.effort }; }
-  function planFromSettings() { const s = S(), m = mode(); return { prep: Math.max(1, +s.prepMinutes || 20), wait: s.waitEnabled ? Math.max(1, +s.waitMinutes || 5) : 0, interview: m.timed ? Math.max(1, +s.interviewMinutes || 15) : 0 }; }
 
   /* 설정 화면의 상호작용은 #app에 한 번 위임한다(단계가 바뀔 때마다 innerHTML을 다시 그리므로). */
   app.addEventListener("click", e => {
@@ -260,6 +296,13 @@
     const t = e.target;
     if (t.matches("[data-bool]")) save({ [t.dataset.bool]: t.checked });
     else if (t.matches("[data-num]")) { const v = Math.max(+t.min || 0, Math.min(+t.max || 999, +t.value || 0)); save({ [t.dataset.num]: v }); }
+    /* 세트 시간표·기조발언: 세션 상태만 고친다(설정에 저장하지 않는다) */
+    else if (t.matches("[data-tm]")) { timing()[t.dataset.tm] = Math.max(+t.min || 1, Math.min(+t.max || 60, Math.round(+t.value) || 0)); refreshOptions(); }
+    else if (t.matches("[data-tmbool]")) {
+      const tm = timing(); tm[t.dataset.tmbool] = t.checked;
+      if (t.dataset.tmbool === "on" && t.checked && !tm.keynote) tm.keynote = Math.max(1, Math.round(currentPlan().interview / 2));   // 세트 시간표가 없는 학교: 면접 시간의 절반
+      refreshOptions();
+    }
   });
   app.addEventListener("toggle", e => { if (e.target.id === "pv") st.promptOpen = e.target.open; }, true);
   function bindOptions() {
@@ -282,7 +325,7 @@
   async function startSession() {
     const err = $("#setupErr"); if (err) err.hidden = true;
     const s = S();
-    st.plan = planFromSettings(); st.answerMode = s.answerMode;
+    st.plan = currentPlan(); st.answerMode = s.answerMode; st.kn = null; st.cutNote = "";
     st.variant = set().variant;                       // 세션 동안 복기본 고정(설정을 바꿔도 제시문·질문 은행이 바뀌지 않는다)
     if (st.answerMode === "voice") { try { await recorder.init(); } catch (e) { if (err) { err.textContent = "마이크를 열 수 없다: " + e.message + " — 답변 방식을 텍스트로 바꾸면 마이크 없이 진행된다."; err.hidden = false; } return; } }
     audioCtx(); keepAwake();
@@ -303,7 +346,8 @@
       id: st.sessionId, setId: cs.id, variant: cs.variant, school: cs.school, setLabel: db.label(cs), variantLabel: cs.variantLabel,
       mode: st.mode, modeLabel: m.code + " " + m.label, answerMode: st.answerMode, plan: Object.assign({}, st.plan), options: st.options, ai: st.aiUsed,
       createdAt: st.startedAt, updatedAt: Date.now(), endedAt: final ? Date.now() : null,
-      history: st.history.map(h => ({ q: h.q, a: h.a || "", group: h.group || "", recFilename: h.rec ? h.rec.filename : "", duration: h.rec ? h.rec.duration : 0 })),
+      history: st.history.map(h => Object.assign({ q: h.q, a: h.a || "", group: h.group || "", recFilename: h.rec ? h.rec.filename : "", duration: h.rec ? h.rec.duration : 0 },
+        Number.isFinite(h.elapsed) ? { elapsed: h.elapsed } : {}, h.cut ? { cut: true } : {})),   // 기조발언 문답만: 경과 초, 끊겼으면 cut
       memo: st.memo
     };
   }
@@ -340,6 +384,7 @@
       else if (st.phase === "interview") { beep(3); endInterview(); }
     }
     const rt = $("#recTime"); if (rt && st.recording) rt.textContent = fmtClock((now - recorder.startedAt) / 1000);
+    if (st.phase === "interview" && st.cur && st.cur.keynote && st.kn) keynoteTick();
   }
   function abort() { clearInterval(st.tick); recorder.release(); stt.stop(); try { speechSynthesis.cancel(); } catch (e) {} st.phase = "setup"; st.step = 3; st.variant = ""; app.classList.remove("in-session"); renderSetup(); }
 
@@ -433,7 +478,8 @@
     else if (st.pendingBranches) body = `<div class="qmeta"><span>면접관 판단</span></div><p class="qtext waiting">방금 답변에 가장 가까운 것은?</p><div class="stack">${st.pendingBranches.map((b, i) => `<button type="button" class="btn" data-branch="${i}">${esc(b.when)}</button>`).join("")}</div>${st.err ? `<p class="callout warn">${esc(st.err)}</p>` : ""}`;
     else if (!st.cur) body = `<p class="qtext waiting">질문 없음</p>`;
     else {
-      const head = `<div class="qmeta"><span>질문 ${st.history.length + 1}${st.cur.group ? " · " + esc(st.cur.group) + (st.cur.idx ? " Q" + st.cur.idx : "") : ""}</span><span>${st.cur.focus ? "초점: " + esc(st.cur.focus) : ""}</span></div><p class="qtext">${esc(st.cur.q)}</p>`;
+      const side = st.cur.keynote ? `<span class="chip num${keynoteElapsed() > st.plan.keynote * 60 ? " warn" : ""}" id="knClock">${esc(keynoteLabel())}</span>` : `<span>${st.cur.focus ? "초점: " + esc(st.cur.focus) : ""}</span>`;
+      const head = `<div class="qmeta"><span>질문 ${st.history.length + 1}${st.cur.group ? " · " + esc(st.cur.group) + (st.cur.idx ? " Q" + st.cur.idx : "") : ""}</span>${side}</div><p class="qtext">${esc(st.cur.q)}</p>`;
       const foot = `<span class="small muted">${st.mode === "all" ? `${st.qi} / ${st.queue.length}` : (ai.configured ? esc(ai.label) : "오프라인 · 복기 질문 은행")}</span>`;
       if (textMode) {
         body = `${head}
@@ -454,6 +500,7 @@
       }
       body += st.err ? `<p class="callout warn">${esc(st.err)}</p>` : "";
     }
+    if (st.cutNote && !(st.cur && st.cur.keynote)) body = `<p class="callout warn">${esc(st.cutNote)}</p>` + body;   // 기조발언이 끊겼음을 다음 질문 카드에
     q.innerHTML = body;
     const rs = $("#recStart"); if (rs) rs.addEventListener("click", startAnswer);
     const rp = $("#recStop"); if (rp) rp.addEventListener("click", stopAnswer);
@@ -461,7 +508,7 @@
     const nb = $("#nextBtn"); if (nb) nb.addEventListener("click", () => { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); commitAnswer(); });
     const sk = $("#skipBtn"); if (sk) sk.addEventListener("click", () => { st.transcript = ""; commitAnswer(); });
     $$("[data-branch]", q).forEach(b => b.addEventListener("click", () => { const i = +b.dataset.branch; const br = st.pendingBranches[i]; st.pendingBranches = null; st.err = ""; st.treeNode = br.next; showTreeNode(); }));
-    const log = $("#qlog"); if (log) { log.innerHTML = st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span>${esc(h.q)}</span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : h.a ? h.a.length + "자" : "—"}</span></li>`).join("") + (st.cur ? `<li class="cur"><span class="idx">Q${st.history.length + 1}</span><span>${esc(st.cur.q)}</span><span></span></li>` : ""); }
+    const log = $("#qlog"); if (log) { log.innerHTML = st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span>${esc(h.q)}</span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : h.a ? h.a.length + "자" : "—"}${h.cut ? " · 끊김" : ""}</span></li>`).join("") + (st.cur ? `<li class="cur"><span class="idx">Q${st.history.length + 1}</span><span>${esc(st.cur.q)}</span><span></span></li>` : ""); }
     const pl = $("#progressLabel"); if (pl) pl.textContent = st.mode === "all" ? `${st.qi}/${st.queue.length}` : `${st.history.length}개 답변`;
   }
 
@@ -469,12 +516,14 @@
     st.transcript = ""; st.interim = ""; st.answered = false; st.err = "";
     try { recorder.start(l => { const el = $("#level"); if (el) el.style.width = (l * 100) + "%"; }); } catch (e) { st.err = "녹음을 시작할 수 없다: " + e.message; renderQcard(); return; }
     st.recording = true;
+    if (st.cur && st.cur.keynote) st.kn = { start: recorder.startedAt, end: 0, round: 0, pending: false, cut: false };   // 음성 기조발언 시계: 녹음 시작부터(다시 답변하면 처음부터)
     if (S().stt === "webspeech" && stt.available) stt.start((fin, int) => { st.transcript = fin.trim(); st.interim = int; const t = $("#transcript"); if (t) t.innerHTML = (st.transcript ? esc(st.transcript) : "") + (st.interim ? `<span class="interim"> ${esc(st.interim)}</span>` : ""); });
     renderQcard();
   }
   async function stopAnswer() {
     if (!st.recording) return;
     st.recording = false;
+    if (st.cur && st.cur.keynote && st.kn && !st.kn.end) st.kn.end = Date.now();
     const spoken = stt.stop(); if (spoken) st.transcript = spoken;
     const t = $("#answerText"); if (t) st.transcript = t.value;
     const out = await recorder.stop();
@@ -487,12 +536,54 @@
     }
     st.answered = true; renderQcard();
   }
-  function commitAnswer() {
+  /* 문답 한 건. 기조발언 문답에는 경과 초(elapsed)와, 끊겼을 때만 cut을 남긴다. */
+  function entry() {
+    const h = { q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null, group: st.cur.group || "" };
+    if (st.cur.keynote && st.kn && st.kn.start) { h.elapsed = Math.round(((st.kn.end || Date.now()) - st.kn.start) / 1000); if (st.kn.cut) h.cut = true; }
+    return h;
+  }
+  function commitAnswer(cutNote) {
     if (!st.cur) return;
-    st.history.push({ q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null, group: st.cur.group || "" });
+    st.cutNote = cutNote || "";                       // 끊김 알림은 다음 질문 카드에만
+    st.history.push(entry());
     const answered = st.transcript; st.cur = null; st.answered = false; st.transcript = ""; st.interim = ""; st.lastAnswer = null;
     saveRecord(false);
     nextQuestion(answered);
+  }
+
+  /* ---------------- 기조발언 시간 제한(plan.keynote, 1-A · 문제지 문항 있는 세트) ----------------
+     시계: 음성은 [답변 시작]부터(다시 답변하면 처음부터), 텍스트는 질문이 뜬 때부터. 답변을 끝내면 멈춘다.
+     제한 + 30초에 아직 답변 중이면 1차 판정, 그 뒤 30초마다 다시 판정한다. 확률은 AI가 답변 내용을 보고 정하거나(키 있음·답변 글 있음),
+     시간만으로 n차 25·50·75·100%(키 없음·호출 실패·답변 글이 거의 없음). 판정 중에는 다시 부르지 않고, 늦게 온 응답은 버린다. */
+  const KEYNOTE_MIN_TEXT = 20;                        // 이보다 짧은 답변 글(음성 인식이 안 되는 브라우저 등)은 내용 검토 없이 시간만으로
+  function keynoteElapsed() { const k = st.kn; return k && k.start ? ((k.end || Date.now()) - k.start) / 1000 : 0; }
+  function keynoteLabel() { return `기조발언 ${fmtClock(keynoteElapsed())} / ${fmtClock(st.plan.keynote * 60)}`; }
+  function keynoteLive() { const k = st.kn; return st.phase === "interview" && !st.ending && !!(st.cur && st.cur.keynote && k && k.start && !k.end) && (st.answerMode === "text" || st.recording); }
+  function keynoteText() { const t = $("#answerText"); return t ? t.value.trim() : `${st.transcript} ${st.interim}`.trim(); }   // 텍스트·직접 입력은 입력란, 음성 인식은 확정 + 중간 결과
+  function keynoteTick() {
+    const k = st.kn, sec = keynoteElapsed(), limit = st.plan.keynote * 60, el = $("#knClock");
+    if (el) { el.textContent = keynoteLabel(); el.classList.toggle("warn", sec > limit); }
+    if (keynoteLive() && !k.pending && sec >= limit + 30 * (k.round + 1)) judgeKeynote(k, sec);
+  }
+  async function judgeKeynote(k, sec) {
+    const cur = st.cur, n = ++k.round, text = keynoteText();
+    let cut = Math.min(100, 25 * n), remark = "";
+    k.pending = true;
+    if (AI.resolve(sessionAi()).configured && text.length >= KEYNOTE_MIN_TEXT) {
+      try { const r = await AI.keynoteCheck(set(), text, { limit: st.plan.keynote, elapsed: sec, round: n }, sessionAi()); cut = r.cut; remark = r.remark.trim(); }
+      catch (e) { /* 호출 실패: 시간만의 확률로 판정 */ }
+    }
+    k.pending = false;
+    if (st.kn !== k || st.cur !== cur || !keynoteLive()) return;   // 그 사이 답변을 끝냈거나 다시 시작했거나 질문이 바뀌었다
+    if (Math.random() * 100 < cut) cutKeynote(remark);
+  }
+  async function cutKeynote(remark) {
+    const k = st.kn;
+    k.end = Date.now(); k.cut = true; beep(1);
+    const note = `기조발언 ${fmtClock(keynoteElapsed())} — 면접관이 끊음${remark ? ": " + remark : ""}`;
+    if (st.answerMode === "voice") { await stopAnswer(); if (st.ending || st.phase !== "interview") return; }   // 녹음을 멈춰 저장
+    else { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); }                                // 적힌 데까지 답변으로
+    commitAnswer(note);
   }
 
   /* ---------------- 다음 질문 결정 ---------------- */
@@ -503,8 +594,13 @@
       if (st.qi >= st.queue.length) { endInterview(); return; }
       st.cur = st.queue[st.qi++]; showQuestion(); return;
     }
+    if (st.plan.keynote && !st.history.length) {      // 기조발언: AI를 부르지 않는 고정 첫 질문(문제지 문항은 왼쪽 지시문 상자에 있다)
+      st.cur = { q: AI.KEYNOTE.q, group: AI.KEYNOTE.group, focus: "", keynote: true };
+      st.kn = { start: st.answerMode === "text" ? Date.now() : 0, end: 0, round: 0, pending: false, cut: false };
+      showQuestion(); return;
+    }
     if (s.flow === "tree" && db.treeUsable(cs)) {
-      if (st.treeNode === null && st.history.length === 0) { st.treeNode = cs.tree.root; showTreeNode(); return; }
+      if (st.treeNode === null && st.history.length === (st.plan.keynote ? 1 : 0)) { st.treeNode = cs.tree.root; showTreeNode(); return; }
       const node = cs.tree.nodes[st.treeNode];
       if (node && node.branches && node.branches.length) {
         if (ai.configured) { st.thinking = true; st.aiNote = "분기 분류 · " + ai.label; renderQcard();
@@ -544,7 +640,7 @@
   function pool(cs) { return [...(cs.tasks || []).map(t => ({ q: `${AI.taskHead(t)}. ${t.text}`, group: "문제" })), ...AI.bank(cs)]; }
   function bankNext(cs) {
     const asked = new Set(st.history.map(h => h.q));
-    return pool(cs).find(x => !asked.has(x.q)) || null;
+    return pool(cs).find(x => !asked.has(x.q) && !(st.plan.keynote && x.group === "문제")) || null;   // 기조발언에서 문제지 문항에 이미 답했다
   }
   function showQuestion() { if (!st.cur) { endInterview(); return; } st.answered = false; st.transcript = ""; st.interim = ""; renderQcard(); speak(st.cur.q); }
 
@@ -554,7 +650,7 @@
     st.ending = true;
     clearInterval(st.tick);
     if (st.recording) await stopAnswer();
-    if (st.cur && (st.answered || (st.answerMode === "text" && $("#answerText") && $("#answerText").value.trim()))) { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); st.history.push({ q: st.cur.q, a: st.transcript, rec: st.lastAnswer || null, group: st.cur.group || "" }); }
+    if (st.cur && (st.answered || (st.answerMode === "text" && $("#answerText") && $("#answerText").value.trim()))) { const t = $("#answerText"); if (t) st.transcript = t.value.trim(); st.history.push(entry()); }
     st.cur = null;                                    // 남은 [제출]이 같은 질문을 다시 넣지 않게
     try { speechSynthesis.cancel(); } catch (e) {}
     st.phase = "done"; await finishSession();
@@ -576,7 +672,7 @@
       ${saved && st.history.length ? '<section class="sec"><div class="sec-head"><h2 class="h2">AI 피드백</h2></div><div class="stack" id="feedback"><p class="small muted">저장 중…</p></div></section>' : ""}
       ${st.answerMode === "voice" ? `<section class="sec"><div class="sec-head"><h2 class="h2">이번 세션 녹음</h2></div><div class="reclist" id="sessionRecs"></div></section>` : ""}
       <section class="sec"><div class="sec-head"><h2 class="h2">문답 기록</h2></div>
-        <ol class="qlist">${st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted">${esc(h.a || "(답변 기록 없음)")}</span></span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : "—"}</span></li>`).join("") || '<li><span></span><span class="muted">기록 없음</span><span></span></li>'}</ol></section>
+        <ol class="qlist">${st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted">${esc(h.a || "(답변 기록 없음)")}</span></span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : Number.isFinite(h.elapsed) ? fmtClock(h.elapsed) : "—"}${h.cut ? " · 끊김" : ""}</span></li>`).join("") || '<li><span></span><span class="muted">기록 없음</span><span></span></li>'}</ol></section>
       ${st.memo ? `<section class="sec"><div class="sec-head"><h2 class="h2">메모</h2></div><pre class="panel" style="white-space:pre-wrap;font:inherit">${esc(st.memo)}</pre></section>` : ""}
       <section class="sec"><div class="sec-head"><h2 class="h2">이 세트의 복기 질문 전체</h2></div>
         ${[...cs.followups, ...(cs.common || [])].map(f => `<div class="panel tight"><h3 class="h3" style="margin-bottom:6px">${esc(f.label)}</h3><ol class="qlist">${f.items.map((q, i) => `<li><span class="idx">Q${i + 1}</span><span>${esc(q)}</span><span></span></li>`).join("")}</ol></div>`).join("")}</section>`;

@@ -303,6 +303,7 @@ tr:last-child td { border-bottom: 0; }
 .opts .span2 { grid-column: 1 / -1; }
 .opt-group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .opt-title { font-size: .76rem; color: var(--ink-3); font-weight: 600; letter-spacing: .03em; }
+.opt-group > .help { font-size: .78rem; color: var(--ink-3); margin-top: -6px; }   /* 스위치 아래 조건부 한 줄(기조발언 시간 제한). .field .help와 같은 모양 */
 @media (max-width: 760px) { .opts { grid-template-columns: minmax(0, 1fr); padding: 18px 16px; } }
 .startrow { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .promptview summary { cursor: pointer; font-size: .85rem; color: var(--ink-2); list-style: none; display: inline-flex; gap: 6px; align-items: center; }
