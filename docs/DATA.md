@@ -72,7 +72,7 @@ data/sets/<set id>/merged.json
 
 ## 2. `data/models.js` — `window.MODEL_CATALOG`
 
-`{ anthropic: [{id, label, note}], openai: [...], transcription: [...] }`. 상위 모델부터 적고 같은 등급은 새 버전을 위에 둔다(예: GPT-6.2 Astra → GPT-6 Astra → GPT-6.2 Sol → GPT-6.1 Sol). 기본값은 목록 순서가 아니라 `app.js` DEFAULTS. 전사 목록만 첫 항목이 대체값이다(저장된 전사 모델이 목록에 없을 때). 새 모델은 등급 자리에 한 줄 추가하고 effort를 보낼 모델이면 `SNU.models.effortOptions`에도 넣는다. 제공사 공식 문서의 id를 쓴다.
+`{ anthropic: [{id, label, note}], openai: [...], transcription: [...] }`. 상위 모델부터 적고 같은 등급은 새 버전을 위에 둔다(예: GPT-6.2 Astra → GPT-6 Astra → GPT-6.2 Sol → GPT-6.1 Sol). 기본 모델은 늘 첫 항목(최상위)이다. `app.js` DEFAULTS를 같게 두고 `tools/validate-data.js`가 검사한다(전사 목록의 첫 항목은 저장된 전사 모델이 목록에 없을 때의 대체값도 된다). 새 모델은 등급 자리에 한 줄 추가하고 effort를 보낼 모델이면 `SNU.models.effortOptions`에도 넣는다. 최상위가 바뀌면 DEFAULTS의 모델과 `modelRev`를 올리고 이전 기본 모델을 `app.js` `OLD_DEFAULT_MODELS`에 더한다. 제공사 공식 문서의 id를 쓴다.
 
 ## 3. `data/library.js` — `window.LIBRARY_DATA`
 
@@ -90,6 +90,7 @@ data/sets/<set id>/merged.json
 | `explanationAnthropicEffort`, `explanationOpenaiEffort` | AI 면접해설 전용 effort. 모델별 지원 범위는 면접관과 동일 |
 | `dbHideThemes` | 불리언, 기본 `false`. 기출DB 목록·상세 주제 가림 |
 | `dbSort` | `newest`(기본) / `oldest`. 학교별 세트 목록의 연도 정렬. 원본 배열은 변경하지 않음 |
+| `modelRev` | 정수, 기본 `1`. 기본 모델 판. 저장된 값이 이보다 작으면 불러올 때 이전 기본 모델(`OLD_DEFAULT_MODELS`)인 네 모델 필드(면접관·해설 × 제공사)만 새 최상위로 옮기고, 다음 저장 때 함께 남는다. 직접 고른 다른 모델은 그대로 |
 | `transcriptionModel` | 기본 `gpt-transcribe`. 기출DB 녹음본 피드백의 전사 모델(`MODEL_CATALOG.transcription`의 id). 패널에서 고르면 저장한다. 목록에 없는 값이면 목록의 첫 모델을 쓴다(`AIClient.transcriptionModel`) |
 
 effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의 AI 호출에만 적용한다. 설정 서랍과 모의면접의 [기본값으로 저장]만 위 저장 필드에 반영한다. 해설 필드가 없는 기존 설정은 면접관의 해당 값을 이어받고, 이후 저장부터 독립적으로 유지한다. 해설도 기존 `anthropicKey`·`openaiKey`를 공유하며 별도 키 필드를 만들지 않는다. 기존 API 키·문답·복기본 데이터에는 변화가 없다. `tools/validate-data.js`가 두 역할의 기본 모델·effort, 전사 모델 기본값, 서가 입력 필드를 검사한다.

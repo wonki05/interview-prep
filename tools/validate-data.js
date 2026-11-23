@@ -127,6 +127,7 @@ const defaults = browser.window.SNU.DEFAULTS, modelHelpers = browser.window.SNU.
 for (const provider of ["anthropic", "openai"]) {
   for (const prefix of [provider, "explanation" + provider[0].toUpperCase() + provider.slice(1)]) {
     if (!(M[provider] || []).some(m => m.id === defaults[prefix + "Model"])) err(prefix + ": 기본 모델이 목록에 없다");
+    else if ((M[provider][0] || {}).id !== defaults[prefix + "Model"]) err(prefix + ": 기본 모델이 목록의 최상위(첫 항목)가 아니다");
     if (!modelHelpers.effortOptions(provider, defaults[prefix + "Model"]).includes(defaults[prefix + "Effort"])) err(prefix + ": 기본 effort가 모델 지원 범위 밖이다");
   }
 }
@@ -134,6 +135,8 @@ if (!["anthropic", "openai"].includes(defaults.explanationProvider)) err("설정
 if (typeof defaults.dbHideThemes !== "boolean") err("설정 dbHideThemes는 불리언");
 if (!["newest", "oldest"].includes(defaults.dbSort)) err("설정 dbSort는 newest/oldest");
 if (!(M.transcription || []).some(m => m.id === defaults.transcriptionModel)) err("설정 transcriptionModel이 전사 모델 목록에 없다");
+else if (M.transcription[0].id !== defaults.transcriptionModel) err("설정 transcriptionModel이 전사 목록의 최상위(첫 항목)가 아니다");
+if (!Number.isInteger(defaults.modelRev) || defaults.modelRev < 1) err("설정 modelRev는 1 이상의 정수");
 
 /* 해설에 전달할 서가 필드와 책 상세 링크 id를 검사하며 원본은 수정하지 않는다. */
 const shelf = { window: {} };

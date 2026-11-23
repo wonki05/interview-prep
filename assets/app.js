@@ -10,13 +10,15 @@
     theme: "system",            // system | light | dark
     bluelight: "off",           // off | low | mid | high
     fontScale: "md",            // sm | md | lg | xl
-    /* AI 기본값 — 모의면접 옵션 창과 기출DB에 기본으로 뜨고, 그 자리에서 바꿀 수 있다 */
+    /* AI 기본값 — 모의면접 옵션 창과 기출DB에 기본으로 뜨고, 그 자리에서 바꿀 수 있다.
+       기본 모델은 제공사 목록의 최상위 모델(data/models.js 첫 항목). 최상위가 바뀌면 아래 모델·modelRev와 OLD_DEFAULT_MODELS를 함께 고친다 */
     provider: "anthropic",      // anthropic | openai
-    anthropicKey: "", anthropicModel: "claude-sonnet-5-5", anthropicEffort: "medium",
-    openaiKey: "", openaiModel: "gpt-6.1-sol", openaiEffort: "medium",
+    anthropicKey: "", anthropicModel: "claude-fable-5-2", anthropicEffort: "medium",
+    openaiKey: "", openaiModel: "gpt-6.2-astra", openaiEffort: "medium",
     explanationProvider: "anthropic",
-    explanationAnthropicModel: "claude-sonnet-5-5", explanationAnthropicEffort: "medium",
-    explanationOpenaiModel: "gpt-6.1-sol", explanationOpenaiEffort: "medium",
+    explanationAnthropicModel: "claude-fable-5-2", explanationAnthropicEffort: "medium",
+    explanationOpenaiModel: "gpt-6.2-astra", explanationOpenaiEffort: "medium",
+    modelRev: 1,                // 기본 모델 판(올라가면 저장된 이전 기본 모델을 새 최상위로 한 번 옮긴다)
     dbHideThemes: false, dbSort: "newest",
     transcriptionModel: "gpt-transcribe",   // 기출DB 녹음본 피드백의 전사 모델(MODEL_CATALOG.transcription)
     /* 모의면접 기본값 — 옵션 창에서 고른 값이 마지막에 쓴 값으로 저장된다 */
@@ -48,6 +50,12 @@
     explanationOpenaiModel: settings.openaiModel, explanationOpenaiEffort: settings.openaiEffort
   };
   Object.keys(explanationDefaults).forEach(key => { if (!Object.prototype.hasOwnProperty.call(storedSettings, key)) settings[key] = explanationDefaults[key]; });
+  /* 기본 모델이 최상위로 바뀐 판: 저장된 값이 이전 기본 모델이면 새 최상위로 옮긴다. 직접 고른 다른 모델은 그대로 둔다. */
+  const OLD_DEFAULT_MODELS = ["claude-sonnet-5-5", "gpt-6.1-sol"];
+  if ((+storedSettings.modelRev || 0) < DEFAULTS.modelRev) {
+    ["anthropicModel", "openaiModel", "explanationAnthropicModel", "explanationOpenaiModel"].forEach(key => { if (OLD_DEFAULT_MODELS.includes(settings[key])) settings[key] = DEFAULTS[key]; });
+    settings.modelRev = DEFAULTS.modelRev;   // 다음 저장 때 함께 남아 이후 직접 고른 이전 기본 모델은 다시 옮기지 않는다
+  }
 
   function save(patch) {
     Object.assign(settings, patch || {});

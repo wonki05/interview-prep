@@ -14,7 +14,7 @@
 
 - 키는 `localStorage["snu-iv-settings-v1"].anthropicKey / openaiKey`. 브라우저에서 직접 호출하므로 CORS는 두 제공사 모두 허용되어 있다(Anthropic은 위 헤더 필요).
 - 모델 목록: `data/models.js` `MODEL_CATALOG[provider] = [{id, label, note}]`. 화면에는 `label`(예: "Sonnet 5.5", "GPT-6.1 Sol")만 보이고 API에는 `id`를 보낸다. "직접 입력…"으로 임의 id 가능.
-- 기본값: `settings.provider`, `settings.anthropicModel`(기본 `claude-sonnet-5-5`), `settings.openaiModel`(기본 `gpt-6.1-sol`), `settings.anthropicEffort / openaiEffort`(기본 `medium`). 기존 설정 키는 유지한다.
+- 기본값: `settings.provider`, `settings.anthropicModel`(기본 `claude-fable-5-2`), `settings.openaiModel`(기본 `gpt-6.2-astra`), `settings.anthropicEffort / openaiEffort`(기본 `medium`). 기본 모델은 늘 목록의 최상위(첫 항목)이고 `tools/validate-data.js`가 검사한다. 저장된 값이 이전 기본 모델(Sonnet 5.5·GPT-6.1 Sol)이면 한 번 새 최상위로 옮긴다(`modelRev`). 기존 설정 키는 유지한다.
 - 설정 서랍·모의면접 옵션·기출DB AI 바에서 단계형 슬라이더로 effort를 고른다. Claude 다섯 모델 및 GPT-6.2 Astra·GPT-6 Astra·GPT-6.2 Sol·GPT-6.1 Sol은 `low/medium/high/xhigh/max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원한다(GPT-6.2는 `none`을 거부한다). 직접 입력한 미확인 모델은 슬라이더를 비활성화하고 API 기본 effort를 쓴다.
 - 세션 재정의: 모의면접 옵션 창과 기출DB AI 바의 `{provider, model, effort}`는 그 화면에서만 유효. `AIClient.resolve(override)`가 `{provider, model, effort, key, configured, label, modelLabel}`을 돌려준다. 제공사·모델이 지원하지 않는 effort는 `medium`으로, 미확인 모델은 `null`로 정규화한다.
 - 예시답변·제시문 해설은 `explanationProvider`, `explanationAnthropicModel / explanationAnthropicEffort`, `explanationOpenaiModel / explanationOpenaiEffort`를 별도로 저장한다. 기존 설정에 이 필드들이 없으면 면접관 설정에서 처음 한 번 복사하고 이후에는 독립적으로 유지한다. 호출부가 해당 설정을 `{provider, model, effort}`로 전달하며 API 키는 같은 제공사의 기존 키를 공유한다.
