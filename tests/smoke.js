@@ -77,7 +77,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   await page.click("#aiSaveDefault");
   check(await page.evaluate(() => SNU.settings.anthropicEffort === "high"), "세션 추론 강도 기본값 저장");
   await page.click('[data-aiseg="provider"] [data-v="openai"]');
-  check((await effortState("#practice-effort")).max === "4", "GPT-6.1 Sol 추론 강도 5단계");
+  check(await page.$eval("#step3 .modelsel select", el => el.value === "gpt-6.2-astra") && (await effortState("#practice-effort")).max === "4", "GPT 기본 모델 = 최상위 GPT-6.2 Astra, 추론 강도 5단계");
   const gptOpts = await page.evaluate(() => Array.from(document.querySelectorAll("#step3 .modelsel select option")).map(o => o.textContent));
   check(gptOpts.join("/") === "GPT-6.2 Astra/GPT-6 Astra/GPT-6.2 Sol/GPT-6.1 Sol/GPT-6.1 Terra/GPT-6 Luna/직접 입력…", "GPT 모델 목록(상위 모델이 위) " + gptOpts.join("/"));
   await page.select("#step3 .modelsel select", "gpt-6.2-astra");

@@ -130,6 +130,23 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     assert.equal(reload.settings.anthropicModel, "claude-haiku-5-5");
     assert.equal(reload.settings.explanationOpenaiEffort, "high");
   });
+  await test("기본 모델 판 올림: 저장된 이전 기본 모델만 최상위로 옮기고, 그 뒤 직접 고른 이전 기본 모델은 유지", async () => {
+    const storage = new Map([[SETTINGS, JSON.stringify({ provider: "openai", anthropicModel: "claude-sonnet-5-5", openaiModel: "gpt-6.1-sol", openaiEffort: "high", explanationAnthropicModel: "claude-opus-5-5", explanationOpenaiModel: "gpt-6.1-sol" })]]);
+    const h = setup({ storage });
+    assert.equal(h.settings.anthropicModel, "claude-fable-5-2");
+    assert.equal(h.settings.openaiModel, "gpt-6.2-astra");
+    assert.equal(h.settings.explanationOpenaiModel, "gpt-6.2-astra");
+    assert.equal(h.settings.explanationAnthropicModel, "claude-opus-5-5");
+    assert.equal(h.settings.openaiEffort, "high");
+    assert.equal(JSON.parse(storage.get(SETTINGS)).openaiModel, "gpt-6.1-sol");   // 불러오기만으로는 저장하지 않는다
+    h.snu.save({ anthropicModel: "claude-sonnet-5-5" });
+    const reload = setup({ storage });
+    assert.equal(reload.settings.anthropicModel, "claude-sonnet-5-5");
+    assert.equal(reload.settings.openaiModel, "gpt-6.2-astra");
+    const fresh = setup({ storage: new Map() });
+    assert.equal(fresh.settings.anthropicModel, "claude-fable-5-2");
+    assert.equal(fresh.settings.explanationOpenaiModel, "gpt-6.2-astra");
+  });
   await test("저장된 해설 설정은 면접관 설정보다 우선하고 누락 필드만 보충", async () => {
     const h = setup({ storage: new Map([[SETTINGS, JSON.stringify({ provider: "openai", anthropicEffort: "high", explanationProvider: "anthropic", explanationAnthropicModel: "claude-fable-5-1", explanationAnthropicEffort: "low" })]]) });
     const ai = h.study.resolveAi();
