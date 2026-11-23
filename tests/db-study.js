@@ -44,6 +44,7 @@ function fixtureReview(set, books, suffix = "") {
     qa: [{ no: 1, from: 1, to: 1, question: "(추정) 개입의 기준을 말하시오.", answer: "피해를 기준으로 삼는다고 답했습니다.", evaluation: "제시문 1의 구별을 정확히 읽었습니다.", improvement: "제시문 2의 선택 조건을 함께 적용합니다." }],
     evaluation: { summary: "제시문 1은 정확히 읽었으나 제시문 2를 쓰지 않았습니다.", strengths: [], gaps: ["제시문 2의 조건을 다루지 않았습니다."] },
     improvements: ["제시문 2의 선택 조건을 근거로 반론을 처리합니다."],
+    probes: [{ question: "피해가 없어도 개입할 수 있는 경우는 없습니까?", basis: "Q1의 피해 기준 발언에서 나왔고 기준의 경계를 겨눕니다." }],
     books: books.length ? [{ id: books[0].id, reason: "개입 기준의 약점을 보완하는 연관 독서입니다." }] : []
   };
 }
@@ -584,6 +585,24 @@ const entryOf = (h, set = fixtureSet()) => JSON.parse(h.storage.get(CACHE)).entr
     const h = setup({ storage: new Map([[CACHE, JSON.stringify(saved)]]) }), list = h.study.reviewHistory(set);
     assert.equal(list.length, 2, "이전 결과는 형식만 검사한다(서가가 바뀐 결과도 보인다)");
     assert.deepEqual(copy(list[1].files), []);
+  });
+  await test("고민해볼 추가질문이 생기기 전에 저장한 결과(probes 없음)는 빈 목록으로 읽고 저장본은 그대로 둔다", async () => {
+    const storage = new Map(), a = setup({ storage }), set = fixtureSet(), id = a.study.identity(set);
+    const first = await review(a, set);
+    assert.equal(a.study.reviewHistory(set)[0].data.probes.length, 1);
+    const saved = JSON.parse(storage.get(CACHE));
+    delete saved.entries[id].reviews[0].data.probes;
+    const h = setup({ storage: new Map([[CACHE, JSON.stringify(saved)]]) });
+    assert.deepEqual(copy(h.study.reviewHistory(set).map(r => [r.at, r.data.probes])), [[first.at, []]]);
+    assert.ok(!("probes" in JSON.parse(h.storage.get(CACHE)).entries[id].reviews[0].data), "읽기만으로 저장본을 바꾸지 않는다");
+    h.study.addReviewQuestion(set, first.at, "검증용 질문");
+    assert.ok((await h.study.answerReviewQuestion(set, first.at, INTERVIEWER)).reply, "이전 결과에도 후속 질문을 할 수 있다");
+    assert.equal(h.study.reviewHistory(set)[0].thread.length, 2);
+    for (const bad of [{ question: "근거 없는 질문" }, "글만 있는 질문"]) {
+      const broken = copy(saved);
+      broken.entries[id].reviews[0].data.probes = [bad];
+      assert.deepEqual(copy(setup({ storage: new Map([[CACHE, JSON.stringify(broken)]]) }).study.reviewHistory(set)), [], "형식이 틀린 추가질문은 손상된 결과로 본다");
+    }
   });
   await test("전문은 세트 항목에 한 번만: 같은 문답을 다시 평가해도 하나, 마지막 결과를 지우면 함께 지움", async () => {
     const h = setup(), set = fixtureSet();

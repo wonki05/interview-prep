@@ -335,7 +335,7 @@
     if (!list.length) return "";
     return `<div class="row between"><span class="chip accent">AI 녹음본 피드백</span></div>${studyRuns(state, list, 'data-kind="recording"', run => recordingRun(cs, run, state))}`;
   }
-  /* (i) 문제 분석 → (ii) 답변 평가(종합 → 문답별) → (iii) 개선 방안 → (iv) 추천 도서 → 평가한 문답(전문) → 후속 질문. 도서 표시명·링크는 실제 서가 데이터에서. */
+  /* (i) 문제 분석 → (ii) 답변 평가(종합 → 문답별) → (iii) 개선 방안 → 고민해볼 추가질문(답변을 듣고 더 물을 수 있었던 질문) → (iv) 추천 도서 → 평가한 문답(전문) → 후속 질문. 도서 표시명·링크는 실제 서가 데이터에서. */
   function recordingRun(cs, run, state) {
     const d = run.data, shelf = state.books || [], byNo = (a, b) => a.no - b.no;
     const listOrNone = items => items.length ? studyList(items) : '<p class="small muted">없음</p>';
@@ -354,6 +354,7 @@
           return `<details class="fold" data-rec-qa="${key}" ${open ? "open" : ""}><summary><span>Q${item.no}. ${esc(item.question)}</span></summary><div class="fold-b">${open ? qaBody(run, item) : ""}</div></details>`;
         }).join("")}</div></section>
       <section class="study-section"><h3 class="h3">개선 방안</h3><ol class="study-list">${d.improvements.map(item => `<li>${esc(item)}</li>`).join("")}</ol></section>
+      ${d.probes.length ? `<section class="study-section"><h3 class="h3">고민해볼 추가질문</h3><ol class="study-list" data-rec-probes>${d.probes.map(item => `<li>${esc(item.question)}<p class="small muted">${esc(item.basis)}</p></li>`).join("")}</ol></section>` : ""}
       ${books.length ? `<section class="study-section"><h3 class="h3">추천 도서</h3><ul class="study-list study-books">${books.join("")}</ul></section>` : ""}
       <details class="fold" data-rec-full="${run.at}" ${state.fullOpen.has(run.at) ? "open" : ""}><summary>평가한 문답</summary><div class="fold-b">${state.fullOpen.has(run.at) ? fullBody(run) : ""}</div></details>
       <section class="study-section rec-ask"><h3 class="h3">후속 질문</h3><div class="stack" data-rec-thread="${run.at}">${askBody(cs, run)}</div></section>`;
@@ -644,6 +645,7 @@
     out.push("", "## 답변 평가", "", d.evaluation.summary, "", "### 잘한 점", "", bullets(d.evaluation.strengths), "", "### 부족한 점", "", bullets(d.evaluation.gaps));
     d.qa.slice().sort(byNo).forEach(q => { const span = run.spans.find(s => s.no === q.no); out.push("", `### Q${q.no}. ${q.question}`, "", span ? quote(run.transcript.slice(span.start, span.end)) : "> (원문 위치 없음)", "", `- 답변 요지: ${q.answer}`, `- 평가: ${q.evaluation}`, `- 개선: ${q.improvement}`); });
     out.push("", "## 개선 방안", "", d.improvements.map((x, i) => `${i + 1}. ${x}`).join("\n"));
+    if (d.probes.length) out.push("", "## 고민해볼 추가질문", "", d.probes.map((p, i) => `${i + 1}. ${p.question}\n   - ${p.basis}`).join("\n"));
     if (d.books.length) out.push("", "## 추천 도서", "", d.books.map(b => { const book = shelf.find(x => x.id === b.id); return `- ${book ? `${book.title} · ${book.author}` : "서가 " + b.id}: ${b.reason}`; }).join("\n"));
     out.push("", "## 평가한 문답", "", run.transcript);
     if (run.thread.length) out.push("", "## 후속 질문", "", run.thread.map(m => `${m.role === "user" ? "나" : "면접관 · " + (m.model || "AI")}: ${m.text}`).join("\n\n"));

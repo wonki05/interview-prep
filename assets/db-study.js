@@ -231,12 +231,14 @@
       return Object.assign({}, result, { transcript: text, books });
     });
   }
+  /* 고민해볼 추가질문(data.probes)이 생기기 전에 저장한 결과에는 그 항목이 없다. 빈 목록으로 읽는다(저장본은 고치지 않는다). */
+  const withProbes = r => object(r) && object(r.data) && !Array.isArray(r.data.probes) ? Object.assign({}, r, { data: Object.assign({}, r.data, { probes: [] }) }) : r;
   /* 목록(최신순)은 형식만 검사한다. 원문이 바뀐 결과는 stale, 전문을 잃은 결과는 뺀다. */
   function reviewHistory(set) {
     const entry = entryOf(set);
     if (!entry || !entry.reviews.length) return [];
     const ctx = contextId(set);
-    return entry.reviews.map(r => ({ r, transcript: transcriptOf(entry, r) }))
+    return entry.reviews.map(r => ({ r: withProbes(r), transcript: transcriptOf(entry, r) }))
       .filter(x => x.transcript !== null && validRecord(x.r, data => AI.validateJson(data, AI.schemas.recordingReview)))
       .map(x => Object.assign({}, x.r, { transcript: x.transcript, files: fileList(x.r.files), spans: spanList(x.r.spans, x.transcript.length), thread: threadList(x.r.thread), stale: x.r.ctx !== ctx })).reverse();
   }

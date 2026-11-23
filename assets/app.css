@@ -399,7 +399,7 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .sethead .h1 { font-size: clamp(1.4rem, 2.6vw, 1.9rem); }
 .fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-weight: 600; }
 .fold > summary::-webkit-details-marker { display: none; }
-.fold > summary::after { content: "펼치기"; margin-left: auto; font-size: .8rem; font-weight: 500; color: var(--accent); }
+.fold > summary::after { content: "펼치기"; margin-left: auto; flex: none; white-space: nowrap; font-size: .8rem; font-weight: 500; color: var(--accent); }   /* 요약줄이 길어도 한 줄로 */
 .fold[open] > summary::after { content: "접기"; }
 .fold[open] > summary { border-bottom: 0; }
 .fold > .fold-b { padding: 6px 0 18px; display: flex; flex-direction: column; gap: 14px; }
