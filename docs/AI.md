@@ -15,7 +15,7 @@
 - 키는 `localStorage["snu-iv-settings-v1"].anthropicKey / openaiKey`. 브라우저에서 직접 호출하므로 CORS는 두 제공사 모두 허용되어 있다(Anthropic은 위 헤더 필요).
 - 모델 목록: `data/models.js` `MODEL_CATALOG[provider] = [{id, label, note}]`. 화면에는 `label`(예: "Sonnet 5.5", "GPT-6.1 Sol")만 보이고 API에는 `id`를 보낸다. "직접 입력…"으로 임의 id 가능.
 - 기본값: `settings.provider`, `settings.anthropicModel`(기본 `claude-sonnet-5-5`), `settings.openaiModel`(기본 `gpt-6.1-sol`), `settings.anthropicEffort / openaiEffort`(기본 `medium`). 기존 설정 키는 유지한다.
-- 설정 서랍·모의면접 옵션·기출DB AI 바에서 단계형 슬라이더로 effort를 고른다. Claude 다섯 모델 및 GPT-6.1 Sol·GPT-6 Astra는 `low/medium/high/xhigh/max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원한다. 직접 입력한 미확인 모델은 슬라이더를 비활성화하고 API 기본 effort를 쓴다.
+- 설정 서랍·모의면접 옵션·기출DB AI 바에서 단계형 슬라이더로 effort를 고른다. Claude 다섯 모델 및 GPT-6.2 Astra·GPT-6 Astra·GPT-6.2 Sol·GPT-6.1 Sol은 `low/medium/high/xhigh/max`, GPT-6.1 Terra·GPT-6 Luna는 `none`도 지원한다(GPT-6.2는 `none`을 거부한다). 직접 입력한 미확인 모델은 슬라이더를 비활성화하고 API 기본 effort를 쓴다.
 - 세션 재정의: 모의면접 옵션 창과 기출DB AI 바의 `{provider, model, effort}`는 그 화면에서만 유효. `AIClient.resolve(override)`가 `{provider, model, effort, key, configured, label, modelLabel}`을 돌려준다. 제공사·모델이 지원하지 않는 effort는 `medium`으로, 미확인 모델은 `null`로 정규화한다.
 - 예시답변·제시문 해설은 `explanationProvider`, `explanationAnthropicModel / explanationAnthropicEffort`, `explanationOpenaiModel / explanationOpenaiEffort`를 별도로 저장한다. 기존 설정에 이 필드들이 없으면 면접관 설정에서 처음 한 번 복사하고 이후에는 독립적으로 유지한다. 호출부가 해당 설정을 `{provider, model, effort}`로 전달하며 API 키는 같은 제공사의 기존 키를 공유한다.
 - 기출DB에는 면접관 바 아래 별도의 AI 면접해설 바를 둔다. `DBStudy.resolveAi(override)`가 해설 기본값과 페이지 내 선택을 합성한다. 제공사·모델·effort 변경은 이 페이지의 예시답변·제시문 해설 생성·재생성에만 적용하며 기본 설정과 면접관 선택을 바꾸지 않는다. 선택만 바꾸면 호출하지 않고, 진행 중 요청은 시작 당시 선택을 유지한다. 기존 결과에는 생성 당시 모델·effort를 그대로 표시한다.
@@ -40,7 +40,7 @@
 - 거부 응답·입력 한도 초과·HTTP 오류·연결 실패는 자동 재시도하지 않는다. 키 오류(401), 권한(403), 결제·잔액, 호출 제한(429), 서버 오류(5xx)를 구분한다. 오류 원문·추론 블록·API 키는 화면이나 로그에 남기지 않는다.
 - JSON은 객체만 허용하고 코드펜스는 제거한다. 필수 값이 누락되거나 공백·다른 형식이면 실패 처리하며, 화면에 `undefined` 검토나 빈 질문을 성공으로 저장하지 않는다.
 - 예시답변 수·중복 여부, 제시문 번호의 완전성, 서가 후보 ID처럼 스키마만으로 확인할 수 없는 조건은 같은 재시도 루프 안에서 검사한다. 이 경우에도 총 두 번을 넘지 않는다. 캐시에서 현재 결과를 고르는 호출부는 `validateExamplesResponse(data)` / `validatePassageExplanationResponse(data, set, books)` / `validateReviewResponse(data, session)`으로 같은 구조·내용 조건을 검사한다. 쌓인 이전 결과를 그릴 때는 원문이 바뀐 결과도 보이도록 `validateJson(data, schemas.examples|explanation|review)`로 형식만 검사한다.
-- 근거(2026-11-03 확인): [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort), [thinking](https://platform.claude.com/docs/en/build-with-claude/thinking), [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)·[Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)·[Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra)·[Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
+- 근거(2026-11-03 확인): [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort), [thinking](https://platform.claude.com/docs/en/build-with-claude/thinking), [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)·[Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)·[Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra)·[Luna](https://developers.openai.com/api/docs/models/gpt-6-luna). GPT-6.2(2026-11-24 확인): [6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra)·[6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol)·[모델 목록](https://developers.openai.com/api/docs/models)·[GPT-6.2 안내](https://developers.openai.com/api/docs/guides/latest-model). Chat Completions·구조화 출력 지원, `temperature`·`top_p` 미지원(보내지 않는다), 도구 호출은 Responses 전용(쓰지 않는다).
 
 ## 2. 컨텍스트(모든 질문 생성·검토 호출에 포함)
 
@@ -334,7 +334,7 @@ tree: {
 
 P2-1에서 난이도별 `trees: { low, mid, high, max }`로 확장한다. 실행기(`practice.js nextQuestion/showTreeNode`)는 `set.trees?.[difficulty] || set.tree`를 쓴다.
 
-## 6. 트리 생성 프롬프트 (P2-1, 추론 강도 높은 모델: Fable 5.1 / Opus 5.5 / GPT-6 Astra)
+## 6. 트리 생성 프롬프트 (P2-1, 추론 강도 높은 모델: Fable 5.2 / Opus 5.5 / GPT-6.2 Astra)
 
 입력: `setContext(set)` + 난이도 정의 + 아래 지시.
 

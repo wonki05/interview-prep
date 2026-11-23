@@ -28,7 +28,7 @@ Codex가 이 저장소에서 작업할 때 따르는 규칙. Claude Code는 같�
 index.html / practice.html / db.html / library.html   페이지 셸(헤드에서 app.css, app.js, data/*.js, ai.js, records.js 로드)
 assets/app.css      토큰(밝음/어둠), 공통 컴포넌트, 시간표 띠(.tl), 단계 선택(.step), 세션 레이아웃(.session), 기출DB(.dbgrid), 서가
 assets/app.js       설정 저장소(localStorage "snu-iv-settings-v1"), 테마/블루라이트/글자 크기, 앱바, 설정 서랍, 시간표 띠 생성, 모델 목록 select, 누적 AI 결과 목록(SNU.runs), SNU.db 데이터 접근
-assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setContext(제시문 전문+복기 질문 전체), 프롬프트 빌더, nextQuestion/classify/respond/exampleAnswers/explainPassages/review(면접 피드백)
+assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setContext(제시문 전문+복기 질문 전체), 프롬프트 빌더, nextQuestion/classify/keynoteCheck(기조발언 판정)/respond/exampleAnswers/explainPassages/review(면접 피드백)/reviewRecording·recordingFollowup(녹음본 피드백·후속 질문)/transcribe(OpenAI 전사)
 assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder)·세션 기록 저장(records.js), STT/TTS, 결정 트리 보행, 세트 시간표·기조발언 시간 제한(고려대), 종료 화면 AI 피드백
 assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1"), 예시답변·제시문 해설 화면, 녹음본 피드백 패널(녹음·문답 첨부 → 전사 → 평가, 문답별 원문 대조·후속 질문)
 assets/db-study.js  기출DB 학습 도우미: AI 면접해설 설정, 서가 지연 로드, 예시답변·제시문 해설·녹음본 피드백 결과·후속 질문 누적(localStorage "snu-db-study-v1"), 올린 문답 파일 읽기
