@@ -77,7 +77,7 @@
       const levels = ["low", "medium", "high", "xhigh", "max"];
       if (provider === "anthropic" && ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-2", "claude-fable-5-1"].includes(model)) return levels;
       if (provider === "openai") {
-        if (["gpt-6.1-sol", "gpt-6-astra"].includes(model)) return levels;
+        if (["gpt-6.2-astra", "gpt-6-astra", "gpt-6.2-sol", "gpt-6.1-sol"].includes(model)) return levels;
         if (["gpt-6.1-terra", "gpt-6-luna"].includes(model)) return ["none"].concat(levels);
       }
       return [];

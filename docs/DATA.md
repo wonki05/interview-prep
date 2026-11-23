@@ -72,7 +72,7 @@ data/sets/<set id>/merged.json
 
 ## 2. `data/models.js` — `window.MODEL_CATALOG`
 
-`{ anthropic: [{id, label, note}], openai: [...], transcription: [...] }`. 첫 항목이 추천 기본값이지만 실제 기본값은 `app.js` DEFAULTS. 새 모델은 한 줄 추가. 제공사 공식 문서의 id를 쓴다.
+`{ anthropic: [{id, label, note}], openai: [...], transcription: [...] }`. 상위 모델부터 적고 같은 등급은 새 버전을 위에 둔다(예: GPT-6.2 Astra → GPT-6 Astra → GPT-6.2 Sol → GPT-6.1 Sol). 기본값은 목록 순서가 아니라 `app.js` DEFAULTS. 전사 목록만 첫 항목이 대체값이다(저장된 전사 모델이 목록에 없을 때). 새 모델은 등급 자리에 한 줄 추가하고 effort를 보낼 모델이면 `SNU.models.effortOptions`에도 넣는다. 제공사 공식 문서의 id를 쓴다.
 
 ## 3. `data/library.js` — `window.LIBRARY_DATA`
 

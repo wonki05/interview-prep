@@ -63,7 +63,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   await page.click('[data-mode="timed"]'); await sleep(300);
   check(await page.$("#step3.active") && await page.$("#startBtn"), "모드 선택 → 3단계 + 시작 버튼");
   const opts = await page.evaluate(() => Array.from(document.querySelectorAll("#step3 .modelsel select option")).map(o => o.textContent));
-  check(opts.includes("Sonnet 5.5") && opts.includes("Fable 5.2") && opts.includes("Fable 5.1") && opts.includes("직접 입력…"), "모델 목록 표시명 " + opts.join("/"));
+  check(opts.join("/") === "Fable 5.2/Fable 5.1/Opus 5.5/Sonnet 5.5/Haiku 5.5/직접 입력…", "모델 목록 표시명(상위 모델이 위) " + opts.join("/"));
   await page.select("#step3 .modelsel select", "claude-fable-5-2");
   check((await effortState("#practice-effort")).max === "4", "Fable 5.2 추론 강도 5단계");
   await page.select("#step3 .modelsel select", "claude-sonnet-5-5");
@@ -78,6 +78,12 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   check(await page.evaluate(() => SNU.settings.anthropicEffort === "high"), "세션 추론 강도 기본값 저장");
   await page.click('[data-aiseg="provider"] [data-v="openai"]');
   check((await effortState("#practice-effort")).max === "4", "GPT-6.1 Sol 추론 강도 5단계");
+  const gptOpts = await page.evaluate(() => Array.from(document.querySelectorAll("#step3 .modelsel select option")).map(o => o.textContent));
+  check(gptOpts.join("/") === "GPT-6.2 Astra/GPT-6 Astra/GPT-6.2 Sol/GPT-6.1 Sol/GPT-6.1 Terra/GPT-6 Luna/직접 입력…", "GPT 모델 목록(상위 모델이 위) " + gptOpts.join("/"));
+  await page.select("#step3 .modelsel select", "gpt-6.2-astra");
+  check((await effortState("#practice-effort")).max === "4", "GPT-6.2 Astra 추론 강도 5단계");
+  await page.select("#step3 .modelsel select", "gpt-6.2-sol");
+  check((await effortState("#practice-effort")).max === "4", "GPT-6.2 Sol 추론 강도 5단계");
   await page.select("#step3 .modelsel select", "gpt-6-astra");
   check((await effortState("#practice-effort")).max === "4", "GPT-6 Astra 추론 강도 5단계");
   await page.select("#step3 .modelsel select", "gpt-6.1-terra");

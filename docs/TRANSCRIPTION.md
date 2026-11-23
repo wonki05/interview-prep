@@ -11,7 +11,7 @@
 
 ## 2. 경로 A — 브라우저에서 OpenAI 전사 API (P3-1)
 
-- 옵션 창 "전사"에 세 번째 선택지 **OpenAI 전사** 추가. 모델은 `MODEL_CATALOG.transcription`에서 고른다(기본 `gpt-transcribe`, 대안 `gpt-4o-mini-transcribe`, `gpt-4o-transcribe`). OpenAI 키가 없으면 선택지를 비활성화한다.
+- 옵션 창 "전사"에 세 번째 선택지 **OpenAI 전사** 추가. 모델은 `MODEL_CATALOG.transcription`에서 고른다(기본 `gpt-transcribe`, 대안 `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`. 실시간 전용인 `gpt-live-transcribe`·`gpt-realtime-whisper`는 파일 전사를 받지 않아 넣지 않는다). OpenAI 키가 없으면 선택지를 비활성화한다.
 - 호출: `POST https://api.openai.com/v1/audio/transcriptions`, `authorization: Bearer <key>`, `multipart/form-data`(`content-type`은 브라우저가 경계와 함께 붙이므로 직접 넣지 않는다). 필드는 모델 계열마다 다르다(OpenAI 문서 2026-11-18 확인):
   - `file`: 녹음 blob. 형식은 flac·mp3·mp4·mpeg·mpga·m4a·ogg·wav·webm, 25MB 이하. 형식 판별에 파일명의 확장자가 쓰인다.
   - `model`: 선택한 전사 모델 id

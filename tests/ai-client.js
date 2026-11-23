@@ -305,6 +305,22 @@ async function test(label, run) { await run(); checks++; console.log("통과: " 
     assert.equal(fable.requests[0].body.output_config.format.type, "json_schema");
     assert.equal(fable.requests[0].body.thinking, undefined);
     assert.equal(fable.requests[0].body.temperature, undefined);
+    /* GPT-6.2 Astra·Sol 추가(P2-13): 상위 모델이 위, 같은 등급은 새 버전이 위. 6.2는 none을 받지 않아 effort 5단계 */
+    assert.deepEqual(copy(models.list("anthropic").map(m => m.id)), ["claude-fable-5-2", "claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]);
+    assert.deepEqual(copy(models.list("openai").map(m => m.id)), ["gpt-6.2-astra", "gpt-6-astra", "gpt-6.2-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"]);
+    assert.deepEqual(copy(models.list("transcription").map(m => m.id)), ["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"]);
+    for (const id of ["gpt-6.2-astra", "gpt-6.2-sol"]) {
+      assert.deepEqual(copy(models.effortOptions("openai", id)), ["low", "medium", "high", "xhigh", "max"]);
+      assert.equal(models.normalizeEffort("openai", id, "none"), "medium");
+    }
+    const astra = setup([openai(JSON.stringify(feedback))], "openai");
+    astra.settings.openaiModel = "gpt-6.2-astra";
+    astra.settings.openaiEffort = "max";
+    await respond(astra.client);
+    assert.equal(astra.requests[0].body.model, "gpt-6.2-astra");
+    assert.equal(astra.requests[0].body.reasoning_effort, "max");
+    assert.equal(astra.requests[0].body.response_format.type, "json_schema");
+    assert.equal(astra.requests[0].body.temperature, undefined);
     settings.anthropicModel = "custom-model";
     assert.equal(client.resolve().effort, null);
     await respond(client);
