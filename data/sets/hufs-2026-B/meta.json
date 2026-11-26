@@ -1,0 +1,24 @@
+{
+ "id": "hufs-2026-B",
+ "school": "hufs",
+ "year": 2026,
+ "name": "한국외대 B",
+ "session": "가군 토요일 오후",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 10,
+  "duration": 10,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "학교 내 스마트폰 사용 제한 입법"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체"
+ ],
+ "variant": "hwang"
+}

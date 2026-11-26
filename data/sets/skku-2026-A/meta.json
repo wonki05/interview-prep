@@ -1,0 +1,25 @@
+{
+ "id": "skku-2026-A",
+ "school": "skku",
+ "year": 2026,
+ "name": "성균관대 A",
+ "session": "나군 오전 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "개인정보·전입신고 등의 국가 개입"
+ ],
+ "tags": [
+  "법·제도",
+  "법철학",
+  "윤리"
+ ],
+ "variant": "hwang"
+}
