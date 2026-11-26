@@ -22,15 +22,10 @@ if (!D || !D.levels || !Array.isArray(D.schools)) err("INTERVIEW_DB 구조가 �
 ["low", "mid", "high", "max"].forEach(k => { if (!D.levels.difficulty[k]) err("levels.difficulty." + k + " 없음"); });
 ["low", "mid", "high"].forEach(k => { if (!D.levels.variation[k]) err("levels.variation." + k + " 없음"); });
 
-/* 변형 하나의 제시문·질문 검사. 제시문 번호는 1부터 연속, label은 원표기가 숫자가 아닐 때의 짧은 낱말((가)·(A)·사례·사례 1·에피소드),
-   한 글자 라벨은 가나다…·ABC… 순서. 문제지 문항(tasks)은 있으면 문장이 비지 않아야 한다. */
-function checkVariant(tag, v) {
-  if (!Array.isArray(v.passages)) { err(tag + ": passages 없음"); return 0; }
-  if (!v.passages.length) {                         // 책에 제시문 없이 문항만 인쇄된 변형은 빈 배열(문항 필수, docs/DATA.md 규칙 12)
-    if (!(Array.isArray(v.tasks) && v.tasks.length)) { err(tag + ": passages 없음(문제지 문항도 없음)"); return 0; }
-    warn(tag + ": 제시문 없음(문제지 문항만)");
-  }
-  v.passages.forEach((p, i) => {
+/* 제시문 목록 검사(기출 변형·모의고사 공통). 제시문 번호는 1부터 연속, label은 원표기가 숫자가 아닐 때의 짧은 낱말((가)·(A)·사례·사례 1·에피소드),
+   한 글자 라벨은 가나다…·ABC… 순서. */
+function checkPassages(tag, passages) {
+  passages.forEach((p, i) => {
     if (p.no !== i + 1) err(tag + ": 제시문 번호가 연속이 아니다(" + p.no + ")");
     if (!["prose", "dialog", "case"].includes(p.kind)) err(tag + ": 제시문 " + p.no + " kind 오류");
     if (p.label !== undefined && !(typeof p.label === "string" && /^[^\n]{1,12}$/.test(p.label) && !/^\d+$/.test(p.label))) err(tag + ": 제시문 " + p.no + " label 오류(" + p.label + ")");
@@ -38,13 +33,24 @@ function checkVariant(tag, v) {
     else if (p.text.trim().length < 50) warn(tag + ": 제시문 " + p.no + " 본문이 짧다(" + p.text.trim().length + "자)");
   });
   for (const abc of [HANGUL, LATIN]) {
-    const labels = v.passages.filter(p => p.label && p.label.length === 1 && abc.includes(p.label)).map(p => p.label);
+    const labels = passages.filter(p => p.label && p.label.length === 1 && abc.includes(p.label)).map(p => p.label);
     if (labels.length && labels.join("") !== abc.slice(0, labels.length)) err(tag + ": 한 글자 라벨 순서 오류 " + labels.join(""));
   }
-  if (v.tasks !== undefined) {
-    if (!Array.isArray(v.tasks)) err(tag + ": tasks는 배열");
-    else v.tasks.forEach((t, i) => { if (!t || typeof t.text !== "string" || !t.text.trim()) err(tag + ": 문제 " + (i + 1) + " 비어 있음"); if (t && typeof t.label !== "string") err(tag + ": 문제 " + (i + 1) + " label은 문자열"); });
+}
+/* 문제지 문항(tasks) 검사: 문장이 비지 않고 label은 문자열 */
+function checkTasks(tag, tasks) {
+  if (!Array.isArray(tasks)) err(tag + ": tasks는 배열");
+  else tasks.forEach((t, i) => { if (!t || typeof t.text !== "string" || !t.text.trim()) err(tag + ": 문제 " + (i + 1) + " 비어 있음"); if (t && typeof t.label !== "string") err(tag + ": 문제 " + (i + 1) + " label은 문자열"); });
+}
+/* 변형 하나의 제시문·질문 검사. 문제지 문항(tasks)은 있으면 문장이 비지 않아야 한다. */
+function checkVariant(tag, v) {
+  if (!Array.isArray(v.passages)) { err(tag + ": passages 없음"); return 0; }
+  if (!v.passages.length) {                         // 책에 제시문 없이 문항만 인쇄된 변형은 빈 배열(문항 필수, docs/DATA.md 규칙 12)
+    if (!(Array.isArray(v.tasks) && v.tasks.length)) { err(tag + ": passages 없음(문제지 문항도 없음)"); return 0; }
+    warn(tag + ": 제시문 없음(문제지 문항만)");
   }
+  checkPassages(tag, v.passages);
+  if (v.tasks !== undefined) checkTasks(tag, v.tasks);
   if (!Array.isArray(v.followups) || (!v.followups.length && !(Array.isArray(v.tasks) && v.tasks.length))) err(tag + ": followups 없음(문제지 문항도 없음)");
   else {                                            // 문제지 문항만 복기된 세트는 followups가 비어도 된다(docs/DATA.md 규칙 3)
     const students = new Set();
@@ -111,6 +117,70 @@ for (const sc of D.schools) {
     summary.push({ school: sc.short, id: s.id, variant: s.variant, keys, nps, counts, tree: trees.length ? trees.map(([n, t]) => n + (t.basis ? "(" + t.basis + ")" : "")).join(",") : "" });
   }
 }
+/* 모의고사(data/mocks.js, docs/DATA.md §6): 학교 순서·이름은 INTERVIEW_DB와 같고, 묶음 안의 문제는 학교 순서 → 문제 번호 순.
+   문제마다 id(mock-<묶음>-<학교>-<번호>)·표시 이름·출처·진행 조건(header·format)·지시문·제시문·문항을 검사한다. --in(학교별 기출 파일)에서는 건너뛴다. */
+const mockSummary = [];
+if (inArg < 0) {
+  const mockFile = path.join(root, "data", "mocks.js");
+  if (!fs.existsSync(mockFile)) err("data/mocks.js 없음 — node tools/build_mocks.js");
+  else {
+    require(mockFile);
+    const MD = global.window.MOCK_DB;
+    if (!MD || !Array.isArray(MD.schools) || !Array.isArray(MD.series)) err("MOCK_DB 구조가 아니다");
+    else {
+      const schoolKey = list => list.map(s => [s.id, s.name, s.short].join("/")).join(",");
+      if (schoolKey(MD.schools) !== schoolKey(D.schools)) err("MOCK_DB.schools가 INTERVIEW_DB.schools(순서·이름)와 다르다 — node tools/build_mocks.js");
+      const order = MD.schools.map(s => s.id), seriesIds = new Set(), mockIds = new Set();
+      for (const sr of MD.series) {
+        if (!sr.id || !sr.name || typeof sr.book !== "string" || !Array.isArray(sr.sets)) { err("MOCK_DB.series 항목 오류: " + JSON.stringify(sr).slice(0, 60)); continue; }
+        if (seriesIds.has(sr.id)) err("모의고사 묶음 id 중복 " + sr.id); seriesIds.add(sr.id);
+        let last = null;
+        for (const s of sr.sets) {
+          const tag = "모의고사/" + (s.id || "?"), m = /^mock-([a-z]+)-([a-z]+)-(\d+)$/.exec(s.id || "");
+          if (!m) { err(tag + ": id는 mock-<묶음>-<학교 id>-<문제 번호>"); continue; }
+          if (mockIds.has(s.id) || ids.has(s.id)) err(tag + ": id 중복"); mockIds.add(s.id);
+          if (m[1] !== sr.id || s.series !== sr.id) err(tag + ": series(" + s.series + ")가 id·묶음(" + sr.id + ")과 다르다");
+          const sc = MD.schools.find(x => x.id === s.school);
+          if (!sc || m[2] !== s.school) { err(tag + ": school(" + s.school + ")이 모르는 학교이거나 id와 다르다"); continue; }
+          if (!Number.isInteger(s.no) || s.no < 1 || s.no !== Number(m[3])) err(tag + ": no는 id의 문제 번호와 같은 양의 정수");
+          if (s.name !== sc.short + " " + s.no) err(tag + ": name은 '" + sc.short + " " + s.no + "'(학교 약칭 + 문제 번호)");
+          const key = [order.indexOf(s.school), s.no];
+          if (last && (key[0] < last[0] || (key[0] === last[0] && key[1] < last[1]))) err(tag + ": 학교 순서 → 문제 번호 순이 아니다");
+          last = key;
+          if (!s.source || typeof s.source.book !== "string" || !s.source.book.trim()) err(tag + ": source.book 없음");
+          else if (!s.source.pages) warn(tag + ": source.pages 없음");
+          if (!Array.isArray(s.header) || !s.header.length || s.header.some(h => typeof h !== "string" || !h.trim())) err(tag + ": header(진행 조건 줄) 없음");
+          const f = s.format || {};
+          if (!(typeof f.prep === "number" && f.prep > 0) || !(typeof f.duration === "number" && f.duration > 0)) err(tag + ": format.prep·duration은 0보다 큰 수(분)");
+          if (f.keynote !== undefined && !(typeof f.keynote === "number" && f.keynote > 0 && f.keynote < f.duration)) err(tag + ": format.keynote는 0보다 크고 duration보다 작은 수(분)");
+          if (f.memo !== undefined && typeof f.memo !== "boolean") err(tag + ": format.memo는 불리언");
+          if (typeof s.instruction !== "string" || !s.instruction.trim()) err(tag + ": instruction 없음");
+          if (!Array.isArray(s.tags)) err(tag + ": tags는 배열");
+          if (s.notes !== undefined) err(tag + ": notes는 사이트에 넣지 않는다 — node tools/build_mocks.js");
+          if (!Array.isArray(s.passages)) { err(tag + ": passages 없음"); continue; }
+          if (!s.passages.length) warn(tag + ": 제시문 없음");
+          checkPassages(tag, s.passages);
+          if (!Array.isArray(s.tasks) || !s.tasks.length) err(tag + ": 문항(tasks) 없음"); else checkTasks(tag, s.tasks);
+          let nf = 0;                                     // 추가질문: 기출 세트와 같은 묶음 [{ student, label, items }], 없으면 []
+          if (!Array.isArray(s.followups)) err(tag + ": followups는 배열(추가질문이 없으면 [])");
+          else {
+            const students = new Set();
+            s.followups.forEach(g => {
+              if (!g || !g.student || !g.label || !Array.isArray(g.items) || !g.items.length) { err(tag + ": followups 묶음 오류(student·label·items)"); return; }
+              if (students.has(g.student)) err(tag + ": followups student 중복(" + g.student + ")"); students.add(g.student);
+              g.items.forEach((q, i) => { if (typeof q !== "string" || !q.trim()) err(tag + ": " + g.label + " " + (i + 1) + " 비어 있음"); });
+              nf += g.items.length;
+            });
+          }
+          if (!Array.isArray(s.themes)) err(tag + ": themes는 배열");
+          else if (s.themes.length !== s.passages.length) warn(tag + ": themes 수(" + s.themes.length + ") ≠ 제시문 수 " + s.passages.length);
+          mockSummary.push({ series: sr.name, school: sc.short, id: s.id, np: s.passages.length, nt: (s.tasks || []).length, nf });
+        }
+      }
+    }
+  }
+}
+
 for (const [prov, list] of Object.entries(M || {})) {
   const seen = new Set();
   for (const m of list) { if (!m.id || !m.label) err("models." + prov + ": id/label 누락"); if (seen.has(m.id)) err("models." + prov + ": id 중복 " + m.id); seen.add(m.id); }
@@ -158,8 +228,18 @@ for (const sc of D.schools) {
     console.log(`    ${r.id.padEnd(12)} 기본 ${r.variant.padEnd(6)} ${r.keys.map((k, i) => `${k} ${r.nps[i]}/${String(r.counts[k]).padStart(2)}`).join("  ")}${r.tree ? "  tree:" + r.tree : ""}`);
   }
 }
+if (inArg < 0) {
+  console.log("모의고사 요약(제시문/문항/추가질문)");
+  const groups = [...new Set(mockSummary.map(r => r.series))];
+  if (!groups.length) console.log("  (문제 없음)");
+  for (const g of groups) {
+    const rows = mockSummary.filter(r => r.series === g);
+    console.log(`  ${g} ${rows.length}`);
+    rows.forEach(r => console.log(`    ${r.school.padEnd(6)} ${r.id.padEnd(22)} ${r.np}/${r.nt}/${r.nf}`));
+  }
+}
 const nv = summary.reduce((n, r) => n + r.keys.length, 0);
 warns.forEach(w => console.log("경고: " + w));
 errors.forEach(e => console.log("오류: " + e));
-console.log(errors.length ? `실패 — 오류 ${errors.length}` : `통과 — 세트 ${ids.size}개, 변형 ${nv}개, 경고 ${warns.length}`);
+console.log(errors.length ? `실패 — 오류 ${errors.length}` : `통과 — 세트 ${ids.size}개, 변형 ${nv}개, 모의고사 ${mockSummary.length}개, 경고 ${warns.length}`);
 process.exit(errors.length ? 1 : 0);

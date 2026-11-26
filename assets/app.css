@@ -126,7 +126,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 .iconbtn:hover { color: var(--ink); border-color: var(--ink-3); }
 .iconbtn svg { width: 18px; height: 18px; }
 /* 모바일: 브랜드(말줄임)·아이콘 줄 + 메뉴 줄. 기본 규칙보다 뒤에 두어야 .nav·.nav a가 덮인다 */
-@media (max-width: 760px) { .appbar-in { flex-wrap: wrap; gap: 0 10px; padding-top: 8px; } .brand { order: 0; flex: 1 1 0; } .brand b { font-size: .95rem; } .iconbtn { order: 1; } .nav { order: 2; flex: 1 1 100%; } .nav a { padding: 8px 10px 10px; } }
+@media (max-width: 760px) { .appbar-in { flex-wrap: wrap; gap: 0 10px; padding-top: 8px; } .brand { order: 0; flex: 1 1 0; } .brand b { font-size: .95rem; } .iconbtn { order: 1; } .nav { order: 2; flex: 1 1 100%; } .nav a { padding: 8px 8px 10px; } }   /* 메뉴 다섯 개가 400px '아주 크게'에서 한 줄 */
 
 /* ---------- 본문 ---------- */
 main { padding-block: 32px 88px; }
@@ -151,7 +151,7 @@ main { padding-block: 32px 88px; }
 @media (max-width: 560px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
 
 /* 세로 선으로 나눈 열(카드 대신) */
-.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .cols > * { padding: 4px 22px 6px 0; border-left: 1px solid var(--line); padding-left: 22px; min-width: 0; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: inherit; }
 .cols > *:first-child { border-left: 0; padding-left: 0; }
 .cols h3 { font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; }
@@ -395,6 +395,10 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 @media (max-width: 900px) { .dbgrid { grid-template-columns: minmax(0, 1fr); gap: 20px; } .dbside { position: static; } }
 .dbside .setrow { grid-template-columns: 60px minmax(0, 1fr); padding: 12px 12px 12px 14px; }
 .dbside .setrow .mt { grid-column: 2; text-align: left; flex-direction: row; gap: 10px; flex-wrap: wrap; }
+.setrows.byschool .setrow { grid-template-columns: 4.8rem minmax(0, 1fr); }   /* 모의고사: 연도 자리에 학교 약칭(네 글자까지 한 줄) */
+/* 모의고사: 목록이 화면보다 길면 열 안에서 스크롤(세션 .colr와 같은 방식). 아니면 아래 행이 긴 상세의 끝에서만 보인다. 1열에서는 해제 */
+.dbside.fit { max-height: calc(100vh - var(--header-h) - 28px); overflow: auto; scrollbar-width: thin; }
+@media (max-width: 900px) { .dbside.fit { max-height: none; overflow: visible; } }
 .sethead { display: flex; flex-direction: column; gap: 10px; }
 .sethead .h1 { font-size: clamp(1.4rem, 2.6vw, 1.9rem); }
 .fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-weight: 600; }

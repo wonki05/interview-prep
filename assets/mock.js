@@ -1,0 +1,136 @@
+/* ============================================================
+   모의고사 — 학교별 실전 모의고사의 진행 조건·지시문·제시문·문항·추가질문을 본다.
+   · 자리 둘: AI 맞춤 모의고사(브라우저에서 만든 문제가 들어갈 자리. 생성은 추가 예정이라 지금은 상태 한 줄)
+     / 교재 묶음(data/mocks.js MOCK_DB.series. 지금은 김종수 모의고사).
+   · 목록은 학교 순서(MOCK_DB.schools = 서울대 → 고려대 → … → 이화여대)로 이어진다. 기출DB처럼 연도로 묶지 않는다.
+   · 상세: 학교·문제 번호, 진행 조건(시간표 띠 + 책의 header 줄), 지시문·제시문(펼침), 문항(접힘 — 준비 시간에 문제를 보지 않는 학교가 있다),
+     추가질문(있는 문제만, 접힘 — 기조답변 뒤에 면접관이 묻는다. 번호는 문항 뒤로 이어진다).
+   · 주제는 기출DB와 같은 주제 가림 설정(dbHideThemes)을 따른다. 해시 #<문제 id>로 문제를, #<자리 id>(예: #ai)로 자리를 연다.
+   ============================================================ */
+(function () {
+  "use strict";
+  const { $, esc, save, timeline } = window.SNU;
+  const S = () => window.SNU.settings;
+  const AI = window.AIClient;
+  const app = $("#app");
+  const M = window.MOCK_DB || { schools: [], series: [] };
+
+  /* ---------- 자리·문제 ----------
+     AI 맞춤 모의고사의 생성 결과는 교재 문제와 같은 형식(docs/DATA.md §6의 set)으로 sets에 들어간다(BUILD_PLAN P4-8). */
+  const AI_SOURCE = { id: "ai", name: "AI 맞춤 모의고사", sets: [] };
+  const sources = () => [AI_SOURCE, ...M.series];
+  const source = id => sources().find(s => s.id === id) || null;
+  const find = id => { for (const src of sources()) { const set = src.sets.find(x => x.id === id); if (set) return { src, set }; } return null; };
+  const school = id => M.schools.find(s => s.id === id) || { id, name: id, short: id };
+  const followupCount = x => (x.followups || []).reduce((n, g) => n + g.items.length, 0);
+
+  /* folds: "<문제 id>:papers|tasks" → 펼침 여부. 주제 가림 등으로 다시 그려도 사용자가 펼치고 접은 상태를 지킨다. */
+  const st = { src: "", setId: "", folds: new Map() };
+  function fromHash() {
+    const h = (location.hash || "").slice(1), hit = h && find(h);
+    if (hit) { st.src = hit.src.id; st.setId = hit.set.id; return; }
+    const src = (h && source(h)) || sources().find(s => s.sets.length) || M.series[0] || AI_SOURCE;
+    st.src = src.id; st.setId = src.sets.length ? src.sets[0].id : "";
+  }
+  const foldOpen = (set, part, dflt) => { const k = set.id + ":" + part; return st.folds.has(k) ? st.folds.get(k) : dflt; };
+
+  /* ---------- 화면 ---------- */
+  /* 목록 열(.dbside.fit)은 화면보다 길면 안에서 스크롤한다. 다시 그려도 같은 자리의 스크롤을 지키고,
+     reveal이면(해시로 연 문제) 고른 행이 열 안에 보이게 한다. */
+  let renderedSrc = "";
+  function render(focus, reveal) {
+    const src = source(st.src) || AI_SOURCE, hit = st.setId ? find(st.setId) : null, hide = !!S().dbHideThemes;
+    const oldSide = $(".dbside", app), sideTop = oldSide && renderedSrc === src.id ? oldSide.scrollTop : 0;
+    app.innerHTML = `
+      <section class="sec" style="gap:6px">
+        <div class="eyebrow">모의고사</div>
+        <h1 class="h1">학교별 실전 모의고사</h1>
+      </section>
+      <div class="schooltabs" role="group" aria-label="모의고사">${sources().map(s => `<button type="button" data-src="${esc(s.id)}" aria-pressed="${s.id === src.id}" class="${s.sets.length ? "" : "empty"}">${esc(s.name)}${s.sets.length ? `<span class="n">${s.sets.length}</span>` : ""}</button>`).join("")}</div>
+      ${src.sets.length ? `<div class="dbgrid ${hide ? "themes-hidden" : ""}">
+        <aside class="dbside fit">
+          <div class="dbtools" role="group" aria-label="모의고사 표시">
+            <button type="button" class="btn sm ${hide ? "primary" : ""}" id="toggleThemes" aria-pressed="${hide}">${hide ? "주제 보이기" : "주제 가리기"}</button>
+          </div>
+          <div class="setrows byschool">${src.sets.map(x => row(x, hide)).join("")}</div>
+        </aside>
+        <div class="dbmain" id="main">${hit && hit.src === src ? detail(src, hit.set, hide) : ""}</div>
+      </div>` : `<div class="empty-school"><b>${esc(src.name)} — 추가 예정</b></div>`}`;
+    renderedSrc = src.id;
+    const side = $(".dbside", app);
+    if (side) {
+      side.scrollTop = sideTop;
+      const cur = reveal && $(".setrow[aria-pressed='true']", side);
+      if (cur && side.scrollHeight > side.clientHeight) {
+        const top = cur.getBoundingClientRect().top - side.getBoundingClientRect().top + side.scrollTop;
+        if (top < side.scrollTop || top + cur.offsetHeight > side.scrollTop + side.clientHeight) side.scrollTop = Math.max(0, top - 8);
+      }
+    }
+    if (focus) { const el = app.querySelector(focus); if (el) el.focus({ preventScroll: true }); }
+  }
+  /* 세트 행(기출DB와 같은 .setrow): 연도 자리에 학교 약칭, 이름 자리에 문제 번호 */
+  function row(x, hide) {
+    const f = x.format, nf = followupCount(x);
+    return `<button type="button" class="setrow" data-set="${esc(x.id)}" aria-pressed="${x.id === st.setId}">
+      <span class="yr">${esc(school(x.school).short)}</span>
+      <span><span class="nm">문제 ${esc(x.no)}</span><br><span class="th dbtheme" aria-hidden="${hide}">${esc(x.themes.join(" · "))}</span></span>
+      <span class="mt"><span>제시문 ${x.passages.length}</span><span>문항 ${x.tasks.length}</span>${nf ? `<span>추가질문 ${nf}</span>` : ""}<span>준비 ${esc(f.prep)}분</span><span>면접 ${esc(f.duration)}분</span>${f.keynote ? `<span>기조발언 ${esc(f.keynote)}분</span>` : ""}</span></button>`;
+  }
+  function detail(src, x, hide) {
+    const f = x.format, nf = followupCount(x), ref = x.source ? [x.source.book, x.source.pages ? "p." + x.source.pages : ""].filter(Boolean).join(" · ") : "";
+    return `
+      <div class="sethead">
+        <div class="eyebrow">${esc(src.name)} · ${esc(school(x.school).name)} · 문제 ${esc(x.no)}</div>
+        <h2 class="h1">${esc(x.name)}</h2>
+        <div class="row dbtheme" aria-hidden="${hide}">${x.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+        ${ref ? `<div class="row"><span class="small muted">${esc(ref)}</span></div>` : ""}
+      </div>
+      <section class="panel tight stack" aria-label="진행 조건">
+        ${timeline({ prep: f.prep, wait: 0, interview: f.duration })}
+        <ul class="study-list">${(x.header || []).map(h => `<li>${esc(h)}</li>`).join("")}</ul>
+      </section>
+      <details class="fold" data-fold="${esc(x.id)}:papers" ${foldOpen(x, "papers", true) ? "open" : ""}><summary>제시문 ${x.passages.length}편 · 지시문</summary><div class="fold-b">${papersHtml(x)}</div></details>
+      <details class="fold" data-fold="${esc(x.id)}:tasks" ${foldOpen(x, "tasks", false) ? "open" : ""}><summary>문항 ${x.tasks.length}</summary><div class="fold-b"><ol class="qlist">${x.tasks.map((t, i) => `<li><span class="idx">Q${esc(t.label || i + 1)}</span><span>${esc(t.text)}</span><span></span></li>`).join("")}</ol></div></details>
+      ${nf ? `<details class="fold" data-fold="${esc(x.id)}:followups" ${foldOpen(x, "followups", false) ? "open" : ""}><summary>추가질문 ${nf}</summary><div class="fold-b">${followupsHtml(x)}</div></details>` : ""}`;
+  }
+  /* 추가질문(기출 세트와 같은 묶음). 번호는 문항 뒤로 이어진다(책 번호와 같다 — tools/build_mocks.js가 확인). 묶음이 둘 이상이면 묶음 이름을 머리로. */
+  function followupsHtml(x) {
+    const groups = x.followups || [];
+    let n = x.tasks.length;
+    return groups.map(g => `${groups.length > 1 ? `<h3 class="h3">${esc(g.label)}</h3>` : ""}<ol class="qlist">${g.items.map(q => `<li><span class="idx">Q${++n}</span><span>${esc(q)}</span><span></span></li>`).join("")}</ol>`).join("");
+  }
+  /* 지시문 + 제시문 카드(기출DB와 같은 .papers·.paper, 머리는 AIClient.passageHead). 문항은 따로 접는다. */
+  function papersHtml(x) {
+    return `<div class="papers"><div class="instr">${esc(x.instruction)}</div>${x.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(par => par.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
+  }
+
+  /* ---------- 상호작용(위임) ---------- */
+  let pendingFocus = "";
+  app.addEventListener("click", e => {
+    const t = e.target;
+    const tab = t.closest("[data-src]");
+    if (tab) {
+      const src = source(tab.dataset.src);
+      if (!src || src.id === st.src) return;
+      st.src = src.id; st.setId = src.sets.length ? src.sets[0].id : "";
+      history.replaceState(null, "", "#" + (st.setId || src.id));
+      render(`[data-src="${src.id}"]`);
+      return;
+    }
+    const sb = t.closest("[data-set]");
+    if (sb) {
+      if (sb.dataset.set === st.setId) return;
+      st.setId = sb.dataset.set;
+      history.replaceState(null, "", "#" + st.setId);
+      render(`[data-set="${st.setId}"]`);
+      return;
+    }
+    if (t.closest("#toggleThemes")) { pendingFocus = "#toggleThemes"; save({ dbHideThemes: !S().dbHideThemes }); }   // save → settings:change → render
+  });
+  app.addEventListener("toggle", e => { const d = e.target; if (d.matches && d.matches("details[data-fold]")) st.folds.set(d.dataset.fold, d.open); }, true);   // toggle은 버블링하지 않는다
+  document.addEventListener("settings:change", () => { render(pendingFocus); pendingFocus = ""; });
+  window.addEventListener("hashchange", () => { fromHash(); render("", true); });
+
+  fromHash();
+  render("", true);
+})();

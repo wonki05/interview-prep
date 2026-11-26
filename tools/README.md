@@ -6,6 +6,7 @@
 |---|---|
 | `validate-data.js` | `node tools/validate-data.js [--in <파일>]`. 데이터 구조 검증(`docs/DATA.md` §5) |
 | `build_questions.js` | `data/sets/` → `data/questions.js` 생성(`docs/DATA.md` §1.1). 데이터를 고친 뒤 항상 실행. `--school <id> --out <파일>`은 한 학교만 다른 파일로(학교 세션 검증용) |
+| `build_mocks.js` | `data/mocks/` → `data/mocks.js` 생성(`docs/DATA.md` §6). 모의고사 원본을 고친 뒤 항상 실행. `--in <폴더> --out <파일>`은 다른 폴더·파일로 |
 | `export_sets.js` | 옛 평면 `data/questions.js`를 `data/sets/`로 옮긴 1회용 이행 스크립트 |
 | `schoolcfg.py`, `schools/<id>.json` | 학교별 수록 설정(쪽 범위·세트 머리·세션 기호·OCR 학교 주석·조립 선택지, `docs/INGEST.md` §8-2). `schools/<id>.py`(선택)는 학교별 예외 hook |
 | `book_extract.py` | 교재 PDF 쪽 이미지(150dpi 회색조)·ABBYY 텍스트층 → `work/books/<tag>/pages/` |

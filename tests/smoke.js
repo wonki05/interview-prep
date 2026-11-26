@@ -772,6 +772,49 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     check(await page.$("#again"), `${tk.id}: 종료 화면`);
   } else console.log("  --   문항 있는 세트 없음(건너뜀)");
 
+  console.log("모의고사");
+  /* 데이터 내용(학교·문제 수)에 매이지 않게 MOCK_DB에서 기대값을 읽는다. 문제가 없으면 목록·상세는 건너뛴다. */
+  await setSettings({}); await goto("mock.html");
+  const navText = await page.$$eval(".nav a", a => a.map(x => x.textContent.trim()).join("/"));
+  check(navText === "홈/모의면접/기출DB/모의고사/서가" && await page.$('.nav a[href="mock.html"][aria-current="page"]'), "앱바 탭 순서 " + navText);
+  const mk = await page.evaluate(() => {
+    const M = window.MOCK_DB, order = M.schools.map(s => s.id), src = M.series.find(s => s.sets.length);
+    const ordered = M.series.every(s => s.sets.every((x, i, a) => !i || order.indexOf(a[i - 1].school) < order.indexOf(x.school) || (a[i - 1].school === x.school && a[i - 1].no <= x.no)));
+    return { tabs: 1 + M.series.length, src: src ? src.id : "", ids: src ? src.sets.map(x => x.id) : [], ordered };
+  });
+  check((await page.$$(".schooltabs [data-src]")).length === mk.tabs, `자리 ${mk.tabs}개(AI 맞춤 + 교재 묶음)`);
+  await page.click('.schooltabs [data-src="ai"]'); await sleep(150);
+  check(await page.$(".empty-school") && (await page.evaluate(() => location.hash)) === "#ai", "AI 맞춤 모의고사: 상태 한 줄(#ai)");
+  if (mk.src) {
+    await page.click(`.schooltabs [data-src="${mk.src}"]`); await sleep(150);
+    const rows = await page.$$eval(".dbside [data-set]", r => r.map(x => x.dataset.set));
+    check(mk.ordered && JSON.stringify(rows) === JSON.stringify(mk.ids), `목록 ${rows.length}행, 학교 순서로 이어짐`);
+    const lastMock = mk.ids[mk.ids.length - 1];
+    await page.click(`.dbside [data-set="${lastMock}"]`); await sleep(150);
+    const det = await page.evaluate(id => {
+      const s = window.MOCK_DB.series.flatMap(x => x.sets).find(x => x.id === id), main = document.querySelector(".dbmain");
+      return { hash: location.hash, pressed: !!document.querySelector(`.dbside [data-set="${id}"][aria-pressed="true"]`), np: s.passages.length, nt: s.tasks.length,
+        papers: main.querySelectorAll(".paper").length, heads: [...main.querySelectorAll(".paper .ptitle")].map(e => e.textContent).join("|"), want: s.passages.map(p => window.AIClient.passageHead(p)).join("|"),
+        instr: (main.querySelector(".instr") || {}).textContent === s.instruction, header: main.querySelectorAll(".panel .study-list li").length === s.header.length, tasks: main.querySelectorAll('details[data-fold$=":tasks"] .qlist li').length };
+    }, lastMock);
+    check(det.hash === "#" + lastMock && det.pressed && det.instr && det.header, `${lastMock}: 해시·눌림·지시문·진행 조건`);
+    check(det.papers === det.np && det.heads === det.want, `${lastMock}: 제시문 ${det.np}편(${det.want.slice(0, 24)}…)`);
+    check(!(await page.$eval('details[data-fold$=":tasks"]', d => d.open)) && det.tasks === det.nt, `${lastMock}: 문항 ${det.nt}개(처음엔 접힘)`);
+    await page.click('details[data-fold$=":tasks"] > summary'); await page.click("#toggleThemes"); await sleep(200);
+    check(await page.$eval('details[data-fold$=":tasks"]', d => d.open) && await topicsHidden(), "주제 가림(기출DB 설정 공유), 다시 그려도 문항 펼침 유지");
+    await page.click("#toggleThemes");
+    await goto("mock.html#" + mk.ids[0]);
+    check(await page.$(`.dbside [data-set="${mk.ids[0]}"][aria-pressed="true"]`), "해시로 문제 열기");
+    await shot("mock", 1280, 900, true);
+    /* 추가질문: 문항 뒤 접힌 fold, 번호는 문항 뒤로 이어진다 */
+    const fu = await page.evaluate(() => { const s = window.MOCK_DB.series.flatMap(x => x.sets).find(x => (x.followups || []).some(g => g.items.length)); return s && { id: s.id, n: s.followups.reduce((a, g) => a + g.items.length, 0), first: "Q" + (s.tasks.length + 1) }; });
+    if (fu) {
+      await goto("mock.html#" + fu.id);
+      const got = await page.$eval('.dbmain details[data-fold$=":followups"]', d => ({ open: d.open, sum: d.querySelector("summary").textContent, n: d.querySelectorAll(".qlist li").length, first: d.querySelector(".qlist .idx").textContent, afterTasks: !!(d.previousElementSibling && d.previousElementSibling.matches('details[data-fold$=":tasks"]')) }));
+      check(!got.open && got.afterTasks && got.sum.startsWith("추가질문") && got.n === fu.n && got.first === fu.first, `${fu.id}: 추가질문 ${fu.n}개(문항 뒤 접힘, ${fu.first}부터)`);
+    } else console.log("  --   추가질문 있는 모의고사 없음(건너뜀)");
+  } else console.log("  --   모의고사 문제 없음(목록·상세 건너뜀)");
+
   console.log("서가");
   await goto("library.html#books");
   check((await page.$$(".book")).length > 50, "도서 목록");
@@ -805,7 +848,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
 
   console.log("모바일 가로 넘침");
   await page.setViewport({ width: 400, height: 820 });
-  for (const p of ["index.html", "practice.html", "db.html", "library.html#issues"].concat(tk ? ["db.html#" + tk.id] : [])) { await goto(p); check(await noOverflow(), p); }
+  for (const p of ["index.html", "practice.html", "db.html", "library.html#issues"].concat(tk ? ["db.html#" + tk.id] : [], ["mock.html", "mock.html#ai"])) { await goto(p); check(await noOverflow(), p); }
   const appbar = await page.evaluate(() => { const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; }, nav = document.querySelector(".nav"); return { row: Math.abs(mid(document.querySelector(".brand")) - mid(document.querySelector("#openRecords"))) < 12 && Math.abs(mid(document.querySelector("#openRecords")) - mid(document.querySelector("#openSettings"))) < 2, below: nav.getBoundingClientRect().top >= document.querySelector("#openRecords").getBoundingClientRect().bottom - 1, fits: nav.scrollWidth <= nav.clientWidth }; });
   check(appbar.row && appbar.below && appbar.fits, "모바일 앱바: 브랜드·기록·설정 한 줄, 메뉴는 다음 줄에 넘침 없이");
   await goto("practice.html?set=snu-2021-A"); await setSettings({ tts: false, answerMode: "text", lastMode: "all" }); await goto("practice.html?set=snu-2021-A");
@@ -848,6 +891,10 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
       await goto("practice.html?set=snu-2023-A");
       await page.click('[data-mode="timed"]');
       check(await noOverflow(), `모의면접 옵션 ${width}px ${theme} 아주 크게`);
+      await goto("mock.html" + (mk.ids.length ? "#" + mk.ids[mk.ids.length - 1] : ""));
+      check(await noOverflow() && await page.$eval(".schooltabs", el => el.scrollWidth <= el.clientWidth), `모의고사 ${width}px ${theme} 아주 크게`);
+      await shot(`mock-${width}-${theme}-xl`, width, 900);
+      if (mk.ids.length) { await page.$eval(".dbmain", el => el.scrollIntoView({ block: "start" })); await shot(`mock-detail-${width}-${theme}-xl`, width, 900); }
     }
   }
 

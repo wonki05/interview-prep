@@ -1,6 +1,6 @@
 # DATA — 데이터 구조와 입력 규칙
 
-모든 데이터는 `data/*.js`에 전역 객체로 들어 있고 `<script>`로 로드된다(모듈·fetch 없음 → `file://`에서도 동작). 기출 데이터의 원본은 `data/sets/`(JSON)이고 `data/questions.js`는 그것으로 생성한다(§1.1).
+모든 데이터는 `data/*.js`에 전역 객체로 들어 있고 `<script>`로 로드된다(모듈·fetch 없음 → `file://`에서도 동작). 기출 데이터의 원본은 `data/sets/`(JSON)이고 `data/questions.js`는 그것으로 생성한다(§1.1). 모의고사도 같은 방식으로 `data/mocks/`(JSON)에서 `data/mocks.js`를 생성한다(§6).
 
 ## 1. `data/questions.js` — `window.INTERVIEW_DB`
 
@@ -88,7 +88,7 @@ data/sets/<set id>/merged.json
 | `explanationProvider` | `anthropic` / `openai`. AI 면접해설 전용 제공사 |
 | `explanationAnthropicModel`, `explanationOpenaiModel` | AI 면접해설 전용 모델. 신규 브라우저 기본값은 면접관과 동일 |
 | `explanationAnthropicEffort`, `explanationOpenaiEffort` | AI 면접해설 전용 effort. 모델별 지원 범위는 면접관과 동일 |
-| `dbHideThemes` | 불리언, 기본 `false`. 기출DB 목록·상세 주제 가림 |
+| `dbHideThemes` | 불리언, 기본 `false`. 기출DB 목록·상세 주제 가림. 모의고사 화면의 목록·상세도 같은 값을 따른다(어느 화면에서 바꿔도 둘 다) |
 | `dbSort` | `newest`(기본) / `oldest`. 학교별 세트 목록의 연도 정렬. 원본 배열은 변경하지 않음 |
 | `modelRev` | 정수, 기본 `1`. 기본 모델 판. 저장된 값이 이보다 작으면 불러올 때 이전 기본 모델(`OLD_DEFAULT_MODELS`)인 네 모델 필드(면접관·해설 × 제공사)만 새 최상위로 옮기고, 다음 저장 때 함께 남는다. 직접 고른 다른 모델은 그대로 |
 | `transcriptionModel` | 기본 `gpt-transcribe`. 기출DB 녹음본 피드백의 전사 모델(`MODEL_CATALOG.transcription`의 id). 패널에서 고르면 저장한다. 목록에 없는 값이면 목록의 첫 모델을 쓴다(`AIClient.transcriptionModel`) |
@@ -153,4 +153,37 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 
 ## 5. 검증 스크립트 `tools/validate-data.js`
 
-`node tools/validate-data.js [--in <파일>]` — 세트 id 유일성, `school` 일치, `name` 규칙, `variants`·기본 `variant`·`merged.basis`·`tree.basis` 참조, 변형마다 제시문 번호 연속·`label`(12자 이하, 숫자 아님, 한 글자 라벨 순서)·`kind`·본문 길이(비면 오류, 50자 미만 경고)·`tasks` 문장·`passages`·`followups` 비어 있지 않음(`tasks`가 있으면 비어도 됨, 제시문 없음은 경고)·`student` 중복 없음, 변형 간 제시문 수(경고), `themes` 길이, 기조발언(학교 `format.timeline.keynote`는 0 < keynote < `interview`, 세트 `format.keynote`는 0 < keynote < `duration`인 정수), 트리 참조 무결성(모든 `next`가 존재, root 도달, 순환 없음), 모델 목록 id 중복을 검사하고 세트·변형별 제시문·질문 수를 출력한다. `--in`은 `build_questions.js --school <id> --out <파일>`로 만든 학교별 파일을 검사한다(`INGEST.md` §8). 데이터 구조를 바꾸면 이 스크립트도 같이 고친다.
+`node tools/validate-data.js [--in <파일>]` — 세트 id 유일성, `school` 일치, `name` 규칙, `variants`·기본 `variant`·`merged.basis`·`tree.basis` 참조, 변형마다 제시문 번호 연속·`label`(12자 이하, 숫자 아님, 한 글자 라벨 순서)·`kind`·본문 길이(비면 오류, 50자 미만 경고)·`tasks` 문장·`passages`·`followups` 비어 있지 않음(`tasks`가 있으면 비어도 됨, 제시문 없음은 경고)·`student` 중복 없음, 변형 간 제시문 수(경고), `themes` 길이, 기조발언(학교 `format.timeline.keynote`는 0 < keynote < `interview`, 세트 `format.keynote`는 0 < keynote < `duration`인 정수), 트리 참조 무결성(모든 `next`가 존재, root 도달, 순환 없음), 모델 목록 id 중복을 검사하고 세트·변형별 제시문·질문 수를 출력한다. 모의고사(`data/mocks.js`, §6 규칙)도 검사하고 문제별 제시문·문항 수를 출력한다. `--in`은 `build_questions.js --school <id> --out <파일>`로 만든 학교별 파일을 검사한다(`INGEST.md` §8. 이때 모의고사는 건너뛴다). 데이터 구조를 바꾸면 이 스크립트도 같이 고친다.
+
+## 6. `data/mocks.js` — `window.MOCK_DB`
+
+모의고사 화면(`mock.html`)의 교재 모의고사. 원본은 `data/mocks/`(JSON, 한 문제 한 파일)이고 `node tools/build_mocks.js`가 `data/mocks.js`를 만든다(`data/sets/` → `build_questions.js` → `data/questions.js`와 같은 방식. `data/mocks.js`를 직접 고치지 않는다). 'AI 맞춤 모의고사'는 브라우저에서 만들 문제라 여기에 없다(`BUILD_PLAN.md` P4-8). 생성 결과도 아래 `MOCK`과 같은 형식으로 둔다.
+
+```js
+{
+  schools: [ { id: "snu", name: "서울대학교", short: "서울대" }, … ],   // 학교 순서·표시 이름. data/sets/_db.json에서(INTERVIEW_DB.schools와 같다)
+  series: [                                                             // 교재 묶음. 모의고사 화면의 자리 하나 = 묶음 하나
+    { id: "kim", name: "김종수 모의고사", book: "김종수 2권 심화&실전 모의고사편(2026)",
+      sets: [ MOCK, … ] }                                               // 학교 순서 → 문제 번호 순
+  ]
+}
+MOCK = {
+  id: "mock-kim-snu-184",            // "mock-<묶음 id>-<학교 id>-<문제 번호>". 기출 세트 id와 겹치지 않는다
+  series: "kim", school: "snu", no: 184,
+  name: "서울대 184",                // school.short + 공백 + 문제 번호(CLAUDE.md 규칙 11과 같은 방식). 생성 스크립트가 만든다
+  source: { book: "…", pages: "471-473" },
+  header: ["답변 준비 시간 20분 | 답변 시간 10분", "…"],               // 진행 조건 줄(책 그대로). 화면은 시간표 띠 아래에 그대로 보인다
+  format: { prep: 20, duration: 10, keynote?: 7, memo?: true },       // 분. prep·duration은 소수일 수 있다(이화여대 9.5)
+  instruction: "다음 제시문을 읽고, 문제에 답하시오.",                 // 지시문. ［지성면접］ 같은 머리가 붙을 수 있다
+  themes: ["…"], tags: ["…"],
+  passages: [ { no: 1, label?: "가", kind: "prose", length?, text, source } ],   // 기출 변형의 passages와 같다
+  tasks: [ { label: "1", text: "…" } ],                                        // 문항. 기출 변형의 tasks와 같다
+  followups: [ { student: "공통", label: "추가질문", items: ["…"] } ]          // 추가질문. 기출 변형의 followups와 같은 모양, 없으면 []
+}
+```
+
+- **원본 파일**(`data/mocks/<id>.json`): `{ id, school, no, source, header, format: { prep, duration, keynote, memo }, instruction, themes, tags, passages, tasks, followups, notes }`. `keynote`·`memo`는 `null`일 수 있고 제시문 `label`은 `"가"`·`"A"`·`null`이다. `followups`는 `tasks`와 같은 평평한 배열 `[{ label: "4", text }]`(책 번호 그대로, 문항 뒤로 이어진다)이고 없으면 `[]`(키는 늘 있다). 생성 스크립트는 묶음(`series`)을 id에서 읽고 `name`을 붙이며, `format`의 `null` 값과 `label: null`은 빼고(기출 세트와 같은 모양), 추가질문은 기출 세트와 같은 묶음 하나(`student: "공통"`)로 문장만 싣고, `notes`(옮긴 사람의 메모)는 넣지 않는다.
+- **문항과 추가질문**: 책이 문항 뒤 '추가질문' 표시 아래에 따로 인쇄한 질문은 `followups`, 그 앞의 `Q1.`…은 `tasks`(§1 규칙 10과 같은 나눔). 화면은 추가질문 번호를 문항 뒤로 이어 붙인다(문항 3개면 `Q4`부터). 원본의 번호가 그와 다르면 `build_mocks.js`가 경고한다.
+- **필드 이름**은 기출 세트와 같다(`passages`·`tasks`·`followups`·`themes`·`tags`·`format`·`instruction`). 나중에 모의면접·AI 기능(질문 은행·`setContext`)에 그대로 넘길 수 있게 하려는 것이다. 복기본 변형(`variants`)과 공통 질문(`common`)은 없다.
+- **규칙**: 제시문은 원문 그대로(§1 규칙 1과 같다. 문단은 `\n`, 각주·출처는 `source`). 제시문 머리는 `AIClient.passageHead(p)`. `themes`는 제시문 수와 같은 수(다르면 경고). 문항은 하나 이상. 묶음을 더하면 `tools/build_mocks.js`의 `SERIES`에 `{ id, name }`을 한 줄 더한다.
+- **생성·검사**: `node tools/build_mocks.js`(원본 폴더가 없거나 비면 문제 없는 묶음을 만든다. `--in <폴더> --out <파일>`은 다른 폴더·파일로) → `node tools/validate-data.js`. 검사: `schools`가 `INTERVIEW_DB.schools`와 같은 순서·이름, 묶음 id 유일, 문제 id 형식·유일(기출 id 포함)·`series`·`school`·`no`가 id와 일치, `name`, 학교 순서 → 번호 순, `source.book`(쪽 없음은 경고), `header` 줄, `format.prep`·`duration` > 0·`keynote`(0 < keynote < duration)·`memo`(불리언), `instruction`, `tags` 배열, `notes` 없음, 제시문(번호 연속·`kind`·`label`·본문 — 기출과 같은 검사), 문항, 추가질문(배열, 묶음마다 `student`·`label`·빈 문장 없는 `items`, `student` 중복 없음), `themes` 수. 요약은 문제별 제시문/문항/추가질문 수.

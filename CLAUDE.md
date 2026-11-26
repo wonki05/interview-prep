@@ -4,7 +4,7 @@ Claude Code가 이 저장소에서 작업할 때 따르는 규칙. Codex는 같�
 
 ## 1. 프로젝트
 
-서울대 로스쿨 면접(준비 20분 → 대기 5분 → 면접 15분)을 기출 제시문으로 연습하는 **정적 웹사이트**. GitHub Pages에 그대로 올린다. 서버 없음. 네 화면: 홈 / 모의면접 / 기출DB / 면접대비 서가. 사용자는 한 명(제작자 본인)이며 이 사이트를 직접 쓴다.
+서울대 로스쿨 면접(준비 20분 → 대기 5분 → 면접 15분)을 기출 제시문으로 연습하는 **정적 웹사이트**. GitHub Pages에 그대로 올린다. 서버 없음. 다섯 화면: 홈 / 모의면접 / 기출DB / 모의고사 / 면접대비 서가. 사용자는 한 명(제작자 본인)이며 이 사이트를 직접 쓴다.
 
 현재 상태: 구조·디자인이 확정된 **샘플 코드**가 들어 있고 동작한다. 이 위에 `docs/BUILD_PLAN.md`의 순서대로 기능을 완성한다. 요구사항은 `docs/SPEC.md`, 디자인 규칙은 `docs/DESIGN.md`, AI 연동은 `docs/AI.md`, 데이터 규칙은 `docs/DATA.md`, 전사는 `docs/TRANSCRIPTION.md`, 결정 사항·열린 질문은 `docs/DECISIONS.md`.
 
@@ -25,17 +25,20 @@ Claude Code가 이 저장소에서 작업할 때 따르는 규칙. Codex는 같�
 ## 3. 파일 지도
 
 ```
-index.html / practice.html / db.html / library.html   페이지 셸(헤드에서 app.css, app.js, data/*.js, ai.js, records.js 로드)
-assets/app.css      토큰(밝음/어둠), 공통 컴포넌트, 시간표 띠(.tl), 단계 선택(.step), 세션 레이아웃(.session), 기출DB(.dbgrid), 서가
+index.html / practice.html / db.html / mock.html / library.html   페이지 셸(헤드에서 app.css, app.js, data/*.js, ai.js, records.js 로드)
+assets/app.css      토큰(밝음/어둠), 공통 컴포넌트, 시간표 띠(.tl), 단계 선택(.step), 세션 레이아웃(.session), 기출DB(.dbgrid), 모의고사 목록(.setrows.byschool), 서가
 assets/app.js       설정 저장소(localStorage "snu-iv-settings-v1"), 테마/블루라이트/글자 크기, 앱바, 설정 서랍, 시간표 띠 생성, 모델 목록 select, 누적 AI 결과 목록(SNU.runs), SNU.db 데이터 접근
 assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setContext(제시문 전문+복기 질문 전체), 프롬프트 빌더, nextQuestion/classify/keynoteCheck(기조발언 판정)/respond/exampleAnswers/explainPassages/review(면접 피드백)/reviewRecording·recordingFollowup(녹음본 피드백·후속 질문)/transcribe(OpenAI 전사)
 assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder)·세션 기록 저장(records.js), STT/TTS, 결정 트리 보행, 세트 시간표·기조발언 시간 제한(고려대), 종료 화면 AI 피드백
 assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1"), 예시답변·제시문 해설 화면, 녹음본 피드백 패널(녹음·문답 첨부 → 전사 → 평가, 문답별 원문 대조·후속 질문)
 assets/db-study.js  기출DB 학습 도우미: AI 면접해설 설정, 서가 지연 로드, 예시답변·제시문 해설·녹음본 피드백 결과·후속 질문 누적(localStorage "snu-db-study-v1"), 올린 문답 파일 읽기
+assets/mock.js      모의고사: 자리 탭(AI 맞춤 모의고사 · 교재 묶음), 학교 순서로 이어지는 목록, 진행 조건·지시문·제시문·문항·추가질문 상세(MOCK_DB. 주제 가림은 기출DB 설정 공유)
 assets/records.js   면접 기록: IndexedDB "snu-interview"(sessions·recordings), 기록 서랍(앱바, 모든 화면), AI 피드백
 assets/library.js   서가: 개요/도서/쟁점/읽는 순서, 책 상세 서랍, 진도(localStorage "snu-library-progress-v1")
 data/sets/          세트 원본(<set id>/meta·kim·hwang·merged.json, _db.json의 levels·학교 format). 고친 뒤 tools/build_questions.js
 data/questions.js   INTERVIEW_DB = { levels, schools[] } — data/sets/에서 생성. 서울대 20 · 고려대 8 · 연세대 10 · 성균관대 16 · 한양대 8 · 서강대 16 · 중앙대 32 · 경희대 8 · 이화여대 12 · 한국외대 32세트(10개 학교 162, 2019~2026학년도), 결정 트리 예시(snu-2023-A)
+data/mocks/         모의고사 원본(<id>.json 한 문제 한 파일). 고친 뒤 tools/build_mocks.js
+data/mocks.js       MOCK_DB = { schools, series[] } — data/mocks/에서 생성. 김종수 2권 학교별 실전모의고사(10개 학교, 학교마다 한 문제)
 data/models.js      MODEL_CATALOG — 선택 가능한 모델 목록(표시명·API id)
 data/library.js     도서 100선 데이터(크다, 720KB)
 docs/               SPEC, BUILD_PLAN, DESIGN, AI, DATA, TRANSCRIPTION, DECISIONS

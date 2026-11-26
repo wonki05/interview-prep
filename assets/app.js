@@ -172,6 +172,7 @@
         <a href="index.html" ${cur("home")}>홈</a>
         <a href="practice.html" ${cur("practice")}>모의면접</a>
         <a href="db.html" ${cur("db")}>기출DB</a>
+        <a href="mock.html" ${cur("mock")}>모의고사</a>
         <a href="library.html" ${cur("library")}>서가</a>
       </nav>
       ${records}<button type="button" class="iconbtn" id="openSettings" aria-label="설정" title="설정">${gear}</button>
