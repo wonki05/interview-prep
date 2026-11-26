@@ -24,16 +24,13 @@
       <div class="eyebrow">법학전문대학원 입시대비</div>
       <h1 class="h1" style="margin-top:6px">기출 제시문으로 치르는 모의면접</h1>
     </div>
-    <p class="lead">준비 20분 → 대기 5분 → 면접 15분. 복기된 추가질문 또는 AI 면접관의 질문에 음성·텍스트로 답한다.</p>
+    <p class="lead">복기된 추가질문 또는 AI 면접관의 질문에 음성·텍스트로 답한다.</p>
     <div class="row">
       <a class="btn primary big" href="practice.html">모의면접</a>
       <a class="btn big" href="db.html">기출DB</a>
       <a class="btn big ghost" href="library.html">면접대비 서가</a>
     </div>
-    <div style="margin-top:10px">
-      <div id="heroTl"></div>
-      <div class="tl-cap"><span>2025학년도 복기 순서</span><span>종료 1분 전 노크 · 제한시간에 발언 중단</span></div>
-    </div>
+    <div class="grid2" id="heroTl" style="margin-top:10px"></div>
   </section>
 
   <section class="sec">
@@ -63,10 +60,16 @@
     <div id="setList"></div>
   </section>
 
-  <section class="sec">
-    <div class="sec-head"><h2 class="h2">서울대학교 면접 진행 방식 · 2025학년도 복기</h2></div>
-    <div class="row" id="formatBasics"></div>
-    <div class="panel"><dl class="kv" id="formatDetails"></dl></div>
+  <section class="sec" data-fmt="snu">
+    <div class="sec-head"><h2 class="h2"></h2></div>
+    <div class="row"></div>
+    <div class="panel"><dl class="kv"></dl></div>
+  </section>
+
+  <section class="sec" data-fmt="korea">
+    <div class="sec-head"><h2 class="h2"></h2></div>
+    <div class="row"></div>
+    <div class="panel"><dl class="kv"></dl></div>
   </section>
 
   <section class="sec">
@@ -79,10 +82,16 @@
 <script>
 (function () {
   const { $, esc, db, timeline } = window.SNU;
-  const snu = db.school("snu");
-  $("#heroTl").innerHTML = timeline(snu.format.timeline, { cls: "lg" });
-  $("#formatBasics").innerHTML = snu.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("");
-  $("#formatDetails").innerHTML = snu.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  /* 홈에 함께 보이는 학교: 시간표 띠와 진행 방식(학교 format). 캡션 오른쪽은 기조발언이 없을 때의 한 줄 */
+  const home = [["snu", "종료 1분 전 노크"], ["korea", ""]].map(([id, note]) => ({ sc: db.school(id), note })).filter(h => h.sc && h.sc.format);
+  $("#heroTl").innerHTML = home.map(({ sc, note }) => { const t = sc.format.timeline;
+    return `<div>${timeline(t, { cls: "lg" })}<div class="tl-cap"><span>${esc(sc.short)} ${sc.format.year}학년도</span><span>${t.keynote ? `기조발언 ${t.keynote}분` : esc(note)}</span></div></div>`; }).join("");
+  home.forEach(({ sc }) => {
+    const el = $(`[data-fmt="${sc.id}"]`);
+    el.querySelector("h2").textContent = `${sc.name} 면접 진행 방식 · ${sc.format.year}학년도 복기`;
+    el.querySelector(".row").innerHTML = sc.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("");
+    el.querySelector(".kv").innerHTML = sc.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  });
   const row = s => `<a class="setrow" href="practice.html?set=${s.id}">
       <span class="yr">${s.year}<small>${esc(s.track)}</small></span>
       <span><span class="nm">${esc(s.name)} · ${esc(s.session)}</span><br><span class="th">${esc(s.themes.join(" · "))}</span></span>
