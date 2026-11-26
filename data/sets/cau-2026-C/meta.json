@@ -1,0 +1,26 @@
+{
+ "id": "cau-2026-C",
+ "school": "cau",
+ "year": 2026,
+ "name": "중앙대 C",
+ "session": "가군 일요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "죄수의 딜레마와 내쉬 균형",
+  "팬덤 정치와 국회의 교착"
+ ],
+ "tags": [
+  "정치·민주주의",
+  "경제·시장",
+  "사회·공동체"
+ ],
+ "variant": "hwang"
+}

@@ -1,0 +1,28 @@
+{
+ "id": "snu-2026-B",
+ "school": "snu",
+ "year": 2026,
+ "name": "서울대 B",
+ "session": "가군 오후 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 20,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "부모 권위의 근거와 현대적 약화",
+  "가사노동 분담과 정체성 모델",
+  "돌봄노동과 상호의존성의 재발견",
+  "저출산·재생산 기술과 가족의 경계"
+ ],
+ "tags": [
+  "사회·공동체",
+  "윤리",
+  "생명·환경"
+ ],
+ "variant": "hwang"
+}

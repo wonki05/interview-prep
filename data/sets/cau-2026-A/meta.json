@@ -1,0 +1,24 @@
+{
+ "id": "cau-2026-A",
+ "school": "cau",
+ "year": 2026,
+ "name": "중앙대 A",
+ "session": "가군 토요일 오전",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 15,
+  "duration": 15,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "적극적 우대조치의 찬반 논쟁"
+ ],
+ "tags": [
+  "법·제도",
+  "사회·공동체"
+ ],
+ "variant": "hwang"
+}
