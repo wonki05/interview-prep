@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""승격한 세트 ↔ 교재 텍스트층 대조(docs/INGEST.md §8-5): python tools/check_layer.py <school>
+"""승격한 세트 ↔ 교재 텍스트층 대조(docs/INGEST.md §8-5): python tools/check_layer.py <school> [--year 2026]
    data/sets/<school>-*/{kim,hwang}.json 을 그 세트 쪽의 ABBYY 텍스트층(work/books/<book>/pages/pNNNN.txt, books/*.pdf 줄 좌표)과 대조해
+   (변형의 source.book이 다른 판이면 EDITION의 쪽 디렉터리·PDF를 쓴다. --year는 그해 세트만)
    (1) 바꿔치기 후보: 본문·문항·질문과 텍스트층이 짧게 다른 곳(대개 텍스트층 오인식. 정제가 낱말을 바꿔 쓴 곳을 찾는다)
    (2) 누락 후보: 어느 변형·지시문·학교 format에도 들어가지 않은 텍스트층 한글 구간(꼬리말·옆탭·세트 머리는 대개 여기 나온다)
    (3) 문단 후보: 양쪽 정렬에서 짧게 끝난 줄(문단 끝) 자리가 본문에서는 한 문단 안에 이어진 곳(missing),
@@ -11,7 +12,9 @@ import sys, re, json, glob, difflib, pathlib, unicodedata
 import fitz  # pymupdf
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PDF = {"kim": "2026학년도 김종수 로스쿨 면접 3권 (기출편).pdf", "hwang": "2026학년도 황변 로스쿨 면접 1권.pdf"}
+PDF = {"kim": "2026학년도 김종수 로스쿨 면접 3권 (기출편).pdf", "hwang": "2026학년도 황변 로스쿨 면접 1권.pdf",
+       "hwang27": "2027학년도 황변 로스쿨 면접 1권.pdf"}
+EDITION = {"황변과 함께하는 로스쿨 면접 Q 1권(2027)": "hwang27"}   # 변형 source.book → 쪽 디렉터리(work/books/<key>)·PDF 키
 HANGUL = re.compile(r"[가-힣]")
 PB = "¶"   # 정규화한 본문 안의 문단 나뉨
 
@@ -158,17 +161,19 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     school = sys.argv[1]
+    year = sys.argv[sys.argv.index("--year") + 1] if "--year" in sys.argv else None
     db = json.loads((ROOT / "data" / "sets" / "_db.json").read_text(encoding="utf-8"))
     fmt = next((s.get("format") for s in db["schools"] if s["id"] == school), None) or {}
     fmt_strings = list(fmt.get("basics") or []) + [x for row in fmt.get("details") or [] for x in row]
     subs, gaps, paras = [], [], []
     page_strings = {}
-    for f in sorted(glob.glob(str(ROOT / "data" / "sets" / f"{school}-*" / "*.json"))):
+    for f in sorted(glob.glob(str(ROOT / "data" / "sets" / f"{school}-{year or '*'}-*" / "*.json"))):
         f = pathlib.Path(f)
         book, sid = f.stem, f.parent.name
         if book not in PDF:
             continue
         v = json.loads(f.read_text(encoding="utf-8"))
+        book = EDITION.get(v["source"].get("book"), book)
         meta = json.loads((f.parent / "meta.json").read_text(encoding="utf-8"))
         a, b = map(int, v["source"]["pages"].split("-"))
         pages = range(a, b + 1)
@@ -201,7 +206,7 @@ def main():
                 gaps.append((book, p, seg[:120]))
             i = j
 
-    out = ROOT / "work" / "reports" / f"layer-check-{school}.md"
+    out = ROOT / "work" / "reports" / f"layer-check-{school}{'-' + year if year else ''}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     md = [f"# 텍스트층 대조 — {school}", "",
           f"바꿔치기 후보 {len(subs)} · 누락 후보 {len(gaps)} · 문단 후보 {len(paras)}. 후보는 쪽 이미지로 판정한다(텍스트층 오인식·꼬리말·도표 글자가 섞인다).", "",
