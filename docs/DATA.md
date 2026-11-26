@@ -65,7 +65,7 @@ data/sets/<set id>/merged.json
 6. 한 세트를 넣은 뒤 `node tools/build_questions.js` → `node tools/validate-data.js`로 확인한다.
 7. 학교에 진행 방식 복기가 있으면 `format`을 채운다. `timeline`은 분 단위, 대기 시간이 없으면 `wait: 0`. 옵션 창의 기준값 표시에만 쓰이고 실제 세션 시간은 설정값이다. 예외: `timeline.keynote`(기조발언 분)가 있는 학교(지금은 고려대, 2025 기준 6)는 세트 시간표를 쓴다. 옵션 창이 세트의 `format.prep`·`format.duration`·`format.keynote`(없으면 학교 `timeline.keynote`)와 학교 `timeline.wait`로 시작하고, 고친 값은 세션에만 둔다(`SPEC.md` §2.1). 세트 `format.keynote`는 교재에 그해 기조발언 시간이 있을 때만 넣고 지어내지 않는다(고려대 2025 6·2023 7·2019 5, 김종수 3권). `keynote`는 0보다 크고 면접 시간(학교 `interview`, 세트 `duration`)보다 작은 정수다.
 8. 세트 `name`은 `school.short` + 공백 + 세션 기호(교재의 A/B/C 또는 책의 표기). 교재가 학교 약칭을 줄여 적어도("서울 A", "시립 A") 사이트에서는 `school.short`를 쓴다("서울대 A", "서울시립대 A"). 화면의 세트 라벨은 `SNU.db.label(set)` = `<year>학년도 <name>`이다.
-9. 세션 기호는 서울대 오전 = A, 오후 = B, 특별전형 = C. 다른 학교는 김종수 교재의 세션 기호(해마다 한 세트면 A)를 쓰고, 황변의 세션은 학교 설정(`tools/schools/<id>.json`의 `books.hwang.mode`)으로 같은 기호에 맞춘다. 세트 id는 `<schoolId>-<year>-<기호>`.
+9. 세션 기호는 서울대 오전 = A, 오후 = B, 특별전형 = C. 다른 학교는 김종수 교재의 세션 기호(해마다 한 세트면 A)를 쓰고, 황변의 세션은 학교 설정(`tools/schools/<id>.json`의 `books.hwang.mode`)으로 같은 기호에 맞춘다. 김종수 교재가 없는 해(2026)는 황변 세션 머리로 정한다(중앙대·한국외대는 책 순서 (토) 오전 A·(토) 오후 B·(일) 오전 C·(일) 오후 D, `INGEST.md` §9). 세트 id는 `<schoolId>-<year>-<기호>`.
 10. 문제지 문항(면접 전에 받는 문제: 황변 `문제 1>`·`문제〉`, 김종수는 추가질문 머리 앞의 `Q1.`)은 변형의 `tasks`에 순서대로 둔다(label은 번호 `1`·`1-1`, 없으면 `""`). 복기본마다 문항 표현이 달라 세트 공통이 아니라 변형에 둔다. 세트 공통 `instruction`은 김종수 지시문.
 11. 인성 질문 묶음(김종수 `성균관 인성 문제`, 황변 면접장 스케치의 `주요 인성 질문`)은 세트로 만들지 않고 학교 `format.details`에 `["인성 질문(김종수 2025)", "…"]`처럼 행으로 둔다.
 12. 책에 제시문 없이 문제지 문항만 인쇄된 변형(예: 이화여대 김종수 2024 E)은 `passages`를 빈 배열로 두고 문항은 `tasks`에만 둔다(문항 문장을 제시문으로 복제하지 않는다). `tasks`가 없는 빈 `passages`는 오류.

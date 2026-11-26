@@ -19,7 +19,8 @@
 | `assemble_sets.py` | `<id> kim\|hwang`: 쪽 블록 → 세트 변형 JSON(`work/sets/<book>/`) + 조립 보고서 `assemble-<id>-<book>.md` |
 | `diff_existing.py` | 기존 세트 본문 ↔ OCR 조립본 대조 → `work/reports/existing-diff.md`(변경은 사용자 승인 뒤) |
 | `promote_sets.py` | `<id> kim\|hwang`(kim 먼저): `work/sets/<book>/` → `data/sets/<id>/<book>.json`(+ 새 세트 `meta.json`, 세트 format은 김종수 그해 진행 방식 줄). `--refresh-format`은 이미 있는 meta의 format도 다시 쓴다 |
-| `check_layer.py` | `<id>`: 승격한 세트를 텍스트층(줄 좌표 포함)과 대조해 글자 바꿔치기·누락·문단 나뉨 후보 → `work/reports/layer-check-<id>.md`(후보는 쪽 이미지로 판정) |
+| `check_layer.py` | `<id> [--year <학년도>]`: 승격한 세트를 텍스트층(줄 좌표 포함)과 대조해 글자 바꿔치기·누락·문단 나뉨 후보 → `work/reports/layer-check-<id>[-<학년도>].md`(후보는 쪽 이미지로 판정). 변형 `source.book`이 2027판이면 `work/books/hwang27/` |
+| `promote_year.py` | `<id> [--src work/hwang27/out]`: 김종수 교재가 없는 새 학년도의 황변 단독 세트 승격(`docs/INGEST.md` §9). 하위 세션 산출물(변형 JSON·메타 초안·그해 format) → `data/sets/<id>/hwang.json`·`meta.json`(variant hwang, format은 학교 setFormat에 그해 값만 덮음) |
 | `workflows/ingest-themes.js`, `apply_themes.py` | Sonnet 세트당 1회 주제어·태그 → `meta.json`의 themes·tags |
 | `check_merged.py` | 통합본 `merged.json` ↔ kim·hwang 대조(스키마·질문·날조 의심 문장·누락 참고, meta `variant`) → `work/reports/merged-check.md` |
 | (예정) `transcribe.py` | 녹음 배치 전사. 지침: `docs/TRANSCRIPTION.md` §3 |
