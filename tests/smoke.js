@@ -238,7 +238,7 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   await domClick('#step3 [data-seg="variant"] [data-v="kim"]');
   await toStep3("korea-2024-A");
   tl = await tlState();
-  check(tl.prep === "15" && tl.interview === "12" && tl.keynote === "6" && tl.waitOn === false && tl.on === true && tl.cap.includes("고려대 2024 복기 15·12 · 기조발언 6(2025 기준)"), "다른 세트(2024)는 그 세트 기본값 " + tl.cap);
+  check(tl.prep === "15" && tl.interview === "12" && tl.keynote === "6" && tl.waitOn === false && tl.on === true && tl.cap.includes("고려대 2024 복기 15·12 · 기조발언 6(2026 기준)"), "다른 세트(2024)는 그 세트 기본값 " + tl.cap);
   await toStep3("korea-2023-A");
   check((await tlState()).prep === "15", "세트를 다시 고르면 기본값으로");
   await toStep3("snu-2023-A");
