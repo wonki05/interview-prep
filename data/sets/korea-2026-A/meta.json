@@ -1,0 +1,26 @@
+{
+ "id": "korea-2026-A",
+ "school": "korea",
+ "year": 2026,
+ "name": "고려대 A",
+ "session": "나군 면접",
+ "track": "일반전형",
+ "instruction": "다음 제시문을 읽고, 문제에 답하시오.",
+ "format": {
+  "ratio": "3:1",
+  "prep": 14,
+  "duration": 11,
+  "memo": true,
+  "followup": true
+ },
+ "themes": [
+  "예술의 쓸모와 삶의 비평(아널드)",
+  "아도르노의 진지한 음악과 진리성",
+  "일상 경험과 분리된 예술(듀이)"
+ ],
+ "tags": [
+  "문화·예술",
+  "사회·공동체"
+ ],
+ "variant": "hwang"
+}
