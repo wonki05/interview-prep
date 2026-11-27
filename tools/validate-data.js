@@ -118,7 +118,10 @@ for (const sc of D.schools) {
   }
 }
 /* 모의고사(data/mocks.js, docs/DATA.md §6): 학교 순서·이름은 INTERVIEW_DB와 같고, 묶음 안의 문제는 학교 순서 → 문제 번호 순.
-   문제마다 id(mock-<묶음>-<학교>-<번호>)·표시 이름·출처·진행 조건(header·format)·지시문·제시문·문항을 검사한다. --in(학교별 기출 파일)에서는 건너뛴다. */
+   문제마다 id(mock-<묶음>-<학교>-<번호>)·표시 이름·출처·진행 조건(header·format)·지시문·제시문·문항을 검사한다. --in(학교별 기출 파일)에서는 건너뛴다.
+   분류 묶음(MOCK_RATED: AI 묶음)의 문제는 code(넘버링 글자, 묶음 안에서 유일)·field(분야 1~2개, MOCK_FIELDS 순서)·level(난이도 0~5 정수)을 가지고
+   이름은 학교 약칭 + 분야 + 넘버링이다. 교재 묶음은 이 키가 없다. */
+const MOCK_RATED = new Set(["ai"]), MOCK_FIELDS = ["법학", "인문", "사회", "경제", "과학기술"];
 const mockSummary = [];
 if (inArg < 0) {
   const mockFile = path.join(root, "data", "mocks.js");
@@ -135,6 +138,7 @@ if (inArg < 0) {
         if (!sr.id || !sr.name || typeof sr.book !== "string" || !Array.isArray(sr.sets)) { err("MOCK_DB.series 항목 오류: " + JSON.stringify(sr).slice(0, 60)); continue; }
         if (seriesIds.has(sr.id)) err("모의고사 묶음 id 중복 " + sr.id); seriesIds.add(sr.id);
         let last = null;
+        const rated = MOCK_RATED.has(sr.id), codes = new Set();
         for (const s of sr.sets) {
           const tag = "모의고사/" + (s.id || "?"), m = /^mock-([a-z]+)-([a-z]+)-(\d+)$/.exec(s.id || "");
           if (!m) { err(tag + ": id는 mock-<묶음>-<학교 id>-<문제 번호>"); continue; }
@@ -143,12 +147,27 @@ if (inArg < 0) {
           const sc = MD.schools.find(x => x.id === s.school);
           if (!sc || m[2] !== s.school) { err(tag + ": school(" + s.school + ")이 모르는 학교이거나 id와 다르다"); continue; }
           if (!Number.isInteger(s.no) || s.no < 1 || s.no !== Number(m[3])) err(tag + ": no는 id의 문제 번호와 같은 양의 정수");
-          if (s.name !== sc.short + " " + s.no) err(tag + ": name은 '" + sc.short + " " + s.no + "'(학교 약칭 + 문제 번호)");
+          if (rated) {                                    // 분류: 넘버링·분야·난이도, 이름 = 학교 약칭 + 분야 + 넘버링(예: 고려대 법학·과학기술 B)
+            if (typeof s.code !== "string" || !/^[A-Z]$/.test(s.code)) err(tag + ": code는 넘버링 글자 하나(A~Z)");
+            else if (codes.has(s.code)) err(tag + ": code 중복(" + s.code + ")"); else codes.add(s.code);
+            const fd = s.field;
+            let fdOk = false;
+            if (!Array.isArray(fd) || fd.length < 1 || fd.length > 2) err(tag + ": field는 분야 1~2개");
+            else if (fd.some(x => !MOCK_FIELDS.includes(x))) err(tag + ": field는 " + MOCK_FIELDS.join("·") + " 중에서(" + fd.join("·") + ")");
+            else if (fd.some((x, i) => i && MOCK_FIELDS.indexOf(fd[i - 1]) >= MOCK_FIELDS.indexOf(x))) err(tag + ": field는 " + MOCK_FIELDS.join("·") + " 순서로, 중복 없이(" + fd.join("·") + ")");
+            else fdOk = true;
+            if (!Number.isInteger(s.level) || s.level < 0 || s.level > 5) err(tag + ": level은 0~5 정수(난이도 별 개수)");
+            const want = sc.short + " " + (fdOk ? fd.join("·") : "") + " " + s.code;
+            if (fdOk && s.name !== want) err(tag + ": name은 '" + want + "'(학교 약칭 + 분야 + 넘버링) — node tools/build_mocks.js");
+          } else {
+            ["code", "field", "level"].forEach(k => { if (s[k] !== undefined) err(tag + ": " + k + " — 분류 묶음(" + [...MOCK_RATED].join(", ") + ")에만 있는 키"); });
+            if (s.name !== sc.short + " " + s.no) err(tag + ": name은 '" + sc.short + " " + s.no + "'(학교 약칭 + 문제 번호)");
+          }
           const key = [order.indexOf(s.school), s.no];
           if (last && (key[0] < last[0] || (key[0] === last[0] && key[1] < last[1]))) err(tag + ": 학교 순서 → 문제 번호 순이 아니다");
           last = key;
           if (!s.source || typeof s.source.book !== "string" || !s.source.book.trim()) err(tag + ": source.book 없음");
-          else if (!s.source.pages) warn(tag + ": source.pages 없음");
+          else if (!s.source.pages && !rated) warn(tag + ": source.pages 없음");   // AI 출제 문제는 쪽이 없다
           if (!Array.isArray(s.header) || !s.header.length || s.header.some(h => typeof h !== "string" || !h.trim())) err(tag + ": header(진행 조건 줄) 없음");
           const f = s.format || {};
           if (!(typeof f.prep === "number" && f.prep > 0) || !(typeof f.duration === "number" && f.duration > 0)) err(tag + ": format.prep·duration은 0보다 큰 수(분)");
@@ -174,7 +193,7 @@ if (inArg < 0) {
           }
           if (!Array.isArray(s.themes)) err(tag + ": themes는 배열");
           else if (s.themes.length !== s.passages.length) warn(tag + ": themes 수(" + s.themes.length + ") ≠ 제시문 수 " + s.passages.length);
-          mockSummary.push({ series: sr.name, school: sc.short, id: s.id, np: s.passages.length, nt: (s.tasks || []).length, nf });
+          mockSummary.push({ series: sr.name, school: sc.short, id: s.id, np: s.passages.length, nt: (s.tasks || []).length, nf, cls: rated ? s.name.slice(sc.short.length + 1) + " ★" + s.level : "" });
         }
       }
     }
@@ -235,7 +254,7 @@ if (inArg < 0) {
   for (const g of groups) {
     const rows = mockSummary.filter(r => r.series === g);
     console.log(`  ${g} ${rows.length}`);
-    rows.forEach(r => console.log(`    ${r.school.padEnd(6)} ${r.id.padEnd(22)} ${r.np}/${r.nt}/${r.nf}`));
+    rows.forEach(r => console.log(`    ${r.school.padEnd(6)} ${r.id.padEnd(22)} ${r.np}/${r.nt}/${r.nf}${r.cls ? "  " + r.cls : ""}`));
   }
 }
 const nv = summary.reduce((n, r) => n + r.keys.length, 0);

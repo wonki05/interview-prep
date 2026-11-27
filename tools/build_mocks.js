@@ -5,6 +5,8 @@
    출력: data/mocks.js — window.MOCK_DB. 원본의 notes는 넣지 않고, format의 null 값(keynote·memo)은 뺀다(기출 세트 format과 같은 모양).
    원본의 추가질문(followups: 문항과 같은 평평한 [{label, text}], 책 번호)은 기출 세트와 같은 묶음 [{ student: "공통", label: "추가질문", items: [문장] }]으로 싣는다.
    사이트에는 문장만 넣고 번호는 화면이 문항 뒤로 이어 붙인다(책 번호가 그와 다르면 경고).
+   AI 묶음(2027 고려대 AI 모의고사)의 원본은 code(넘버링 글자)·field(분야)·level(난이도 0~5)을 더 가진다. 그대로 싣고
+   표시 이름을 학교 약칭 + 분야 + 넘버링(예: 고려대 인문 A)으로 만든다. 교재 묶음은 이 키가 없고 이름은 학교 약칭 + 문제 번호다.
    --in·--out은 다른 폴더·파일로 만든다(추출 결과를 사이트에 넣기 전에 볼 때). 형식 검사는 tools/validate-data.js가 한다. */
 "use strict";
 const fs = require("fs"), path = require("path");
@@ -16,8 +18,8 @@ const OUT = opt("--out") ? path.resolve(opt("--out")) : path.join(root, "data", 
 const DB = JSON.parse(fs.readFileSync(path.join(root, "data", "sets", "_db.json"), "utf8"));
 const SCHOOLS = DB.schools.map(s => ({ id: s.id, name: s.name, short: s.short }));   // 학교 순서 = INTERVIEW_DB.schools
 const SCHOOL_ORDER = SCHOOLS.map(s => s.id);
-/* 교재 묶음. name이 모의고사 화면의 자리 이름이다. AI 맞춤 모의고사는 브라우저에서 만드는 자리라 여기에 없다. */
-const SERIES = [{ id: "kim", name: "김종수 모의고사" }];
+/* 묶음. name이 모의고사 화면의 자리 이름이고 순서가 탭 순서다. */
+const SERIES = [{ id: "ai", name: "2027 고려대 AI 모의고사" }, { id: "kim", name: "김종수 모의고사" }];
 const ID_RE = /^mock-([a-z]+)-([a-z]+)-(\d+)$/;
 
 let failed = 0;
@@ -43,8 +45,12 @@ for (const f of files) {
   const format = { prep: fm.prep, duration: fm.duration };
   if (fm.keynote !== null && fm.keynote !== undefined) format.keynote = fm.keynote;
   if (fm.memo !== null && fm.memo !== undefined) format.memo = fm.memo;
+  /* 분류(AI 묶음): code·field·level은 원본에 있을 때만 싣는다(값 검사는 validate-data.js). 표시 이름 = 학교 약칭 + 분야 + 넘버링 */
+  const rated = m.field !== undefined || m.level !== undefined || m.code !== undefined;
+  const cls = rated ? { code: m.code, field: m.field, level: m.level } : {};
+  const name = rated ? [sc.short, (Array.isArray(m.field) ? m.field : []).join("·"), m.code].filter(Boolean).join(" ") : `${sc.short} ${m.no}`;   // 교재: 학교 약칭 + 문제 번호(CLAUDE.md 규칙 11)
   sets.push({
-    id: m.id, series, school, no: m.no, name: `${sc.short} ${m.no}`,   // 표시 이름 = 학교 약칭 + 문제 번호(CLAUDE.md 규칙 11)
+    id: m.id, series, school, no: m.no, ...cls, name,
     source: m.source, header: m.header, format, instruction: m.instruction,
     themes: m.themes || [], tags: m.tags || [],
     passages: (m.passages || []).map(p => { const q = { no: p.no }; if (p.label) q.label = p.label; q.kind = p.kind; if (p.length) q.length = p.length; q.text = p.text; q.source = p.source || ""; return q; }),
@@ -85,12 +91,14 @@ function emit(v, ind) {
 const lines = [];
 lines.push(`/* ============================================================
    모의고사 데이터 — 생성 파일: node tools/build_mocks.js 가 data/mocks/ 에서 만든다. 직접 고치지 말 것.
-   출처: 해커스 김종수 『로스쿨 면접 200주제』 2권 심화&실전 모의고사편(2026)의 학교별 실전모의고사를
+   출처: 2027 고려대 AI 모의고사 — 사용자가 AI로 출제한 2027학년도 고려대 예상 문항(2026. 11. 27.).
+         김종수 모의고사 — 해커스 김종수 『로스쿨 면접 200주제』 2권 심화&실전 모의고사편(2026)의 학교별 실전모의고사를
          사용자가 제공한 PDF에서 옮김. 제시문 각주·출처 표시는 source에 그대로.
    구조(docs/DATA.md §6):
      MOCK_DB.schools[]       — 학교 순서·표시 이름 { id, name, short }(INTERVIEW_DB.schools와 같은 순서)
-     MOCK_DB.series[]        — 교재 묶음 { id, name, book, sets[] }. sets는 학교 순서 → 문제 번호 순
-       set                   — { id, series, school, no, name, source, header, format, instruction, themes, tags, passages[], tasks[], followups[] }
+     MOCK_DB.series[]        — 묶음 { id, name, book, sets[] }(순서 = 탭 순서). sets는 학교 순서 → 문제 번호 순
+       set                   — { id, series, school, no, code?, field?, level?, name, source, header, format, instruction, themes, tags, passages[], tasks[], followups[] }
+         code·field·level    — AI 묶음만: 넘버링 글자, 분야 1~2개(법학·인문·사회·경제·과학기술 순), 난이도 0~5(별 다섯 개)
          header[]            — 진행 조건 줄(책 그대로)
          format              — { prep, duration, keynote?, memo? }(분. prep은 소수일 수 있다)
          passages[]          — { no, label?, kind: "prose"|"dialog"|"case", length?, text, source }

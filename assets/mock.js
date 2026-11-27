@@ -1,9 +1,9 @@
 /* ============================================================
    모의고사 — 학교별 실전 모의고사의 진행 조건·지시문·제시문·문항·추가질문을 본다.
-   · 자리 둘: AI 맞춤 모의고사(브라우저에서 만든 문제가 들어갈 자리. 생성은 추가 예정이라 지금은 상태 한 줄)
-     / 교재 묶음(data/mocks.js MOCK_DB.series. 지금은 김종수 모의고사).
+   · 자리 = 묶음(data/mocks.js MOCK_DB.series, 순서 그대로 탭): 2027 고려대 AI 모의고사 · 김종수 모의고사.
    · 목록은 학교 순서(MOCK_DB.schools = 서울대 → 고려대 → … → 이화여대)로 이어진다. 기출DB처럼 연도로 묶지 않는다.
-   · 상세: 학교·문제 번호, 진행 조건(시간표 띠 + 책의 header 줄), 지시문·제시문(펼침), 문항(접힘 — 준비 시간에 문제를 보지 않는 학교가 있다),
+     교재 문제의 행은 학교 약칭 · 문제 번호, 분류가 있는 문제(AI 묶음: code·field·level)는 난이도 별 다섯 개 · 분야 넘버링(예: 인문 A).
+   · 상세: 학교·문제 번호(분류가 있으면 난이도 별), 진행 조건(시간표 띠 + 책의 header 줄), 지시문·제시문(펼침), 문항(접힘 — 준비 시간에 문제를 보지 않는 학교가 있다),
      추가질문(있는 문제만, 접힘 — 기조답변 뒤에 면접관이 묻는다. 번호는 문항 뒤로 이어진다).
    · 주제는 기출DB와 같은 주제 가림 설정(dbHideThemes)을 따른다. 해시 #<문제 id>로 문제를, #<자리 id>(예: #ai)로 자리를 연다.
    ============================================================ */
@@ -15,21 +15,24 @@
   const app = $("#app");
   const M = window.MOCK_DB || { schools: [], series: [] };
 
-  /* ---------- 자리·문제 ----------
-     AI 맞춤 모의고사의 생성 결과는 교재 문제와 같은 형식(docs/DATA.md §6의 set)으로 sets에 들어간다(BUILD_PLAN P4-8). */
-  const AI_SOURCE = { id: "ai", name: "AI 맞춤 모의고사", sets: [] };
-  const sources = () => [AI_SOURCE, ...M.series];
+  /* ---------- 자리·문제 ---------- */
+  const NONE = { id: "", name: "모의고사", sets: [] };   // 묶음이 하나도 없을 때
+  const sources = () => M.series;
   const source = id => sources().find(s => s.id === id) || null;
   const find = id => { for (const src of sources()) { const set = src.sets.find(x => x.id === id); if (set) return { src, set }; } return null; };
   const school = id => M.schools.find(s => s.id === id) || { id, name: id, short: id };
   const followupCount = x => (x.followups || []).reduce((n, g) => n + g.items.length, 0);
+  /* 분류(AI 묶음): 넘버링 라벨 '분야·분야 넘버링'(예: 법학·과학기술 B), 난이도 별 다섯 개(★ level개 + ☆). 교재 문제는 '문제 184' */
+  const rated = x => Number.isInteger(x.level) && x.level >= 0 && x.level <= 5;
+  const label = x => x.code ? [(x.field || []).join("·"), x.code].filter(Boolean).join(" ") : "문제 " + x.no;
+  const stars = (x, cls) => `<span class="${cls ? cls + " " : ""}lv" role="img" aria-label="난이도 ${x.level}/5">${"★".repeat(x.level)}<span class="off">${"☆".repeat(5 - x.level)}</span></span>`;
 
   /* folds: "<문제 id>:papers|tasks" → 펼침 여부. 주제 가림 등으로 다시 그려도 사용자가 펼치고 접은 상태를 지킨다. */
   const st = { src: "", setId: "", folds: new Map() };
   function fromHash() {
     const h = (location.hash || "").slice(1), hit = h && find(h);
     if (hit) { st.src = hit.src.id; st.setId = hit.set.id; return; }
-    const src = (h && source(h)) || sources().find(s => s.sets.length) || M.series[0] || AI_SOURCE;
+    const src = (h && source(h)) || sources().find(s => s.sets.length) || M.series[0] || NONE;
     st.src = src.id; st.setId = src.sets.length ? src.sets[0].id : "";
   }
   const foldOpen = (set, part, dflt) => { const k = set.id + ":" + part; return st.folds.has(k) ? st.folds.get(k) : dflt; };
@@ -39,7 +42,7 @@
      reveal이면(해시로 연 문제) 고른 행이 열 안에 보이게 한다. */
   let renderedSrc = "";
   function render(focus, reveal) {
-    const src = source(st.src) || AI_SOURCE, hit = st.setId ? find(st.setId) : null, hide = !!S().dbHideThemes;
+    const src = source(st.src) || NONE, hit = st.setId ? find(st.setId) : null, hide = !!S().dbHideThemes;
     const oldSide = $(".dbside", app), sideTop = oldSide && renderedSrc === src.id ? oldSide.scrollTop : 0;
     app.innerHTML = `
       <section class="sec" style="gap:6px">
@@ -57,6 +60,7 @@
         <div class="dbmain" id="main">${hit && hit.src === src ? detail(src, hit.set, hide) : ""}</div>
       </div>` : `<div class="empty-school"><b>${esc(src.name)} — 추가 예정</b></div>`}`;
     renderedSrc = src.id;
+    fitTabs();
     const side = $(".dbside", app);
     if (side) {
       side.scrollTop = sideTop;
@@ -68,19 +72,26 @@
     }
     if (focus) { const el = app.querySelector(focus); if (el) el.focus({ preventScroll: true }); }
   }
-  /* 세트 행(기출DB와 같은 .setrow): 연도 자리에 학교 약칭, 이름 자리에 문제 번호 */
+  /* 자리 탭은 한 줄에 다 보이게: 넘치면(좁은 화면·큰 글자) .tight — 문제 수를 빼고 좌우 여백을 줄인다 */
+  function fitTabs() {
+    const t = $(".schooltabs", app);
+    if (!t) return;
+    t.classList.remove("tight");
+    if (t.scrollWidth > t.clientWidth) t.classList.add("tight");
+  }
+  /* 세트 행(기출DB와 같은 .setrow): 연도 자리에 학교 약칭(분류가 있으면 난이도 별), 이름 자리에 문제 번호(분류가 있으면 분야 넘버링) */
   function row(x, hide) {
     const f = x.format, nf = followupCount(x);
     return `<button type="button" class="setrow" data-set="${esc(x.id)}" aria-pressed="${x.id === st.setId}">
-      <span class="yr">${esc(school(x.school).short)}</span>
-      <span><span class="nm">문제 ${esc(x.no)}</span><br><span class="th dbtheme" aria-hidden="${hide}">${esc(x.themes.join(" · "))}</span></span>
+      ${rated(x) ? stars(x, "yr") : `<span class="yr">${esc(school(x.school).short)}</span>`}
+      <span><span class="nm">${esc(label(x))}</span><br><span class="th dbtheme" aria-hidden="${hide}">${esc(x.themes.join(" · "))}</span></span>
       <span class="mt"><span>제시문 ${x.passages.length}</span><span>문항 ${x.tasks.length}</span>${nf ? `<span>추가질문 ${nf}</span>` : ""}<span>준비 ${esc(f.prep)}분</span><span>면접 ${esc(f.duration)}분</span>${f.keynote ? `<span>기조발언 ${esc(f.keynote)}분</span>` : ""}</span></button>`;
   }
   function detail(src, x, hide) {
     const f = x.format, nf = followupCount(x), ref = x.source ? [x.source.book, x.source.pages ? "p." + x.source.pages : ""].filter(Boolean).join(" · ") : "";
     return `
       <div class="sethead">
-        <div class="eyebrow">${esc(src.name)} · ${esc(school(x.school).name)} · 문제 ${esc(x.no)}</div>
+        <div class="eyebrow">${esc(src.name)} · ${esc(school(x.school).name)} · ${rated(x) ? stars(x) : esc(label(x))}</div>
         <h2 class="h1">${esc(x.name)}</h2>
         <div class="row dbtheme" aria-hidden="${hide}">${x.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
         ${ref ? `<div class="row"><span class="small muted">${esc(ref)}</span></div>` : ""}
@@ -130,6 +141,7 @@
   app.addEventListener("toggle", e => { const d = e.target; if (d.matches && d.matches("details[data-fold]")) st.folds.set(d.dataset.fold, d.open); }, true);   // toggle은 버블링하지 않는다
   document.addEventListener("settings:change", () => { render(pendingFocus); pendingFocus = ""; });
   window.addEventListener("hashchange", () => { fromHash(); render("", true); });
+  window.addEventListener("resize", fitTabs);
 
   fromHash();
   render("", true);

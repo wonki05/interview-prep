@@ -274,6 +274,9 @@ tr:last-child td { border-bottom: 0; }
 .schooltabs button.main { font-weight: 600; padding-right: 14px; }
 .schooltabs button .n { font-size: .72rem; color: var(--ink-3); font-weight: 500; }
 .schooltabs button.empty { color: var(--ink-3); }
+/* 탭이 한 줄에 다 들어가야 하는 곳(모의고사 자리 탭): 넘치면 JS가 .tight를 붙여 문제 수를 빼고 좌우 여백을 줄인다 */
+.schooltabs.tight button { padding-left: 10px; padding-right: 10px; }
+.schooltabs.tight button .n { display: none; }
 
 .setrows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .setrows .setyear { padding: 12px 16px 4px; font-family: var(--font-serif); font-weight: 700; font-size: .92rem; color: var(--ink-2); }
@@ -396,6 +399,10 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .dbside .setrow { grid-template-columns: 60px minmax(0, 1fr); padding: 12px 12px 12px 14px; }
 .dbside .setrow .mt { grid-column: 2; text-align: left; flex-direction: row; gap: 10px; flex-wrap: wrap; }
 .setrows.byschool .setrow { grid-template-columns: 4.8rem minmax(0, 1fr); }   /* 모의고사: 연도 자리에 학교 약칭(네 글자까지 한 줄) */
+/* 난이도 별 다섯 개(★ 채움 + ☆ 빈칸). 모의고사 AI 묶음의 행(학교 약칭 자리)과 상세 머리. 별 다섯 개가 4.8rem 열 안에 한 줄로 */
+.lv { white-space: nowrap; letter-spacing: .02em; }
+.lv .off { color: var(--ink-3); }
+.setrow .yr.lv { font-family: var(--font-ui); font-weight: 400; font-size: .86rem; line-height: 1.6rem; }
 /* 모의고사: 목록이 화면보다 길면 열 안에서 스크롤(세션 .colr와 같은 방식). 아니면 아래 행이 긴 상세의 끝에서만 보인다. 1열에서는 해제 */
 .dbside.fit { max-height: calc(100vh - var(--header-h) - 28px); overflow: auto; scrollbar-width: thin; }
 @media (max-width: 900px) { .dbside.fit { max-height: none; overflow: visible; } }

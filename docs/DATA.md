@@ -157,12 +157,13 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 
 ## 6. `data/mocks.js` — `window.MOCK_DB`
 
-모의고사 화면(`mock.html`)의 교재 모의고사. 원본은 `data/mocks/`(JSON, 한 문제 한 파일)이고 `node tools/build_mocks.js`가 `data/mocks.js`를 만든다(`data/sets/` → `build_questions.js` → `data/questions.js`와 같은 방식. `data/mocks.js`를 직접 고치지 않는다). 'AI 맞춤 모의고사'는 브라우저에서 만들 문제라 여기에 없다(`BUILD_PLAN.md` P4-8). 생성 결과도 아래 `MOCK`과 같은 형식으로 둔다.
+모의고사 화면(`mock.html`)의 문제. 원본은 `data/mocks/`(JSON, 한 문제 한 파일)이고 `node tools/build_mocks.js`가 `data/mocks.js`를 만든다(`data/sets/` → `build_questions.js` → `data/questions.js`와 같은 방식. `data/mocks.js`를 직접 고치지 않는다). 묶음은 둘이고 이 순서가 화면의 탭 순서다: `ai` **2027 고려대 AI 모의고사**(사용자가 AI로 출제한 2027학년도 고려대 예상 문항 8세트) · `kim` **김종수 모의고사**(교재). 브라우저에서 만드는 AI 맞춤 모의고사(`BUILD_PLAN.md` P4-8)도 아래 `MOCK`과 같은 형식으로 둔다.
 
 ```js
 {
   schools: [ { id: "snu", name: "서울대학교", short: "서울대" }, … ],   // 학교 순서·표시 이름. data/sets/_db.json에서(INTERVIEW_DB.schools와 같다)
-  series: [                                                             // 교재 묶음. 모의고사 화면의 자리 하나 = 묶음 하나
+  series: [                                                             // 묶음. 모의고사 화면의 자리 하나 = 묶음 하나(순서 = 탭 순서)
+    { id: "ai", name: "2027 고려대 AI 모의고사", book: "…", sets: [ MOCK, … ] },
     { id: "kim", name: "김종수 모의고사", book: "김종수 2권 심화&실전 모의고사편(2026)",
       sets: [ MOCK, … ] }                                               // 학교 순서 → 문제 번호 순
   ]
@@ -170,7 +171,8 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 MOCK = {
   id: "mock-kim-snu-184",            // "mock-<묶음 id>-<학교 id>-<문제 번호>". 기출 세트 id와 겹치지 않는다
   series: "kim", school: "snu", no: 184,
-  name: "서울대 184",                // school.short + 공백 + 문제 번호(CLAUDE.md 규칙 11과 같은 방식). 생성 스크립트가 만든다
+  code?: "B", field?: ["법학", "과학기술"], level?: 4,                 // AI 묶음만: 넘버링 글자, 분야 1~2개, 난이도 0~5(아래 'AI 묶음')
+  name: "서울대 184",                // school.short + 공백 + 문제 번호(CLAUDE.md 규칙 11과 같은 방식). AI 묶음은 "고려대 법학·과학기술 B". 생성 스크립트가 만든다
   source: { book: "…", pages: "471-473" },
   header: ["답변 준비 시간 20분 | 답변 시간 10분", "…"],               // 진행 조건 줄(책 그대로). 화면은 시간표 띠 아래에 그대로 보인다
   format: { prep: 20, duration: 10, keynote?: 7, memo?: true },       // 분. prep·duration은 소수일 수 있다(이화여대 9.5)
@@ -183,7 +185,8 @@ MOCK = {
 ```
 
 - **원본 파일**(`data/mocks/<id>.json`): `{ id, school, no, source, header, format: { prep, duration, keynote, memo }, instruction, themes, tags, passages, tasks, followups, notes }`. `keynote`·`memo`는 `null`일 수 있고 제시문 `label`은 `"가"`·`"A"`·`null`이다. `followups`는 `tasks`와 같은 평평한 배열 `[{ label: "4", text }]`(책 번호 그대로, 문항 뒤로 이어진다)이고 없으면 `[]`(키는 늘 있다). 생성 스크립트는 묶음(`series`)을 id에서 읽고 `name`을 붙이며, `format`의 `null` 값과 `label: null`은 빼고(기출 세트와 같은 모양), 추가질문은 기출 세트와 같은 묶음 하나(`student: "공통"`)로 문장만 싣고, `notes`(옮긴 사람의 메모)는 넣지 않는다.
+- **AI 묶음**(`ai`, 2027 고려대 AI 모의고사): 원본 키 순서는 `id, school, no, code, field, level, source, header, format, instruction, themes, tags, passages, tasks, followups, notes`(교재 형식에 셋이 더해진다). id `mock-ai-korea-<n>`(n = 세트 1~8), `no` = n. `code`는 넘버링 글자 하나(`"A"`~`"H"`, 묶음 안에서 유일), `field`는 분야 1~2개(`법학`·`인문`·`사회`·`경제`·`과학기술` 중에서 이 순서로, 중복 없이), `level`은 난이도 정수 0~5(별 개수, 고려대 평균 = 2), `format`은 `{ prep: 14, duration: 11, keynote: 6, memo: true }`. 생성 스크립트가 세 키를 그대로 싣고 이름을 `school.short + " " + field.join("·") + " " + code`(예: `고려대 인문 A`)로 만든다. 화면은 세트 행의 학교 약칭 자리에 난이도 별(`★★★★☆`), 문제 번호 자리에 `인문 A`를 보인다(`SPEC.md` §4). 교재 묶음(`kim`)의 원본·사이트 데이터에는 이 세 키가 없다. 분류 묶음은 `validate-data.js`의 `MOCK_RATED`에 적는다.
 - **문항과 추가질문**: 책이 문항 뒤 '추가질문' 표시 아래에 따로 인쇄한 질문은 `followups`, 그 앞의 `Q1.`…은 `tasks`(§1 규칙 10과 같은 나눔). 화면은 추가질문 번호를 문항 뒤로 이어 붙인다(문항 3개면 `Q4`부터). 원본의 번호가 그와 다르면 `build_mocks.js`가 경고한다.
 - **필드 이름**은 기출 세트와 같다(`passages`·`tasks`·`followups`·`themes`·`tags`·`format`·`instruction`). 나중에 모의면접·AI 기능(질문 은행·`setContext`)에 그대로 넘길 수 있게 하려는 것이다. 복기본 변형(`variants`)과 공통 질문(`common`)은 없다.
 - **규칙**: 제시문은 원문 그대로(§1 규칙 1과 같다. 문단은 `\n`, 각주·출처는 `source`). 제시문 머리는 `AIClient.passageHead(p)`. `themes`는 제시문 수와 같은 수(다르면 경고). 문항은 하나 이상. 묶음을 더하면 `tools/build_mocks.js`의 `SERIES`에 `{ id, name }`을 한 줄 더한다.
-- **생성·검사**: `node tools/build_mocks.js`(원본 폴더가 없거나 비면 문제 없는 묶음을 만든다. `--in <폴더> --out <파일>`은 다른 폴더·파일로) → `node tools/validate-data.js`. 검사: `schools`가 `INTERVIEW_DB.schools`와 같은 순서·이름, 묶음 id 유일, 문제 id 형식·유일(기출 id 포함)·`series`·`school`·`no`가 id와 일치, `name`, 학교 순서 → 번호 순, `source.book`(쪽 없음은 경고), `header` 줄, `format.prep`·`duration` > 0·`keynote`(0 < keynote < duration)·`memo`(불리언), `instruction`, `tags` 배열, `notes` 없음, 제시문(번호 연속·`kind`·`label`·본문 — 기출과 같은 검사), 문항, 추가질문(배열, 묶음마다 `student`·`label`·빈 문장 없는 `items`, `student` 중복 없음), `themes` 수. 요약은 문제별 제시문/문항/추가질문 수.
+- **생성·검사**: `node tools/build_mocks.js`(원본 폴더가 없거나 비면 문제 없는 묶음을 만든다. `--in <폴더> --out <파일>`은 다른 폴더·파일로) → `node tools/validate-data.js`. 검사: `schools`가 `INTERVIEW_DB.schools`와 같은 순서·이름, 묶음 id 유일, 문제 id 형식·유일(기출 id 포함)·`series`·`school`·`no`가 id와 일치, `name`, 분류(AI 묶음: `code` 글자 하나·묶음 안에서 유일, `field` 1~2개·목록 안·순서·중복 없음, `level` 0~5 정수 / 교재 묶음: 세 키 없음), 학교 순서 → 번호 순, `source.book`(교재는 쪽 없음이 경고), `header` 줄, `format.prep`·`duration` > 0·`keynote`(0 < keynote < duration)·`memo`(불리언), `instruction`, `tags` 배열, `notes` 없음, 제시문(번호 연속·`kind`·`label`·본문 — 기출과 같은 검사), 문항, 추가질문(배열, 묶음마다 `student`·`label`·빈 문장 없는 `items`, `student` 중복 없음), `themes` 수. 요약은 문제별 제시문/문항/추가질문 수(AI 묶음은 분야 넘버링·별 개수도).
