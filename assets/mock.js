@@ -3,6 +3,7 @@
    · 자리 = 묶음(data/mocks.js MOCK_DB.series, 순서 그대로 탭): 2027 고려대 AI 모의고사 · 김종수 모의고사.
    · 목록은 학교 순서(MOCK_DB.schools = 서울대 → 고려대 → … → 이화여대)로 이어진다. 기출DB처럼 연도로 묶지 않는다.
      교재 문제의 행은 학교 약칭 · 문제 번호, 분류가 있는 문제(AI 묶음: code·field·level)는 난이도 별 다섯 개 · 분야 넘버링(예: 인문 A).
+   · 분류가 있는 묶음만 정렬을 고른다(설정 mockSort): 분야별(기본, 분야 머리) · 난이도 높은순 · 낮은순. 교재 묶음은 학교 순서 그대로.
    · 상세: 학교·문제 번호(분류가 있으면 난이도 별), 진행 조건(시간표 띠 + 책의 header 줄), 지시문·제시문(펼침), 문항(접힘 — 준비 시간에 문제를 보지 않는 학교가 있다),
      추가질문(있는 문제만, 접힘 — 기조답변 뒤에 면접관이 묻는다. 번호는 문항 뒤로 이어진다).
    · 주제는 기출DB와 같은 주제 가림 설정(dbHideThemes)을 따른다. 해시 #<문제 id>로 문제를, #<자리 id>(예: #ai)로 자리를 연다.
@@ -25,6 +26,22 @@
   /* 분류(AI 묶음): 넘버링 라벨 '분야·분야 넘버링'(예: 법학·과학기술 B), 난이도 별 다섯 개(★ level개 + ☆). 교재 문제는 '문제 184' */
   const rated = x => Number.isInteger(x.level) && x.level >= 0 && x.level <= 5;
   const label = x => x.code ? [(x.field || []).join("·"), x.code].filter(Boolean).join(" ") : "문제 " + x.no;
+  /* 정렬(분류 묶음만, 설정 mockSort). 분야 순서는 docs/MOCK_CLASSIFY.md·tools/validate-data.js MOCK_FIELDS와 같다.
+     분야별: 첫 분야 순 → 단일 분야가 병기보다 앞 → 넘버링 순. 난이도: level 순 → 같으면 분야별 순서(level 없는 문제는 뒤) */
+  const FIELDS = ["법학", "인문", "사회", "경제", "과학기술"];
+  const SORTS = [["field", "분야별", ""], ["levelDesc", "난이도 ↓", "난이도 높은순"], ["levelAsc", "난이도 ↑", "난이도 낮은순"]];
+  const sortable = src => src.sets.some(x => Array.isArray(x.field));
+  const sortKey = () => SORTS.some(s => s[0] === S().mockSort) ? S().mockSort : "field";
+  const fieldRank = x => { const i = FIELDS.indexOf((x.field || [])[0]); return i < 0 ? FIELDS.length : i; };
+  const byField = (a, b) => fieldRank(a) - fieldRank(b) || (a.field || []).length - (b.field || []).length || String(a.code || "").localeCompare(String(b.code || "")) || a.no - b.no;
+  const lvOf = x => rated(x) ? x.level : -1;
+  const byLevel = dir => (a, b) => (lvOf(a) < 0) - (lvOf(b) < 0) || dir * (lvOf(a) - lvOf(b)) || byField(a, b);
+  function sortedSets(src) {
+    if (!sortable(src)) return src.sets;
+    const k = sortKey();
+    return [...src.sets].sort(k === "levelDesc" ? byLevel(-1) : k === "levelAsc" ? byLevel(1) : byField);
+  }
+  const firstSet = src => src.sets.length ? sortedSets(src)[0].id : "";   // 해시 없이 연 자리의 첫 문제 = 보이는 순서의 첫 행
   const stars = (x, cls) => `<span class="${cls ? cls + " " : ""}lv" role="img" aria-label="난이도 ${x.level}/5">${"★".repeat(x.level)}<span class="off">${"☆".repeat(5 - x.level)}</span></span>`;
 
   /* folds: "<문제 id>:papers|tasks" → 펼침 여부. 주제 가림 등으로 다시 그려도 사용자가 펼치고 접은 상태를 지킨다. */
@@ -33,7 +50,7 @@
     const h = (location.hash || "").slice(1), hit = h && find(h);
     if (hit) { st.src = hit.src.id; st.setId = hit.set.id; return; }
     const src = (h && source(h)) || sources().find(s => s.sets.length) || M.series[0] || NONE;
-    st.src = src.id; st.setId = src.sets.length ? src.sets[0].id : "";
+    st.src = src.id; st.setId = firstSet(src);
   }
   const foldOpen = (set, part, dflt) => { const k = set.id + ":" + part; return st.folds.has(k) ? st.folds.get(k) : dflt; };
 
@@ -54,8 +71,9 @@
         <aside class="dbside fit">
           <div class="dbtools" role="group" aria-label="모의고사 표시">
             <button type="button" class="btn sm ${hide ? "primary" : ""}" id="toggleThemes" aria-pressed="${hide}">${hide ? "주제 보이기" : "주제 가리기"}</button>
+            ${sortable(src) ? sortHtml() : ""}
           </div>
-          <div class="setrows byschool">${src.sets.map(x => row(x, hide)).join("")}</div>
+          <div class="setrows byschool">${rowsHtml(src, hide)}</div>
         </aside>
         <div class="dbmain" id="main">${hit && hit.src === src ? detail(src, hit.set, hide) : ""}</div>
       </div>` : `<div class="empty-school"><b>${esc(src.name)} — 추가 예정</b></div>`}`;
@@ -78,6 +96,21 @@
     if (!t) return;
     t.classList.remove("tight");
     if (t.scrollWidth > t.clientWidth) t.classList.add("tight");
+  }
+  /* 정렬 버튼 셋(.btn.sm, 고른 것 primary·aria-pressed). 도구 줄이 좁으면 주제 가리기 아래 줄로 내려간다 */
+  function sortHtml() {
+    const k = sortKey();
+    return `<div class="row" role="group" aria-label="정렬">${SORTS.map(([id, text, aria]) => `<button type="button" class="btn sm ${id === k ? "primary" : ""}" data-sort="${id}" aria-pressed="${id === k}"${aria ? ` aria-label="${aria}"` : ""}>${text}</button>`).join("")}</div>`;
+  }
+  /* 목록 행. 분야별 정렬이면 첫 분야가 바뀌는 자리에 분야 머리(.setyear. 병기 문제는 첫 분야 묶음에) */
+  function rowsHtml(src, hide) {
+    const heads = sortable(src) && sortKey() === "field";
+    let prev = null;
+    return sortedSets(src).map(x => {
+      const f = heads ? (x.field || [])[0] || "분야 없음" : null, head = heads && f !== prev ? `<div class="setyear">${esc(f)}</div>` : "";
+      prev = f;
+      return head + row(x, hide);
+    }).join("");
   }
   /* 세트 행(기출DB와 같은 .setrow): 연도 자리에 학교 약칭(분류가 있으면 난이도 별), 이름 자리에 문제 번호(분류가 있으면 분야 넘버링) */
   function row(x, hide) {
@@ -123,7 +156,7 @@
     if (tab) {
       const src = source(tab.dataset.src);
       if (!src || src.id === st.src) return;
-      st.src = src.id; st.setId = src.sets.length ? src.sets[0].id : "";
+      st.src = src.id; st.setId = firstSet(src);
       history.replaceState(null, "", "#" + (st.setId || src.id));
       render(`[data-src="${src.id}"]`);
       return;
@@ -134,6 +167,12 @@
       st.setId = sb.dataset.set;
       history.replaceState(null, "", "#" + st.setId);
       render(`[data-set="${st.setId}"]`);
+      return;
+    }
+    const so = t.closest("[data-sort]");
+    if (so) {   // 고른 문제·해시·목록 스크롤 자리는 그대로(render가 같은 자리의 scrollTop을 지킨다)
+      if (so.dataset.sort === sortKey()) return;
+      pendingFocus = `[data-sort="${so.dataset.sort}"]`; save({ mockSort: so.dataset.sort });   // save → settings:change → render
       return;
     }
     if (t.closest("#toggleThemes")) { pendingFocus = "#toggleThemes"; save({ dbHideThemes: !S().dbHideThemes }); }   // save → settings:change → render

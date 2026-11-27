@@ -393,7 +393,7 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .dbgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 32px; align-items: start; }
 .dbside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--header-h) + 16px); display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .dbmain { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
-.dbtools { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dbtools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .themes-hidden .dbtheme { filter: blur(5px); user-select: none; pointer-events: none; }
 @media (max-width: 900px) { .dbgrid { grid-template-columns: minmax(0, 1fr); gap: 20px; } .dbside { position: static; } }
 .dbside .setrow { grid-template-columns: 60px minmax(0, 1fr); padding: 12px 12px 12px 14px; }

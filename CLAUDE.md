@@ -32,13 +32,13 @@ assets/ai.js        AI 클라이언트(Anthropic/OpenAI 직접 호출), setConte
 assets/practice.js  모의면접: ①세트 ②모드 ③옵션·시작 → 준비→대기→면접→종료, 녹음(MediaRecorder)·세션 기록 저장(records.js), STT/TTS, 결정 트리 보행, 세트 시간표·기조발언 시간 제한(고려대), 종료 화면 AI 피드백
 assets/db.js        기출DB: 학교·세트 탐색, 제시문, 질문별 문답 스레드(localStorage "snu-db-threads-v1"), 예시답변·제시문 해설 화면, 녹음본 피드백 패널(녹음·문답 첨부 → 전사 → 평가, 문답별 원문 대조·후속 질문)
 assets/db-study.js  기출DB 학습 도우미: AI 면접해설 설정, 서가 지연 로드, 예시답변·제시문 해설·녹음본 피드백 결과·후속 질문 누적(localStorage "snu-db-study-v1"), 올린 문답 파일 읽기
-assets/mock.js      모의고사: 자리 탭(MOCK_DB 묶음: 2027 고려대 AI 모의고사 · 김종수 모의고사), 학교 순서로 이어지는 목록(AI 묶음은 난이도 별·분야 넘버링), 진행 조건·지시문·제시문·문항·추가질문 상세(MOCK_DB. 주제 가림은 기출DB 설정 공유)
+assets/mock.js      모의고사: 자리 탭(MOCK_DB 묶음: 2027 고려대 AI 모의고사 · 김종수 모의고사), 학교 순서로 이어지는 목록(AI 묶음은 난이도 별·분야 넘버링, 정렬 선택 분야별·난이도순 — 설정 mockSort), 진행 조건·지시문·제시문·문항·추가질문 상세(MOCK_DB. 주제 가림은 기출DB 설정 공유)
 assets/records.js   면접 기록: IndexedDB "snu-interview"(sessions·recordings), 기록 서랍(앱바, 모든 화면), AI 피드백
 assets/library.js   서가: 개요/도서/쟁점/읽는 순서, 책 상세 서랍, 진도(localStorage "snu-library-progress-v1")
 data/sets/          세트 원본(<set id>/meta·kim·hwang·merged.json, _db.json의 levels·학교 format). 고친 뒤 tools/build_questions.js
 data/questions.js   INTERVIEW_DB = { levels, schools[] } — data/sets/에서 생성. 서울대 20 · 고려대 8 · 연세대 10 · 성균관대 16 · 한양대 8 · 서강대 16 · 중앙대 32 · 경희대 8 · 이화여대 12 · 한국외대 32세트(10개 학교 162, 2019~2026학년도), 결정 트리 예시(snu-2023-A)
 data/mocks/         모의고사 원본(<id>.json 한 문제 한 파일). 고친 뒤 tools/build_mocks.js
-data/mocks.js       MOCK_DB = { schools, series[] } — data/mocks/에서 생성. 2027 고려대 AI 모의고사 8세트(분야·난이도, docs/MOCK_CLASSIFY.md) · 김종수 2권 학교별 실전모의고사(10개 학교, 학교마다 한 문제)
+data/mocks.js       MOCK_DB = { schools, series[] } — data/mocks/에서 생성. 2027 고려대 AI 모의고사 11세트(분야·난이도, docs/MOCK_CLASSIFY.md) · 김종수 2권 학교별 실전모의고사(10개 학교, 학교마다 한 문제)
 data/models.js      MODEL_CATALOG — 선택 가능한 모델 목록(표시명·API id)
 data/library.js     도서 100선 데이터(크다, 720KB)
 docs/               SPEC, BUILD_PLAN, DESIGN, AI, DATA, TRANSCRIPTION, DECISIONS, MOCK_CLASSIFY(모의고사 분야·난이도 지침)

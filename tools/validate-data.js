@@ -223,6 +223,7 @@ for (const provider of ["anthropic", "openai"]) {
 if (!["anthropic", "openai"].includes(defaults.explanationProvider)) err("설정 explanationProvider는 anthropic/openai");
 if (typeof defaults.dbHideThemes !== "boolean") err("설정 dbHideThemes는 불리언");
 if (!["newest", "oldest"].includes(defaults.dbSort)) err("설정 dbSort는 newest/oldest");
+if (!["field", "levelDesc", "levelAsc"].includes(defaults.mockSort)) err("설정 mockSort는 field/levelDesc/levelAsc");
 if (!(M.transcription || []).some(m => m.id === defaults.transcriptionModel)) err("설정 transcriptionModel이 전사 모델 목록에 없다");
 else if (M.transcription[0].id !== defaults.transcriptionModel) err("설정 transcriptionModel이 전사 목록의 최상위(첫 항목)가 아니다");
 if (!Number.isInteger(defaults.modelRev) || defaults.modelRev < 1) err("설정 modelRev는 1 이상의 정수");

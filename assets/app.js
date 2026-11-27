@@ -20,6 +20,7 @@
     explanationOpenaiModel: "gpt-6.2-astra", explanationOpenaiEffort: "medium",
     modelRev: 1,                // 기본 모델 판(올라가면 저장된 이전 기본 모델을 새 최상위로 한 번 옮긴다)
     dbHideThemes: false, dbSort: "newest",
+    mockSort: "field",          // 모의고사 분류 묶음 정렬: field(분야별) | levelDesc | levelAsc
     transcriptionModel: "gpt-transcribe",   // 기출DB 녹음본 피드백의 전사 모델(MODEL_CATALOG.transcription)
     /* 모의면접 기본값 — 옵션 창에서 고른 값이 마지막에 쓴 값으로 저장된다 */
     answerMode: "voice",        // voice | text

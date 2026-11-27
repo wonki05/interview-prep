@@ -778,14 +778,22 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
   const navText = await page.$$eval(".nav a", a => a.map(x => x.textContent.trim()).join("/"));
   check(navText === "홈/모의면접/기출DB/모의고사/서가" && await page.$('.nav a[href="mock.html"][aria-current="page"]'), "앱바 탭 순서 " + navText);
   const mk = await page.evaluate(() => {
-    const M = window.MOCK_DB, order = M.schools.map(s => s.id), src = M.series.find(s => s.sets.length), short = id => M.schools.find(s => s.id === id).short;
+    const M = window.MOCK_DB, order = M.schools.map(s => s.id), short = id => M.schools.find(s => s.id === id).short;
+    /* 목록 순서: 분류 묶음(field가 있는 묶음)은 설정 mockSort(기본 분야별: 첫 분야 순 → 단일 분야 먼저 → 넘버링), 교재 묶음은 원본 순서(학교 순서) */
+    const FIELDS = ["법학", "인문", "사회", "경제", "과학기술"], fr = x => FIELDS.indexOf(x.field[0]);
+    const byField = (a, b) => fr(a) - fr(b) || a.field.length - b.field.length || a.code.localeCompare(b.code);
+    const byLevel = dir => (a, b) => dir * (a.level - b.level) || byField(a, b);
+    const sortable = s => s.sets.some(x => Array.isArray(x.field)), src = M.series.find(s => s.sets.length && !sortable(s));
     const ordered = M.series.every(s => s.sets.every((x, i, a) => !i || order.indexOf(a[i - 1].school) < order.indexOf(x.school) || (a[i - 1].school === x.school && a[i - 1].no <= x.no)));
     /* 행의 기대값: 분류 묶음(ai)은 난이도 별·분야 넘버링, 교재 묶음은 학교 약칭·문제 번호. 상세 이름은 MOCK_DB의 name */
     const rowOf = x => Array.isArray(x.field) ? { id: x.id, yr: "★".repeat(x.level) + "☆".repeat(5 - x.level), aria: "난이도 " + x.level + "/5", nm: x.field.join("·") + " " + x.code }
       : { id: x.id, yr: short(x.school), aria: null, nm: "문제 " + x.no };
-    const ai = M.series.find(s => s.id === "ai"), book = M.series.find(s => s.id !== "ai" && s.sets.length);
+    const ai = M.series.find(s => s.id === "ai"), book = M.series.find(s => s.id !== "ai" && s.sets.length), aiSets = ai ? [...ai.sets].sort(byField) : [];
     return { tabs: M.series.map(s => s.name), src: src ? src.id : "", ids: src ? src.sets.map(x => x.id) : [], ordered,
-      ai: ai ? { rows: ai.sets.map(rowOf), names: ai.sets.map(x => x.name), want: ai.sets.map(x => short(x.school) + " " + x.field.join("·") + " " + x.code) } : null,
+      lastId: aiSets.length ? aiSets[aiSets.length - 1].id : src ? src.sets[src.sets.length - 1].id : "",   // 아주 크게 화면 확인: AI 묶음 마지막 행(별이 보이는 목록)
+      ai: ai ? { rows: aiSets.map(rowOf), names: aiSets.map(x => x.name), want: aiSets.map(x => short(x.school) + " " + x.field.join("·") + " " + x.code),
+        order: { field: aiSets.map(x => x.id), levelDesc: [...ai.sets].sort(byLevel(-1)).map(x => x.id), levelAsc: [...ai.sets].sort(byLevel(1)).map(x => x.id) },
+        heads: aiSets.map(x => x.field[0]).filter((x, i, a) => !i || a[i - 1] !== x) } : null,
       book: book ? { id: book.id, row: rowOf(book.sets[0]), name: book.sets[0].name } : null };
   });
   const tabNames = await page.$$eval(".schooltabs [data-src]", b => b.map(x => x.firstChild.textContent));
@@ -800,12 +808,31 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     await page.click(`.dbside [data-set="${last.id}"]`); await sleep(150);
     const head = await headOf();
     check(mk.ai.names[i] === mk.ai.want[i] && head.h1 === mk.ai.want[i] && head.lv === last.aria + " " + last.yr, `${last.id}: 상세 이름 '${head.h1}', 머리 ${head.lv}`);
+    /* 정렬: 기본 분야별(분야 머리), 난이도 높은순·낮은순(머리 없음), 바꿔도 고른 문제·해시 유지, 설정 저장 → 새로 열어도 유지 */
+    const sortState = () => page.evaluate(() => ({ order: [...document.querySelectorAll(".dbside [data-set]")].map(x => x.dataset.set),
+      pressed: [...document.querySelectorAll(".dbtools [data-sort]")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => b.dataset.sort).join(),
+      heads: [...document.querySelectorAll(".dbside .setyear")].map(h => h.textContent), hash: location.hash,
+      sel: [...document.querySelectorAll(".dbside .setrow[aria-pressed='true']")].map(x => x.dataset.set).join(),
+      saved: JSON.parse(localStorage.getItem("snu-iv-settings-v1") || "{}").mockSort || "" }));
+    const sortBy = async k => { await page.evaluate(() => { window.scrollTo(0, 0); document.querySelector(".dbside").scrollTop = 0; }); await page.click(`.dbtools [data-sort="${k}"]`); await sleep(150); return sortState(); };
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    let ss = await sortState();
+    check(same(ss.order, mk.ai.order.field) && ss.pressed === "field" && same(ss.heads, mk.ai.heads), `AI 정렬 기본 분야별(머리 ${ss.heads.join(" · ")})`);
+    for (const k of ["levelDesc", "levelAsc"]) {
+      ss = await sortBy(k);
+      check(same(ss.order, mk.ai.order[k]) && ss.pressed === k && !ss.heads.length && ss.saved === k && ss.sel === last.id && ss.hash === "#" + last.id, `AI 정렬 ${k}: 순서·눌림·설정 저장, 고른 문제·해시 유지`);
+    }
+    await fresh("mock.html#" + last.id); ss = await sortState();
+    check(same(ss.order, mk.ai.order.levelAsc) && ss.pressed === "levelAsc" && ss.sel === last.id, "AI 정렬: 다시 열어도 설정 유지");
+    ss = await sortBy("field");
+    check(same(ss.order, mk.ai.order.field) && ss.saved === "field", "AI 정렬 분야별로 되돌림");
   } else check(await page.$(".empty-school") && (await page.evaluate(() => location.hash)) === "#ai", "AI 모의고사: 문제 없음 한 줄(#ai)");
   const toTab = async id => { await page.evaluate(() => window.scrollTo(0, 0)); await page.click(`.schooltabs [data-src="${id}"]`); await sleep(150); };   // 아래 행을 누른 뒤면 탭이 앱바 밑에 있다
   if (mk.book) {   // 교재 묶음은 그대로: 학교 약칭·문제 번호, 이름 '서울대 184', 머리에 별 없음
     await toTab(mk.book.id);
     const got = (await rowsOf())[0], head = await headOf();
     check(JSON.stringify(got) === JSON.stringify(mk.book.row) && head.h1 === mk.book.name && !head.lv && head.eyebrow.endsWith(mk.book.row.nm), `교재 묶음 행·상세 그대로(${got.yr} ${got.nm}, ${head.h1})`);
+    check(!(await page.$(".dbtools [data-sort]")) && !(await page.$(".dbside .setyear")), "교재 묶음: 정렬 버튼·분야 머리 없음");
   }
   if (mk.src) {
     await toTab(mk.src);
@@ -913,12 +940,12 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
       await goto("practice.html?set=snu-2023-A");
       await page.click('[data-mode="timed"]');
       check(await noOverflow(), `모의면접 옵션 ${width}px ${theme} 아주 크게`);
-      await goto("mock.html" + (mk.ids.length ? "#" + mk.ids[mk.ids.length - 1] : ""));
-      check(await noOverflow() && await page.$eval(".schooltabs", el => el.scrollWidth <= el.clientWidth), `모의고사 ${width}px ${theme} 아주 크게`);
+      await goto("mock.html" + (mk.lastId ? "#" + mk.lastId : ""));
+      check(await noOverflow() && await page.$eval(".schooltabs", el => el.scrollWidth <= el.clientWidth) && !(await page.$$eval(".dbtools, .dbtools .row", els => els.some(el => el.scrollWidth > el.clientWidth))), `모의고사 ${width}px ${theme} 아주 크게(탭·도구 줄)`);
       const lvFits = await page.$$eval(".setrow .yr.lv", els => els.every(el => el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().height < parseFloat(getComputedStyle(el).lineHeight) * 1.5));
       check(lvFits, `모의고사 난이도 별 한 줄 ${width}px ${theme} 아주 크게`);
       await shot(`mock-${width}-${theme}-xl`, width, 900);
-      if (mk.ids.length) { await page.$eval(".dbmain", el => el.scrollIntoView({ block: "start" })); await shot(`mock-detail-${width}-${theme}-xl`, width, 900); }
+      if (mk.lastId) { await page.$eval(".dbmain", el => el.scrollIntoView({ block: "start" })); await shot(`mock-detail-${width}-${theme}-xl`, width, 900); }
     }
   }
 
