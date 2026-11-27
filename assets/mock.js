@@ -29,7 +29,7 @@
   /* 정렬(분류 묶음만, 설정 mockSort). 분야 순서는 docs/MOCK_CLASSIFY.md·tools/validate-data.js MOCK_FIELDS와 같다.
      분야별: 첫 분야 순 → 단일 분야가 병기보다 앞 → 넘버링 순. 난이도: level 순 → 같으면 분야별 순서(level 없는 문제는 뒤) */
   const FIELDS = ["법학", "인문", "사회", "경제", "과학기술"];
-  const SORTS = [["field", "분야별", ""], ["levelDesc", "난이도 ↓", "난이도 높은순"], ["levelAsc", "난이도 ↑", "난이도 낮은순"]];
+  const SORTS = [["field", "분야별", ""], ["levelDesc", "난이도 높은순", ""], ["levelAsc", "난이도 낮은순", ""]];
   const sortable = src => src.sets.some(x => Array.isArray(x.field));
   const sortKey = () => SORTS.some(s => s[0] === S().mockSort) ? S().mockSort : "field";
   const fieldRank = x => { const i = FIELDS.indexOf((x.field || [])[0]); return i < 0 ? FIELDS.length : i; };
