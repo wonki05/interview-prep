@@ -5,6 +5,8 @@
    · AI 호출마다 제시문 전문과 복기 질문 전체가 입력에 들어간다(assets/ai.js setContext). '보내는 입력 보기'로 확인.
    · 예시답변·제시문 해설은 [다시 생성]마다 결과가 쌓인다(n차, 결과마다 접기·삭제). 저장은 assets/db-study.js.
    · 녹음본 피드백: 녹음(OpenAI 전사)·문답 텍스트를 올리면 AI 면접관 바의 모델이 제시문에 비추어 평가한다(문제 분석·답변 평가·개선 방안·추천 도서, 결과 누적).
+   · 모의고사 화면(body[data-page="mock"])에서도 읽는다: 자리 탭·목록·머리는 assets/mock.js(window.MockPage)가 그리고,
+     상세의 나머지(AI 바·제시문·해설·녹음본 피드백·문항·추가질문 문답)는 여기 것을 쓴다(window.DBDetail). 저장소는 같고 키는 문제 id.
    ============================================================ */
 (function () {
   "use strict";
@@ -14,6 +16,7 @@
   const Study = window.DBStudy;
   const app = $("#app");
   const TKEY = "snu-db-threads-v1";
+  const MOCK = document.body.dataset.page === "mock";   // 모의고사 화면: 화면 틀·고른 문제는 MockPage가 정한다
 
   /* ---------- 문답 저장 ---------- */
   let threads = {};
@@ -26,12 +29,12 @@
   /* ---------- 상태 ---------- */
   const params = new URLSearchParams(location.search);
   const st = { schoolId: "snu", setId: "", open: {}, ai: { provider: S().provider, model: "" }, explanationAi: {} };
-  {
+  if (!MOCK) {
     const want = (location.hash || "").slice(1) || params.get("set") || S().lastSet;
-    const cs = db.set(want) || db.set("snu-" + want) || db.school("snu").sets[0];
+    const cs = (!db.isMock(want) && db.set(want)) || db.set("snu-" + want) || db.school("snu").sets[0];   // 기출DB는 모의고사 id를 열지 않는다
     st.setId = cs.id; st.schoolId = cs.school;
   }
-  const set = () => db.set(st.setId);
+  const set = () => MOCK ? (window.MockPage ? db.set(window.MockPage.current()) : null) : db.set(st.setId);
   const school = () => db.school(st.schoolId);
   const sessionAi = () => ({ provider: st.ai.provider, model: st.ai.model || undefined, effort: st.ai.effort });
   const sortedSets = sc => [...sc.sets].sort((a, b) => (S().dbSort === "oldest" ? a.year - b.year : b.year - a.year) || a.id.localeCompare(b.id));
@@ -61,14 +64,17 @@
     if (!states.has(key)) states.set(key, { open: false, busy: false, error: "", needsKey: false, warn: "", runs: null });
     return states.get(key);
   }
-  const studyIsCurrent = cs => st.schoolId === cs.school && Study.identity(set()) === Study.identity(cs);
+  const studyIsCurrent = cs => { const cur = set(); return !!cur && (MOCK || st.schoolId === cs.school) && Study.identity(cur) === Study.identity(cs); };
 
   /* ---------- 화면 ---------- */
+  /* 다시 그릴 때 같은 세트·복기본이면 작성 중인 답변을 지킨다(keepDrafts → innerHTML → mountDetail). 모의고사 화면도 이 순서로 부른다. */
   let renderedSetKey = "";
+  const detailKey = cs => cs ? cs.id + "/" + cs.variant : "";
+  function keepDrafts(cs) { const key = detailKey(cs); return key && key === renderedSetKey ? $$(".thread textarea", app).map(ta => [ta.id, ta.value]) : []; }
   function render() {
-    const sc = school(), cs = set();
-    const setKey = cs && cs.school === st.schoolId ? cs.id + "/" + cs.variant : "";
-    const drafts = setKey && setKey === renderedSetKey ? $$(".thread textarea", app).map(ta => [ta.id, ta.value]) : [];
+    if (MOCK) { if (window.MockPage) window.MockPage.render(); return; }
+    const sc = school(), cs = set(), shown = cs && cs.school === st.schoolId ? cs : null;
+    const drafts = keepDrafts(shown);
     app.innerHTML = `
       <section class="sec" style="gap:6px">
         <div class="eyebrow">기출DB</div>
@@ -88,12 +94,17 @@
             : `<div class="empty-school"><b>${esc(sc.name)} — 복기 추가 예정</b></div>`}
           ${sc.format ? `<details class="fold"><summary>${esc(sc.short)} 면접 진행 방식 · ${sc.format.year}학년도 복기</summary><div class="fold-b"><div class="row">${sc.format.basics.map(b => `<span class="chip">${esc(b)}</span>`).join("")}</div><dl class="kv" style="grid-template-columns:minmax(0,1fr);gap:2px 0;font-size:.88rem">${sc.format.details.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="margin-bottom:10px;color:var(--ink-2)">${esc(v)}</dd>`).join("")}</dl></div></details>` : ""}
         </aside>
-        <div class="dbmain" id="main">${cs && cs.school === st.schoolId ? setDetail(cs) : `<p class="callout">${esc(sc.name)} 세트 없음</p>`}</div>
+        <div class="dbmain" id="main">${shown ? setDetail(shown) : `<p class="callout">${esc(sc.name)} 세트 없음</p>`}</div>
       </div>`;
-    renderedSetKey = setKey;
-    drafts.forEach(([id, value]) => { const ta = document.getElementById(id); if (ta) ta.value = value; });
-    if (cs && cs.school === st.schoolId && studyState(cs).explanation.open) loadStudyBooks(cs);
-    if (cs && cs.school === st.schoolId && recState(cs).open) { loadRecordingBooks(cs); syncRunDeletes(cs); }
+    mountDetail(shown, drafts);
+  }
+  /* 상세를 그린 뒤: 답변 초안 되돌리기, 열린 해설·녹음본 피드백의 서가 읽기, AI 바의 모델·effort 연결. */
+  function mountDetail(cs, drafts) {
+    renderedSetKey = detailKey(cs);
+    (drafts || []).forEach(([id, value]) => { const ta = document.getElementById(id); if (ta) ta.value = value; });
+    if (!cs) return;
+    if (studyState(cs).explanation.open) loadStudyBooks(cs);
+    if (recState(cs).open) { loadRecordingBooks(cs); syncRunDeletes(cs); }
     const interviewerBar = $("#dbInterviewerAi", app), explanationBar = $("#dbExplanationAi", app);
     if (interviewerBar) {
       models.bind(interviewerBar, id => { st.ai.model = id; st.ai.effort = models.normalizeEffort(st.ai.provider, id, st.ai.effort || S()[st.ai.provider + "Effort"]); render(); });
@@ -114,13 +125,7 @@
   function setDetail(cs) {
     const ai = AI.resolve(sessionAi()), explanationAi = Study.resolveAi(st.explanationAi);
     return `
-      <div class="sethead">
-        <div class="eyebrow">${esc(school().name)} · ${cs.year}학년도 · ${esc(cs.session)} · ${esc(cs.track)}</div>
-        <h2 class="h1">${esc(cs.name)}</h2>
-        <div class="row dbtheme" aria-hidden="${!!S().dbHideThemes}">${cs.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
-        <div class="row"><span class="small" style="font-weight:600">복기본</span><div class="seg" role="group" data-vseg="variant">${db.variantButtons(cs)}</div><span class="small muted">${esc(cs.variantLabel)}${cs.source && cs.source.pages ? ` · p.${esc(cs.source.pages)}` : ""}</span></div>
-        <div class="row"><a class="btn primary" href="practice.html?set=${esc(cs.id)}">이 세트로 모의면접</a><span class="small muted">제시문 ${cs.passages.length} · 복기 질문 ${db.count(cs)}${db.treeUsable(cs) ? " · 결정 트리" : ""}</span></div>
-      </div>
+      ${cs.mock ? window.MockPage.head(cs) : setHead(cs)}
       <div class="aibar" id="dbInterviewerAi" role="group" aria-label="AI 면접관">
         <span class="small" style="font-weight:600">AI 면접관</span>
         <div class="seg" data-aiseg="provider"><button type="button" data-v="anthropic" aria-pressed="${ai.provider === "anthropic"}">Claude</button><button type="button" data-v="openai" aria-pressed="${ai.provider === "openai"}">ChatGPT</button></div>
@@ -139,15 +144,29 @@
       ${explanationHtml(cs)}
       ${recordingHtml(cs)}
       <section class="sec" style="gap:18px">
-        <div class="sec-head"><h2 class="h2">복기 추가질문</h2></div>
-        ${groups(cs).map(g => `<div class="qgroup"><h3>${esc(g.label)} · ${g.items.length}</h3>${g.items.map((q, i) => qRow(cs, g.key + "-" + (i + 1), i + 1, q)).join("")}</div>`).join("")}
+        <div class="sec-head"><h2 class="h2">${cs.mock ? "문항 · 추가질문" : "복기 추가질문"}</h2></div>
+        ${groups(cs).map(g => `<div class="qgroup"><h3>${esc(g.label)} · ${g.items.length}</h3>${g.items.map((q, i) => qRow(cs, g.key + "-" + (i + 1), g.start + i + 1, q)).join("")}</div>`).join("")}
       </section>`;
   }
-  /* 질문 묶음과 문답 키. 키는 task-<n>(문제지 문항) / <student>-<n> / common-<label>-<n>, kim 외 변형은 "<variant>/" 접두사(docs/DATA.md §4). */
+  /* 기출 세트의 머리: 학교·학년도·세션, 주제, 복기본, 모의면접 바로가기. 모의고사는 MockPage.head(별·분야 라벨·진행 조건). */
+  function setHead(cs) {
+    return `<div class="sethead">
+        <div class="eyebrow">${esc(school().name)} · ${cs.year}학년도 · ${esc(cs.session)} · ${esc(cs.track)}</div>
+        <h2 class="h1">${esc(cs.name)}</h2>
+        <div class="row dbtheme" aria-hidden="${!!S().dbHideThemes}">${cs.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+        <div class="row"><span class="small" style="font-weight:600">복기본</span><div class="seg" role="group" data-vseg="variant">${db.variantButtons(cs)}</div><span class="small muted">${esc(cs.variantLabel)}${cs.source && cs.source.pages ? ` · p.${esc(cs.source.pages)}` : ""}</span></div>
+        <div class="row"><a class="btn primary" href="practice.html?set=${esc(cs.id)}">이 세트로 모의면접</a><span class="small muted">제시문 ${cs.passages.length} · 복기 질문 ${db.count(cs)}${db.treeUsable(cs) ? " · 결정 트리" : ""}</span></div>
+      </div>`;
+  }
+  /* 질문 묶음과 문답 키. 키는 task-<n>(문제지 문항) / <student>-<n> / common-<label>-<n>, kim 외 변형은 "<variant>/" 접두사(docs/DATA.md §4).
+     start: 화면 번호의 시작. 모의고사의 추가질문은 책처럼 문항 뒤로 이어 번호를 매긴다(키는 묶음 안 순번 그대로). */
   function groups(cs) {
     const kp = db.keyPrefix(cs);
-    const tasks = (cs.tasks || []).length ? [{ label: "문제", key: kp + "task", items: cs.tasks.map(t => `${AI.taskHead(t)}. ${t.text}`) }] : [];
-    return [...tasks, ...cs.followups.map(f => ({ label: f.label, key: kp + f.student, items: f.items })), ...(cs.common || []).map(c => ({ label: c.label, key: kp + "common-" + c.label, items: c.items }))];
+    const tasks = (cs.tasks || []).length ? [{ label: "문제", key: kp + "task", items: cs.tasks.map(t => `${AI.taskHead(t)}. ${t.text}`), start: 0 }] : [];
+    let n = cs.mock ? (cs.tasks || []).length : 0;
+    const rest = [...cs.followups.map(f => ({ label: f.label, key: kp + f.student, items: f.items })), ...(cs.common || []).map(c => ({ label: c.label, key: kp + "common-" + c.label, items: c.items }))]
+      .map(g => { const out = Object.assign(g, { start: cs.mock ? n : 0 }); n += g.items.length; return out; });
+    return [...tasks, ...rest];
   }
   function passagesHtml(cs) {
     return `<div class="papers"><div class="instr">${esc(cs.instruction)}${(cs.tasks || []).length ? `<ol class="tasks">${cs.tasks.map(t => `<li><b>${esc(AI.taskHead(t))}.</b> ${esc(t.text)}</li>`).join("")}</ol>` : ""}</div>${cs.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(x => x.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
@@ -639,7 +658,7 @@
   function runMarkdown(cs, run) {
     const d = run.data, byNo = (a, b) => a.no - b.no, shelf = recState(cs).books || [], quote = text => text.split("\n").map(line => "> " + line).join("\n");
     const bullets = items => items.length ? items.map(x => "- " + x).join("\n") : "- 없음";
-    const out = [`# ${db.label(cs)} 녹음본 피드백`, "", `- 복기본: ${cs.variantLabel}`, `- 평가: ${run.model} · ${models.effortLabel(run.effort)} · ${new Date(run.at).toLocaleString("ko-KR")}`];
+    const out = [`# ${db.label(cs)} 녹음본 피드백`, "", ...(cs.mock ? [] : [`- 복기본: ${cs.variantLabel}`]), `- 평가: ${run.model} · ${models.effortLabel(run.effort)} · ${new Date(run.at).toLocaleString("ko-KR")}`];
     if (run.files.length) out.push(`- 파일: ${run.files.map(fileText).join(" / ")}`);
     out.push("", "## 문제 분석", "", d.analysis.overview, "", ...d.analysis.passages.slice().sort(byNo).flatMap(p => { const passage = cs.passages.find(x => x.no === p.no); return [`### ${passage ? AI.passageHead(passage) : "제시문 " + p.no}`, "", p.summary, "", bullets(p.keyPoints), ""]; }), "### 문제의 요구", "", bullets(d.analysis.demands));
     out.push("", "## 답변 평가", "", d.evaluation.summary, "", "### 잘한 점", "", bullets(d.evaluation.strengths), "", "### 부족한 점", "", bullets(d.evaluation.gaps));
@@ -707,7 +726,7 @@
   }
   function rerenderRow(key) {
     const cs = set(), row = $("#q-" + cssEscape(key)); if (!row) { render(); return; }
-    for (const g of groups(cs)) for (let i = 0; i < g.items.length; i++) if (g.key + "-" + (i + 1) === key) { row.outerHTML = qRow(cs, key, i + 1, g.items[i]); return; }
+    for (const g of groups(cs)) for (let i = 0; i < g.items.length; i++) if (g.key + "-" + (i + 1) === key) { row.outerHTML = qRow(cs, key, g.start + i + 1, g.items[i]); return; }
   }
   const cssEscape = s => (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/([^\w-])/g, "\\$1");
 
@@ -730,19 +749,24 @@
     const recAsk = t.closest("[data-rec-ask]"); if (recAsk) { await askRecording(cs, Number(recAsk.dataset.recAsk)); return; }
     const recAskClear = t.closest("[data-rec-ask-clear]"); if (recAskClear) { clearAsk(cs, Number(recAskClear.dataset.recAskClear)); return; }
     const runDel = t.closest("[data-run-del]"); if (runDel) { removeRun(cs, runDel); return; }
+    const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; st.ai.effort = undefined; render(); return; }
+    const explanationSeg = t.closest("[data-explanationseg] button"); if (explanationSeg) { st.explanationAi = { provider: explanationSeg.dataset.v }; render(); return; }
+    if (t.closest("#openSettingsLink")) { window.SNU.openSettings(); return; }
+    if (MOCK) { if (cs) threadClick(t, cs); return; }   // 자리 탭·목록·주제 가림·정렬은 MockPage가 받는다
     const themeToggle = t.closest("#toggleThemes"); if (themeToggle) { saveView({ dbHideThemes: !S().dbHideThemes }, "toggleThemes"); return; }
     const sortToggle = t.closest("#sortSets"); if (sortToggle) { saveView({ dbSort: S().dbSort === "oldest" ? "newest" : "oldest" }, "sortSets"); return; }
     const sch = t.closest("[data-school]"); if (sch) { st.schoolId = sch.dataset.school; const s = school(); if (s.sets.length && (!cs || cs.school !== s.id)) { st.setId = s.sets[0].id; history.replaceState(null, "", "#" + st.setId); } save({ lastSchool: st.schoolId }); return; }   // save → settings:change → render
     const sb = t.closest("[data-set]"); if (sb) { st.setId = sb.dataset.set; st.open = {}; history.replaceState(null, "", "#" + st.setId); save({ lastSet: st.setId }); return; }
-    const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; st.ai.effort = undefined; render(); return; }
-    const explanationSeg = t.closest("[data-explanationseg] button"); if (explanationSeg) { st.explanationAi = { provider: explanationSeg.dataset.v }; render(); return; }
     const vseg = t.closest("[data-vseg] button"); if (vseg) { st.open = {}; save({ variant: vseg.dataset.v }); return; }   // save → settings:change → render
-    if (t.closest("#openSettingsLink")) { window.SNU.openSettings(); return; }
+    if (cs) threadClick(t, cs);
+  });
+  /* 질문 줄: 펼치기, 기록만 남기기, 기록 지우기, AI 면접관에게 보내기 */
+  async function threadClick(t, cs) {
     const tg = t.closest("[data-toggle]"); if (tg) { const k = tg.dataset.toggle; st.open[k] = !st.open[k]; rerenderRow(k); if (st.open[k]) { const ta = $("#ta-" + cssEscape(k)); if (ta) ta.focus(); } return; }
     const keep = t.closest("[data-keep]"); if (keep) { const k = keep.dataset.keep, state = answerState(cs, k); if (state.busy) return; const ta = $("#ta-" + cssEscape(k)), text = (ta && ta.value || "").trim(); if (!text) { state.error = "답변이 비어 있다."; rerenderRow(k); return; } state.error = ""; setThread(cs.id, k, [...thread(cs.id, k), { role: "user", text, at: Date.now() }]); rerenderRow(k); return; }
     const clear = t.closest("[data-clear]"); if (clear) { const k = clear.dataset.clear, state = answerState(cs, k); if (state.busy) return; if (confirm("이 질문의 문답 기록을 지울까?")) { setThread(cs.id, k, []); state.error = ""; rerenderRow(k); } return; }
     const send = t.closest("[data-send]"); if (send) { await sendAnswer(cs, send.dataset.send); return; }
-  });
+  }
   /* 결과 블록을 펼치고 접은 상태를 기억해 다시 그려도 유지한다(toggle은 버블링하지 않아 capture로 받는다). */
   app.addEventListener("toggle", e => {
     const run = e.target;
@@ -769,8 +793,10 @@
     if (t.id === "recText") { recState(cs).text = t.value; syncRecording(cs); return; }
     if (/^rq-\d+$/.test(t.id)) { const at = Number(t.id.slice(3)); askState(cs, at).draft = t.value; syncAsk(cs, at); }
   });
-  document.addEventListener("settings:change", render);
-  window.addEventListener("hashchange", () => { const cs = db.set(location.hash.slice(1)); if (cs && cs.id !== st.setId) { st.setId = cs.id; st.schoolId = cs.school; st.open = {}; render(); } });
+  if (!MOCK) {   // 모의고사 화면은 MockPage가 설정 변경·해시를 받아 다시 그린다
+    document.addEventListener("settings:change", render);
+    window.addEventListener("hashchange", () => { const cs = db.set(location.hash.slice(1)); if (cs && !cs.mock && cs.id !== st.setId) { st.setId = cs.id; st.schoolId = cs.school; st.open = {}; render(); } });
+  }
 
   /* 표시 설정만 바꿀 때는 작성 중인 답변과 키보드 초점을 유지한다. */
   function saveView(patch, focusId) {
@@ -800,5 +826,7 @@
     return null;
   }
 
-  render();
+  /* 모의고사 화면(assets/mock.js)이 쓰는 상세: html(세트) → keep(세트)로 초안을 받아 두고 다시 그린 뒤 mount(세트, 초안). opened: 다른 문제를 열 때 펼친 질문을 접는다. */
+  window.DBDetail = { html: setDetail, keep: keepDrafts, mount: mountDetail, opened() { st.open = {}; } };
+  if (!MOCK) render();
 })();

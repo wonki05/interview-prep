@@ -840,29 +840,102 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
     check(mk.ordered && JSON.stringify(rows) === JSON.stringify(mk.ids), `목록 ${rows.length}행, 학교 순서로 이어짐`);
     const lastMock = mk.ids[mk.ids.length - 1];
     await page.click(`.dbside [data-set="${lastMock}"]`); await sleep(150);
+    /* 상세는 기출DB와 같은 모양(P4-9): 지시문 상자에 문항, 제시문 카드, 진행 조건(시간표 띠 + 책의 header 줄) */
     const det = await page.evaluate(id => {
-      const s = window.MOCK_DB.series.flatMap(x => x.sets).find(x => x.id === id), main = document.querySelector(".dbmain");
+      const s = window.MOCK_DB.series.flatMap(x => x.sets).find(x => x.id === id), main = document.querySelector(".dbmain"), instr = main.querySelector(".instr");
       return { hash: location.hash, pressed: !!document.querySelector(`.dbside [data-set="${id}"][aria-pressed="true"]`), np: s.passages.length, nt: s.tasks.length,
         papers: main.querySelectorAll(".paper").length, heads: [...main.querySelectorAll(".paper .ptitle")].map(e => e.textContent).join("|"), want: s.passages.map(p => window.AIClient.passageHead(p)).join("|"),
-        instr: (main.querySelector(".instr") || {}).textContent === s.instruction, header: main.querySelectorAll(".panel .study-list li").length === s.header.length, tasks: main.querySelectorAll('details[data-fold$=":tasks"] .qlist li').length };
+        instr: !!instr && instr.firstChild.textContent === s.instruction && instr.querySelectorAll(".tasks li").length === s.tasks.length,
+        header: main.querySelectorAll('.panel[aria-label="진행 조건"] .study-list li').length === s.header.length && !!main.querySelector('.panel[aria-label="진행 조건"] .tl') };
     }, lastMock);
-    check(det.hash === "#" + lastMock && det.pressed && det.instr && det.header, `${lastMock}: 해시·눌림·지시문·진행 조건`);
+    check(det.hash === "#" + lastMock && det.pressed && det.instr && det.header, `${lastMock}: 해시·눌림·지시문·문항 ${det.nt}·진행 조건`);
     check(det.papers === det.np && det.heads === det.want, `${lastMock}: 제시문 ${det.np}편(${det.want.slice(0, 24)}…)`);
-    check(!(await page.$eval('details[data-fold$=":tasks"]', d => d.open)) && det.tasks === det.nt, `${lastMock}: 문항 ${det.nt}개(처음엔 접힘)`);
-    await page.click('details[data-fold$=":tasks"] > summary'); await page.click("#toggleThemes"); await sleep(200);
-    check(await page.$eval('details[data-fold$=":tasks"]', d => d.open) && await topicsHidden(), "주제 가림(기출DB 설정 공유), 다시 그려도 문항 펼침 유지");
-    await page.click("#toggleThemes");
     await goto("mock.html#" + mk.ids[0]);
     check(await page.$(`.dbside [data-set="${mk.ids[0]}"][aria-pressed="true"]`), "해시로 문제 열기");
     await shot("mock", 1280, 900, true);
-    /* 추가질문: 문항 뒤 접힌 fold, 번호는 문항 뒤로 이어진다 */
-    const fu = await page.evaluate(() => { const s = window.MOCK_DB.series.flatMap(x => x.sets).find(x => (x.followups || []).some(g => g.items.length)); return s && { id: s.id, n: s.followups.reduce((a, g) => a + g.items.length, 0), first: "Q" + (s.tasks.length + 1) }; });
-    if (fu) {
-      await goto("mock.html#" + fu.id);
-      const got = await page.$eval('.dbmain details[data-fold$=":followups"]', d => ({ open: d.open, sum: d.querySelector("summary").textContent, n: d.querySelectorAll(".qlist li").length, first: d.querySelector(".qlist .idx").textContent, afterTasks: !!(d.previousElementSibling && d.previousElementSibling.matches('details[data-fold$=":tasks"]')) }));
-      check(!got.open && got.afterTasks && got.sum.startsWith("추가질문") && got.n === fu.n && got.first === fu.first, `${fu.id}: 추가질문 ${fu.n}개(문항 뒤 접힘, ${fu.first}부터)`);
-    } else console.log("  --   추가질문 있는 모의고사 없음(건너뜀)");
   } else console.log("  --   모의고사 문제 없음(목록·상세 건너뜀)");
+
+  console.log("모의고사 학습 기능·모의면접(P4-9)");
+  /* 기대값은 MOCK_DB에서: pick = 추가질문이 있는 문제(없으면 첫 문제), plain = 질문 수가 가장 적은 문제('질문 전부'를 끝까지) */
+  const mq = await page.evaluate(() => {
+    const all = window.MOCK_DB.series.flatMap(x => x.sets.map(s => Object.assign({ seriesName: x.name }, s))), nf = s => (s.followups || []).reduce((a, g) => a + g.items.length, 0);
+    const pick = all.find(s => nf(s)) || all[0], plain = all.slice().sort((a, b) => (a.tasks.length + nf(a)) - (b.tasks.length + nf(b)))[0];
+    return pick ? { id: pick.id, nt: pick.tasks.length, nf: nf(pick), keynote: pick.format.keynote || 0, prep: pick.format.prep, dur: pick.format.duration, label: pick.seriesName + " · " + pick.name,
+      plain: { id: plain.id, n: plain.tasks.length + nf(plain), label: plain.seriesName + " · " + plain.name } } : null;
+  });
+  const waitText = async (sel, re, ms) => { try { await page.waitForFunction((s, r) => { const el = document.querySelector(s); return !!el && !el.hidden && new RegExp(r).test(el.textContent); }, { timeout: ms || 5000 }, sel, re); return true; } catch (e) { return false; } };
+  if (mq) {
+    await setSettings({ tts: false, answerMode: "text" });
+    await fresh("mock.html#" + mq.id);
+    const md = await page.evaluate(() => {
+      const main = document.querySelector(".dbmain"), go = main.querySelector(".sethead a.btn.primary");
+      return { go: go ? go.getAttribute("href") : "", bars: !!main.querySelector("#dbInterviewerAi") && !!main.querySelector("#dbExplanationAi"), explain: !!main.querySelector("#explainPassages"), rec: !!main.querySelector("#recordingFeedback"),
+        variant: !!main.querySelector("[data-vseg]"), title: main.querySelector(".sec-head .h2").textContent, heads: [...main.querySelectorAll(".qgroup > h3")].map(h => h.textContent),
+        rows: main.querySelectorAll(".qrow").length, examples: main.querySelectorAll(".qrow [data-example]").length, idx: [...main.querySelectorAll(".qrow .qidx")].map(e => e.textContent) };
+    });
+    check(md.go === "practice.html?set=" + mq.id && md.bars && md.explain && md.rec && !md.variant, `${mq.id}: [이 문제로 모의면접]·AI 면접관·AI 면접해설 바·[제시문 해설]·[녹음본 피드백], 복기본 없음`);
+    const wantIdx = Array.from({ length: mq.nt + mq.nf }, (_, i) => "Q" + (i + 1));
+    check(md.title === "문항 · 추가질문" && md.rows === mq.nt + mq.nf && md.examples === md.rows && JSON.stringify(md.idx) === JSON.stringify(wantIdx) && md.heads[0] === "문제 · " + mq.nt && (!mq.nf || md.heads[1] === "추가질문 · " + mq.nf),
+      `${mq.id}: 질문 줄 ${md.rows}개(${md.heads.join(" / ")}), 줄마다 [예시답변], 번호는 문항 뒤로 이어짐`);
+    const k1 = "task-1";
+    await clickVisible(`[data-toggle="${k1}"]`); await sleep(150);
+    const pv = await page.$eval(`#q-${k1} .promptview pre`, el => el.textContent);
+    check(pv.includes("[추가질문 전체 — 출제자가 낸 예상 질문") && pv.includes("실제 기출이 아니다") && !pv.includes("[복기된 실제 추가질문 전체]") && !pv.includes("null학년도"), "모의고사 AI 입력: 출제 표시·예상 질문(복기된 실제 질문이라 부르지 않음)");
+    check(await page.$eval(`[data-send="${k1}"]`, b => b.disabled), "키 없음: [AI 면접관에게 보내기] 꺼짐");
+    await page.type(`#ta-${k1}`, "모의고사 문답 회귀검증");
+    await page.click("#toggleThemes"); await sleep(200);
+    check(await page.$eval(`#ta-${k1}`, t => t.value) === "모의고사 문답 회귀검증" && await topicsHidden(), "주제 가림(기출DB 설정 공유), 다시 그려도 작성 중 답변 유지");
+    await page.click("#toggleThemes"); await sleep(200);
+    await clickVisible(`[data-keep="${k1}"]`); await sleep(150);
+    const kept = await page.evaluate((id, k) => { const t = JSON.parse(localStorage.getItem("snu-db-threads-v1") || "{}"); return (t[id] && t[id][k] || []).map(m => m.text); }, mq.id, k1);
+    check(kept.length === 1 && kept[0] === "모의고사 문답 회귀검증" && await page.$eval(`#q-${k1} .msg.user`, el => el.textContent.includes("모의고사 문답 회귀검증")), "문답 기록: snu-db-threads-v1에 문제 id·task-1 키로 저장");
+    await clickVisible(`[data-example="${k1}"]`);
+    check(await waitText(`#examples-${k1}`, "API 키 없음"), "[예시답변]: 키 없음 안내(호출 없음)");
+    await clickVisible("#explainPassages");
+    check(await waitText("#passageExplanation", "API 키 없음"), "[제시문 해설]: 키 없음 안내(호출 없음)");
+    await clickVisible("#recordingFeedback"); await sleep(200);
+    check(await page.$eval("#recordingPanel", p => !p.hidden) && await page.$("#recText") && await page.$eval("#recReview", b => b.disabled) && await page.$("#recPick"), "[녹음본 피드백]: 파일 선택·문답 칸, 키 없음이면 [피드백 받기] 꺼짐");
+    await shot("mock-study", 1280, 900, true);
+
+    /* 모의고사 상세 → 모의면접 ②, ① 바꾸기에서 모의고사 문제·돌아가는 길, ③ 시간표 = 문제의 진행 조건 */
+    await clickVisible(".dbmain .sethead a.btn.primary"); await page.waitForSelector("#step2.active");
+    check(page.url().endsWith("practice.html?set=" + mq.id), "모의고사 상세 → [이 문제로 모의면접] → ② 모드");
+    await page.click('[data-goto="1"]'); await sleep(150);
+    const p1 = await page.evaluate(id => { const back = document.querySelector('#mockPick + .row a[href^="mock.html"]'); return { row: !!document.querySelector(`#mockPick [data-set="${id}"][aria-pressed="true"]`), back: back ? back.getAttribute("href") : "", tabs: document.querySelectorAll("#schoolTabs [data-school]").length, mixed: !!document.querySelector('#setPick [data-set^="mock-"]'), sum: (document.querySelector("#step1 .sum") || {}).textContent || "" }; }, mq.id);
+    check(p1.row && p1.back === "mock.html#" + mq.id && p1.tabs === 10 && !p1.mixed, "① 모의고사 문제를 맨 위에, 모의고사로 돌아가는 길, 기출 목록에는 섞지 않음");
+    await page.click(`#mockPick [data-set="${mq.id}"]`); await page.waitForSelector("#step2.active");
+    check(await page.$eval("#step1 .sum", el => el.textContent) === mq.label && await page.evaluate(() => JSON.parse(localStorage.getItem("snu-iv-settings-v1") || "{}").lastSet !== undefined ? !/^mock-/.test(JSON.parse(localStorage.getItem("snu-iv-settings-v1")).lastSet) : true), `① 요약 '${mq.label}', 마지막 기출 세트(lastSet)로 남기지 않음`);
+    await page.click('[data-mode="timed"]'); await page.waitForSelector("#step3.active");
+    const p3 = await page.evaluate(() => ({ cap: document.querySelector("#step3 .tl-cap").textContent, keynoteOn: !!document.querySelector('#step3 [data-tmbool="on"]:checked'), variant: !!document.querySelector('#step3 [data-seg="variant"]'), pv: document.querySelector("#pv pre").textContent, start: document.querySelector("#startBtn").textContent }));
+    check(p3.cap.includes(`준비 ${mq.prep}분`) && p3.cap.includes(`면접 ${mq.dur}분`) && (mq.keynote ? p3.keynoteOn && p3.cap.includes(`기조발언 ${mq.keynote}분`) : !p3.keynoteOn) && !p3.variant, `③ 시간표 = 문제의 진행 조건(${p3.cap.replace(/\s+/g, " ").slice(0, 40)})`);
+    check(p3.pv.includes("[면접 세트] 모의고사 · ") && p3.pv.includes("실제 기출이 아니다") && p3.start.endsWith(" — " + mq.label.split(" · ").pop()), "③ AI 입력 미리 보기·시작 버튼(문제 이름만 — 좁은 화면에서 넘치지 않게): 모의고사 문제");
+
+    /* 텍스트 답변으로 끝까지: '질문 전부'(키 없이) → 종료 화면 → 기록 저장 */
+    await fresh("practice.html?set=" + mq.plain.id);
+    await page.click('[data-mode="all"]'); await page.waitForSelector("#startBtn"); await page.click("#startBtn");
+    await page.waitForSelector("#toNext"); await page.click("#toNext"); await page.waitForSelector("#answerText");
+    await shot("mock-session", 1280, 900);
+    for (let i = 0; i < mq.plain.n; i++) { await page.waitForSelector("#answerText"); await page.type("#answerText", "모의고사 답변 " + (i + 1)); await page.click("#nextBtn"); await sleep(200); }
+    check(!!(await page.waitForSelector("#again", { timeout: 5000 }).catch(() => null)), `${mq.plain.id}: 텍스트 답변 ${mq.plain.n}문 끝까지 → 종료 화면`);
+    const fin = await page.evaluate(() => ({ links: [...document.querySelectorAll(".sec .row a")].map(a => a.getAttribute("href")), heads: [...document.querySelectorAll(".sec-head .h2")].map(h => h.textContent), eyebrow: document.querySelector(".sec .eyebrow").textContent }));
+    check(fin.links.includes("mock.html#" + mq.plain.id) && !fin.links.some(h => h.startsWith("db.html")) && fin.heads.includes("이 문제의 질문 전체") && fin.eyebrow.startsWith(mq.plain.label + " · "), "종료 화면: 모의고사에서 보기·이 문제의 질문 전체");
+    await page.waitForSelector("#openRecord:not([disabled])");
+    const ms = await page.evaluate(async id => { const list = await Records.listSessions(); const x = list.find(r => r.id && r.setLabel); const s = x && await Records.getSession(x.id); return s && { id: s.id, setId: s.setId, setLabel: s.setLabel, variant: s.variant, n: s.history.length, ended: !!s.endedAt }; });
+    check(ms && ms.setId === mq.plain.id && ms.setLabel === mq.plain.label && ms.variant === "mock" && ms.n === mq.plain.n && ms.ended, `세션 기록: ${ms && ms.setLabel} · 문답 ${ms && ms.n}`);
+
+    /* 기록 서랍의 모의고사 링크: 모의고사 화면(기출 데이터를 늦게 읽는다)과 홈(모의고사 데이터를 늦게 읽는다) */
+    const recLinks = async () => { await page.click("#openRecords"); await page.waitForSelector(`#recordsDrawer [data-rec="${ms.id}"]`); await page.click(`#recordsDrawer [data-rec="${ms.id}"]`); await page.waitForSelector("#recordsDrawer [data-fb-run]");
+      return page.evaluate(() => ({ links: [...document.querySelectorAll("#recordsDrawer .sethead a.btn")].map(a => a.getAttribute("href")), fb: document.querySelector("#recordsDrawer [data-fb-mount]").textContent, prompt: !!document.querySelector("#recordsDrawer [data-fb-prompt]") })); };
+    const wantLinks = JSON.stringify(["practice.html?set=" + mq.plain.id, "mock.html#" + mq.plain.id]);
+    await fresh("mock.html#" + mq.plain.id);
+    let rl = await recLinks();
+    check(JSON.stringify(rl.links) === wantLinks && rl.prompt && !rl.fb.includes("세트 없음"), "기록 서랍(모의고사 화면): 같은 세트로 모의면접 → practice.html?set=, 보기 → mock.html#, 피드백 입력 준비");
+    await page.click("#rClose");
+    await fresh("index.html");
+    rl = await recLinks();
+    check(JSON.stringify(rl.links) === wantLinks && rl.prompt && !rl.fb.includes("세트 없음") && await page.evaluate(() => !!window.MOCK_DB), "기록 서랍(홈): data/mocks.js를 늦게 읽어 같은 링크·피드백 입력");
+    await page.click("#rClose");
+  } else console.log("  --   모의고사 문제 없음(학습 기능·모의면접 건너뜀)");
 
   console.log("서가");
   await goto("library.html#books");
@@ -940,12 +1013,24 @@ const check = (ok, msg) => { console.log((ok ? "  ok   " : "  FAIL ") + msg); if
       await goto("practice.html?set=snu-2023-A");
       await page.click('[data-mode="timed"]');
       check(await noOverflow(), `모의면접 옵션 ${width}px ${theme} 아주 크게`);
+      if (mq) {   // 모의고사 문제로 모의면접: ①(모의고사 행·돌아가는 길)과 ③ 옵션
+        await fresh("practice.html?set=" + mq.id);
+        await page.click('[data-goto="1"]'); await sleep(150);
+        check(await noOverflow(), `모의면접 ① 모의고사 문제 ${width}px ${theme} 아주 크게`);
+        await shot(`practice-mock-step1-${width}-${theme}-xl`, width, 900);
+        await page.click(`#mockPick [data-set="${mq.id}"]`); await page.waitForSelector("#step2.active"); await page.click('[data-mode="timed"]'); await page.waitForSelector("#step3.active");
+        check(await noOverflow(), `모의면접 옵션(모의고사) ${width}px ${theme} 아주 크게`);
+        await page.$eval("#step3", el => el.scrollIntoView({ block: "start" })); await shot(`practice-mock-opts-${width}-${theme}-xl`, width, 900);
+      }
       await goto("mock.html" + (mk.lastId ? "#" + mk.lastId : ""));
       check(await noOverflow() && await page.$eval(".schooltabs", el => el.scrollWidth <= el.clientWidth) && !(await page.$$eval(".dbtools, .dbtools .row", els => els.some(el => el.scrollWidth > el.clientWidth))), `모의고사 ${width}px ${theme} 아주 크게(탭·도구 줄)`);
       const lvFits = await page.$$eval(".setrow .yr.lv", els => els.every(el => el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().height < parseFloat(getComputedStyle(el).lineHeight) * 1.5));
       check(lvFits, `모의고사 난이도 별 한 줄 ${width}px ${theme} 아주 크게`);
       await shot(`mock-${width}-${theme}-xl`, width, 900);
-      if (mk.lastId) { await page.$eval(".dbmain", el => el.scrollIntoView({ block: "start" })); await shot(`mock-detail-${width}-${theme}-xl`, width, 900); }
+      if (mk.lastId) {
+        await page.$eval(".dbmain", el => el.scrollIntoView({ block: "start" })); await shot(`mock-detail-${width}-${theme}-xl`, width, 900);
+        await page.$eval(".dbmain .qrow", el => el.scrollIntoView({ block: "start" })); await shot(`mock-questions-${width}-${theme}-xl`, width, 900);
+      }
     }
   }
 

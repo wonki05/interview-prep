@@ -399,6 +399,7 @@ ol.qlist, ul.qlist { list-style: none; margin: 0; padding: 0; }
 .dbside .setrow { grid-template-columns: 60px minmax(0, 1fr); padding: 12px 12px 12px 14px; }
 .dbside .setrow .mt { grid-column: 2; text-align: left; flex-direction: row; gap: 10px; flex-wrap: wrap; }
 .setrows.byschool .setrow { grid-template-columns: 4.8rem minmax(0, 1fr); }   /* 모의고사: 연도 자리에 학교 약칭(네 글자까지 한 줄) */
+.setrows.byschool .setrow .mt { grid-column: 2; text-align: left; flex-direction: row; gap: 10px; flex-wrap: wrap; }   /* 목록 열 밖(모의면접 ①의 모의고사 행)에서도 이름 아래 */
 /* 난이도 별 다섯 개(★ 채움 + ☆ 빈칸). 모의고사 AI 묶음의 행(학교 약칭 자리)과 상세 머리. 별 다섯 개가 4.8rem 열 안에 한 줄로 */
 .lv { white-space: nowrap; letter-spacing: .02em; }
 .lv .off { color: var(--ink-3); }

@@ -4,15 +4,17 @@
    · 목록은 학교 순서(MOCK_DB.schools = 서울대 → 고려대 → … → 이화여대)로 이어진다. 기출DB처럼 연도로 묶지 않는다.
      교재 문제의 행은 학교 약칭 · 문제 번호, 분류가 있는 문제(AI 묶음: code·field·level)는 난이도 별 다섯 개 · 분야 넘버링(예: 인문 A).
    · 분류가 있는 묶음만 정렬을 고른다(설정 mockSort): 분야별(기본, 분야 머리) · 난이도 높은순 · 낮은순. 교재 묶음은 학교 순서 그대로.
-   · 상세: 학교·문제 번호(분류가 있으면 난이도 별), 진행 조건(시간표 띠 + 책의 header 줄), 지시문·제시문(펼침), 문항(접힘 — 준비 시간에 문제를 보지 않는 학교가 있다),
-     추가질문(있는 문제만, 접힘 — 기조답변 뒤에 면접관이 묻는다. 번호는 문항 뒤로 이어진다).
+   · 상세 머리(head): 묶음·학교·문제 번호(분류가 있으면 난이도 별), 주제, [이 문제로 모의면접], 진행 조건(시간표 띠 + 책의 header 줄).
+     나머지는 기출DB와 같은 상세(assets/db.js window.DBDetail): AI 바, 지시문·문항·제시문, 제시문 해설, 녹음본 피드백,
+     문항·추가질문(추가질문 번호는 문항 뒤로 이어진다)의 질문별 문답·예시답변. 문제는 SNU.db.set(문제 id)로 푼 세트다.
    · 주제는 기출DB와 같은 주제 가림 설정(dbHideThemes)을 따른다. 해시 #<문제 id>로 문제를, #<자리 id>(예: #ai)로 자리를 연다.
+   · db.js가 쓰는 창구: window.MockPage = { render(), current(), head(세트) }.
    ============================================================ */
 (function () {
   "use strict";
-  const { $, esc, save, timeline } = window.SNU;
+  const { $, esc, save, timeline, db } = window.SNU;
   const S = () => window.SNU.settings;
-  const AI = window.AIClient;
+  const DD = window.DBDetail;   // db.js(mock.js보다 먼저 읽는다)
   const app = $("#app");
   const M = window.MOCK_DB || { schools: [], series: [] };
 
@@ -44,15 +46,13 @@
   const firstSet = src => src.sets.length ? sortedSets(src)[0].id : "";   // 해시 없이 연 자리의 첫 문제 = 보이는 순서의 첫 행
   const stars = (x, cls) => `<span class="${cls ? cls + " " : ""}lv" role="img" aria-label="난이도 ${x.level}/5">${"★".repeat(x.level)}<span class="off">${"☆".repeat(5 - x.level)}</span></span>`;
 
-  /* folds: "<문제 id>:papers|tasks" → 펼침 여부. 주제 가림 등으로 다시 그려도 사용자가 펼치고 접은 상태를 지킨다. */
-  const st = { src: "", setId: "", folds: new Map() };
+  const st = { src: "", setId: "" };
   function fromHash() {
     const h = (location.hash || "").slice(1), hit = h && find(h);
     if (hit) { st.src = hit.src.id; st.setId = hit.set.id; return; }
     const src = (h && source(h)) || sources().find(s => s.sets.length) || M.series[0] || NONE;
     st.src = src.id; st.setId = firstSet(src);
   }
-  const foldOpen = (set, part, dflt) => { const k = set.id + ":" + part; return st.folds.has(k) ? st.folds.get(k) : dflt; };
 
   /* ---------- 화면 ---------- */
   /* 목록 열(.dbside.fit)은 화면보다 길면 안에서 스크롤한다. 다시 그려도 같은 자리의 스크롤을 지키고,
@@ -60,6 +60,7 @@
   let renderedSrc = "";
   function render(focus, reveal) {
     const src = source(st.src) || NONE, hit = st.setId ? find(st.setId) : null, hide = !!S().dbHideThemes;
+    const cs = hit && hit.src === src ? db.set(hit.set.id) : null, drafts = DD.keep(cs);
     const oldSide = $(".dbside", app), sideTop = oldSide && renderedSrc === src.id ? oldSide.scrollTop : 0;
     app.innerHTML = `
       <section class="sec" style="gap:6px">
@@ -75,9 +76,10 @@
           </div>
           <div class="setrows byschool">${rowsHtml(src, hide)}</div>
         </aside>
-        <div class="dbmain" id="main">${hit && hit.src === src ? detail(src, hit.set, hide) : ""}</div>
+        <div class="dbmain" id="main">${cs ? DD.html(cs) : ""}</div>
       </div>` : `<div class="empty-school"><b>${esc(src.name)} — 추가 예정</b></div>`}`;
     renderedSrc = src.id;
+    DD.mount(cs, drafts);
     fitTabs();
     const side = $(".dbside", app);
     if (side) {
@@ -120,32 +122,20 @@
       <span><span class="nm">${esc(label(x))}</span><br><span class="th dbtheme" aria-hidden="${hide}">${esc(x.themes.join(" · "))}</span></span>
       <span class="mt"><span>제시문 ${x.passages.length}</span><span>문항 ${x.tasks.length}</span>${nf ? `<span>추가질문 ${nf}</span>` : ""}<span>준비 ${esc(f.prep)}분</span><span>면접 ${esc(f.duration)}분</span>${f.keynote ? `<span>기조발언 ${esc(f.keynote)}분</span>` : ""}</span></button>`;
   }
-  function detail(src, x, hide) {
-    const f = x.format, nf = followupCount(x), ref = x.source ? [x.source.book, x.source.pages ? "p." + x.source.pages : ""].filter(Boolean).join(" · ") : "";
-    return `
-      <div class="sethead">
-        <div class="eyebrow">${esc(src.name)} · ${esc(school(x.school).name)} · ${rated(x) ? stars(x) : esc(label(x))}</div>
+  /* 상세 머리(db.js setDetail이 부른다). x는 SNU.db가 푼 문제(원본 필드 + seriesName 등). 아래로 AI 바·제시문·문답은 db.js가 잇는다. */
+  function head(x) {
+    const f = x.format, nf = followupCount(x), hide = !!S().dbHideThemes, ref = x.source ? [x.source.book, x.source.pages ? "p." + x.source.pages : ""].filter(Boolean).join(" · ") : "";
+    return `<div class="sethead">
+        <div class="eyebrow">${esc(x.seriesName)} · ${esc(school(x.school).name)} · ${rated(x) ? stars(x) : esc(label(x))}</div>
         <h2 class="h1">${esc(x.name)}</h2>
         <div class="row dbtheme" aria-hidden="${hide}">${x.themes.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
         ${ref ? `<div class="row"><span class="small muted">${esc(ref)}</span></div>` : ""}
+        <div class="row"><a class="btn primary" href="practice.html?set=${esc(x.id)}">이 문제로 모의면접</a><span class="small muted">제시문 ${x.passages.length} · 문항 ${x.tasks.length}${nf ? ` · 추가질문 ${nf}` : ""}</span></div>
       </div>
       <section class="panel tight stack" aria-label="진행 조건">
         ${timeline({ prep: f.prep, wait: 0, interview: f.duration })}
         <ul class="study-list">${(x.header || []).map(h => `<li>${esc(h)}</li>`).join("")}</ul>
-      </section>
-      <details class="fold" data-fold="${esc(x.id)}:papers" ${foldOpen(x, "papers", true) ? "open" : ""}><summary>제시문 ${x.passages.length}편 · 지시문</summary><div class="fold-b">${papersHtml(x)}</div></details>
-      <details class="fold" data-fold="${esc(x.id)}:tasks" ${foldOpen(x, "tasks", false) ? "open" : ""}><summary>문항 ${x.tasks.length}</summary><div class="fold-b"><ol class="qlist">${x.tasks.map((t, i) => `<li><span class="idx">Q${esc(t.label || i + 1)}</span><span>${esc(t.text)}</span><span></span></li>`).join("")}</ol></div></details>
-      ${nf ? `<details class="fold" data-fold="${esc(x.id)}:followups" ${foldOpen(x, "followups", false) ? "open" : ""}><summary>추가질문 ${nf}</summary><div class="fold-b">${followupsHtml(x)}</div></details>` : ""}`;
-  }
-  /* 추가질문(기출 세트와 같은 묶음). 번호는 문항 뒤로 이어진다(책 번호와 같다 — tools/build_mocks.js가 확인). 묶음이 둘 이상이면 묶음 이름을 머리로. */
-  function followupsHtml(x) {
-    const groups = x.followups || [];
-    let n = x.tasks.length;
-    return groups.map(g => `${groups.length > 1 ? `<h3 class="h3">${esc(g.label)}</h3>` : ""}<ol class="qlist">${g.items.map(q => `<li><span class="idx">Q${++n}</span><span>${esc(q)}</span><span></span></li>`).join("")}</ol>`).join("");
-  }
-  /* 지시문 + 제시문 카드(기출DB와 같은 .papers·.paper, 머리는 AIClient.passageHead). 문항은 따로 접는다. */
-  function papersHtml(x) {
-    return `<div class="papers"><div class="instr">${esc(x.instruction)}</div>${x.passages.map(p => `<article class="paper ${p.kind === "dialog" ? "dialog" : ""}"><div class="ptitle">${esc(AI.passageHead(p))}${p.length ? `<span>(${esc(p.length)})</span>` : ""}</div>${p.text.split(/\n{2,}|\n/).filter(par => par.trim()).map(par => `<p>${esc(par)}</p>`).join("")}${p.source ? `<div class="src">${esc(p.source)}</div>` : ""}</article>`).join("")}</div>`;
+      </section>`;
   }
 
   /* ---------- 상호작용(위임) ---------- */
@@ -156,7 +146,7 @@
     if (tab) {
       const src = source(tab.dataset.src);
       if (!src || src.id === st.src) return;
-      st.src = src.id; st.setId = firstSet(src);
+      st.src = src.id; st.setId = firstSet(src); DD.opened();
       history.replaceState(null, "", "#" + (st.setId || src.id));
       render(`[data-src="${src.id}"]`);
       return;
@@ -164,7 +154,7 @@
     const sb = t.closest("[data-set]");
     if (sb) {
       if (sb.dataset.set === st.setId) return;
-      st.setId = sb.dataset.set;
+      st.setId = sb.dataset.set; DD.opened();
       history.replaceState(null, "", "#" + st.setId);
       render(`[data-set="${st.setId}"]`);
       return;
@@ -177,11 +167,11 @@
     }
     if (t.closest("#toggleThemes")) { pendingFocus = "#toggleThemes"; save({ dbHideThemes: !S().dbHideThemes }); }   // save → settings:change → render
   });
-  app.addEventListener("toggle", e => { const d = e.target; if (d.matches && d.matches("details[data-fold]")) st.folds.set(d.dataset.fold, d.open); }, true);   // toggle은 버블링하지 않는다
   document.addEventListener("settings:change", () => { render(pendingFocus); pendingFocus = ""; });
-  window.addEventListener("hashchange", () => { fromHash(); render("", true); });
+  window.addEventListener("hashchange", () => { const before = st.setId; fromHash(); if (st.setId !== before) DD.opened(); render("", true); });
   window.addEventListener("resize", fitTabs);
 
+  window.MockPage = { render: () => render(), current: () => st.setId, head };
   fromHash();
   render("", true);
 })();

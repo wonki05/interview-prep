@@ -36,7 +36,7 @@ VARIANT.followups = [ { student: "A", label: "A학생 추가질문", items: ["�
 VARIANT.common    = [ { label: "공통 질문", items: ["…"] } ]                         // 없으면 []
 ```
 
-- **해석**: 화면·AI는 `SNU.db.set(id, v?)`가 돌려주는 "해석된 세트"를 쓴다. 변형 하나의 `passages/followups/common`이 세트 위에 펼쳐지고 `variant`(실효 변형)·`defaultVariant`·`variantKeys`·`variantLabel`이 붙는다. 고르는 순서: 인자 → URL `?variant=` → 설정 `variant` → 세트 `variant`. 세트에 없는 변형이면 `kim`, 그것도 없으면 첫 변형. `db.schools()/school()/sets()`도 해석된 세트를 돌려준다. 모의면접은 세션 시작 때 변형을 고정한다.
+- **해석**: 화면·AI는 `SNU.db.set(id, v?)`가 돌려주는 "해석된 세트"를 쓴다. 변형 하나의 `passages/followups/common`이 세트 위에 펼쳐지고 `variant`(실효 변형)·`defaultVariant`·`variantKeys`·`variantLabel`이 붙는다. 고르는 순서: 인자 → URL `?variant=` → 설정 `variant` → 세트 `variant`. 세트에 없는 변형이면 `kim`, 그것도 없으면 첫 변형. `db.schools()/school()/sets()`도 해석된 세트를 돌려준다. 모의면접은 세션 시작 때 변형을 고정한다. `db.set("mock-…")`은 모의고사 문제를 같은 모양으로 푼다(§6 '사이트 안의 해석'). `schools()/school()/sets()`에는 모의고사를 섞지 않는다.
 - **복기본의 성격**: `hwang`·`kim`은 교재 복기 원문(규칙 1의 보호 대상). `merged`는 두 복기의 문장만으로 만든 AI 재구성본이며 화면에 "통합(AI)"로 표시한다. `basis`는 통합에 쓴 변형.
 - `label`은 책이 제시문 단위로 매긴 원표기가 숫자가 아닐 때만 둔다(2019 서울대 `(가)`~`(라)`, 2020 서울대 `<사례>`, 다른 학교의 `[A]`·`[사례 1]`·`<에피소드>`). 12자 이하의 짧은 낱말이고, 한 글자 라벨은 가나다…·ABC… 순서다. 한 제시문 안의 하위 소제목(`<제시문 1>` 아래의 `(가)`·`(A)`)은 label이 아니라 본문 문단 머리에 그대로 둔다. `kind: "case"`는 사례 블록(label이 `사례`로 시작). 화면 머리는 `AIClient.passageHead(p)` = `<제시문 n> (가)` / `<사례>`.
 - 학교 순서: 서울대 → 고려대 → 연세대 → 성균관대 → 한양대 → 서강대 → 중앙대 → 경희대 → 한국외대 → 이화여대. 화면의 토글 순서가 이 배열 순서다. 세트는 학교 안에서 연도 내림차순.
@@ -100,8 +100,8 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 |---|---|
 | `localStorage["snu-iv-settings-v1"]` | 설정. 키 이름을 바꾸면 `app.js`에서 마이그레이션(예: 이전 `lastSet: "2023-A"` → `"snu-2023-A"`, `openaiModel: "gpt-5"` → 새 기본값). `variant`(기본 복기본)는 추가된 키라 마이그레이션 없음 |
 | IndexedDB `snu-interview` v2 `recordings`·`sessions` | 녹음(질문별 blob)과 면접 기록(`assets/records.js`, 아래 구조). v1(`recordings`만)을 v2로 열면 `onupgradeneeded`가 `sessions`만 만들고 기존 녹음은 그대로 둔다 |
-| `localStorage["snu-db-threads-v1"]` | 기출DB 문답. 질문 key = `task-<n>`(문제지 문항, 묶음 "문제"), `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
-| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설·녹음본 피드백 결과 목록(생성할 때마다 쌓인다). 문답과 분리, 아래 구조 참조 |
+| `localStorage["snu-db-threads-v1"]` | 기출DB 문답(모의고사 문제의 문답도 같은 저장소, 세트 id 자리에 문제 id `mock-…`, 접두사 없음: `task-1`·`공통-3`). 질문 key = `task-<n>`(문제지 문항, 묶음 "문제"), `<student>-<n>` 또는 `common-<label>-<n>`. `kim` 복기본은 접두사 없음(기존 저장 데이터와 같은 질문), 그 밖의 복기본은 `<variant>/` 접두사(`hwang/A-1`, `merged/공통-3`). 세트 안에서 질문 순서를 바꾸면 key가 틀어지므로 순서 변경 금지(추가는 끝에) |
+| `localStorage["snu-db-study-v1"]` | AI 예시답변·제시문 해설·녹음본 피드백 결과 목록(생성할 때마다 쌓인다). 문답과 분리, 아래 구조 참조. 모의고사 문제의 항목 키는 `["mock-…", "mock"]` |
 | `localStorage["snu-library-progress-v1"]` | 서가 진도 |
 
 학습 캐시(`assets/db-study.js`, 형식 v2):
@@ -133,7 +133,7 @@ effort를 화면에서 바꾸면 `{provider, model, effort}`로 해당 화면의
 ```js
 {
   id: "mw0zrggw",                     // 세션 id(Date.now().toString(36)) = 녹음 레코드의 sessionId
-  setId, variant, school, setLabel, variantLabel,
+  setId, variant, school, setLabel, variantLabel,   // 모의고사 문제: setId "mock-…", variant "mock", setLabel "<묶음 이름> · <이름>", variantLabel ""
   mode: "timed" | "endless" | "all", modeLabel: "1-A 면접시간 AI 면접관", answerMode: "voice" | "text",
   plan: { prep, wait, interview, keynote? },   // 분. interview 0 = 제한 없음. keynote = 기조발언 제한(쓰지 않으면 없음)
   options: { difficulty, variation, flow } | null,    // AI 모드만
@@ -188,6 +188,7 @@ MOCK = {
 - **원본 파일**(`data/mocks/<id>.json`): `{ id, school, no, source, header, format: { prep, duration, keynote, memo }, instruction, themes, tags, passages, tasks, followups, notes }`. `keynote`·`memo`는 `null`일 수 있고 제시문 `label`은 `"가"`·`"A"`·`null`이다. `followups`는 `tasks`와 같은 평평한 배열 `[{ label: "4", text }]`(책 번호 그대로, 문항 뒤로 이어진다)이고 없으면 `[]`(키는 늘 있다). 생성 스크립트는 묶음(`series`)을 id에서 읽고 `name`을 붙이며, `format`의 `null` 값과 `label: null`은 빼고(기출 세트와 같은 모양), 추가질문은 기출 세트와 같은 묶음 하나(`student: "공통"`)로 문장만 싣고, `notes`(옮긴 사람의 메모)는 넣지 않는다.
 - **AI 묶음**(`ai`, 2027 고려대 AI 모의고사): 원본 키 순서는 `id, school, no, code, field, level, source, header, format, instruction, themes, tags, passages, tasks, followups, notes`(교재 형식에 셋이 더해진다). id `mock-ai-korea-<n>`(n = 해제의 세트 번호), `no` = n. `code`는 넘버링 글자 하나(세트 n의 n번째 알파벳: 1 → `"A"`, 9 → `"I"`. 묶음 안에서 유일), `field`는 분야 1~2개(`법학`·`인문`·`사회`·`경제`·`과학기술` 중에서 이 순서로, 중복 없이), `level`은 난이도 정수 0~5(별 개수, 고려대 평균 = 2), `format`은 `{ prep: 14, duration: 11, keynote: 6, memo: true }`. 생성 스크립트가 세 키를 그대로 싣고 이름을 `school.short + " " + field.join("·") + " " + code`(예: `고려대 인문 A`)로 만든다. 화면은 세트 행의 학교 약칭 자리에 난이도 별(`★★★★☆`), 문제 번호 자리에 `인문 A`를 보인다(`SPEC.md` §4). 교재 묶음(`kim`)의 원본·사이트 데이터에는 이 세 키가 없다. 분류 묶음은 `validate-data.js`의 `MOCK_RATED`에 적는다.
 - **문항과 추가질문**: 책이 문항 뒤 '추가질문' 표시 아래에 따로 인쇄한 질문은 `followups`, 그 앞의 `Q1.`…은 `tasks`(§1 규칙 10과 같은 나눔). 화면은 추가질문 번호를 문항 뒤로 이어 붙인다(문항 3개면 `Q4`부터). 원본의 번호가 그와 다르면 `build_mocks.js`가 경고한다.
-- **필드 이름**은 기출 세트와 같다(`passages`·`tasks`·`followups`·`themes`·`tags`·`format`·`instruction`). 나중에 모의면접·AI 기능(질문 은행·`setContext`)에 그대로 넘길 수 있게 하려는 것이다. 복기본 변형(`variants`)과 공통 질문(`common`)은 없다.
+- **필드 이름**은 기출 세트와 같다(`passages`·`tasks`·`followups`·`themes`·`tags`·`format`·`instruction`). 모의면접·AI 기능(질문 은행·`setContext`)에 그대로 넘긴다(P4-9). 복기본 변형(`variants`)과 공통 질문(`common`)은 없다.
+- **사이트 안의 해석**(`assets/app.js` `SNU.db`, `data/mocks.js`를 읽은 화면: 모의고사·모의면접. 기록 서랍은 모의고사 기록을 열 때 늦게 읽는다): `db.set("mock-…")`이 원본 필드 위에 `mock: true`, `seriesId`·`seriesName`·`book`(묶음), `mockLabel`(목록의 `인문 A` 또는 `문제 184`), `common: []`, `variant: "mock"`·`defaultVariant`·`variantKeys: ["mock"]`, 빈 `variantLabel`·`session`·`track`, `year: null`을 붙여 돌려준다. `db.label(set)` = `<묶음 이름> · <이름>`(예: `2027 고려대 AI 모의고사 · 고려대 인문 A`), `db.keyPrefix(set)` = `""`(id가 `mock-`로 시작해 기출 키와 겹치지 않는다), `db.count(set)` = 문항 + 추가질문, `db.isMock(id)`. 원본 `data/mocks.js`는 바꾸지 않는다.
 - **규칙**: 제시문은 원문 그대로(§1 규칙 1과 같다. 문단은 `\n`, 각주·출처는 `source`). 제시문 머리는 `AIClient.passageHead(p)`. `themes`는 제시문 수와 같은 수(다르면 경고). 문항은 하나 이상. 묶음을 더하면 `tools/build_mocks.js`의 `SERIES`에 `{ id, name }`을 한 줄 더한다.
 - **생성·검사**: `node tools/build_mocks.js`(원본 폴더가 없거나 비면 문제 없는 묶음을 만든다. `--in <폴더> --out <파일>`은 다른 폴더·파일로) → `node tools/validate-data.js`. 검사: `schools`가 `INTERVIEW_DB.schools`와 같은 순서·이름, 묶음 id 유일, 문제 id 형식·유일(기출 id 포함)·`series`·`school`·`no`가 id와 일치, `name`, 분류(AI 묶음: `code` 글자 하나·묶음 안에서 유일, `field` 1~2개·목록 안·순서·중복 없음, `level` 0~5 정수 / 교재 묶음: 세 키 없음), 학교 순서 → 번호 순, `source.book`(교재는 쪽 없음이 경고), `header` 줄, `format.prep`·`duration` > 0·`keynote`(0 < keynote < duration)·`memo`(불리언), `instruction`, `tags` 배열, `notes` 없음, 제시문(번호 연속·`kind`·`label`·본문 — 기출과 같은 검사), 문항, 추가질문(배열, 묶음마다 `student`·`label`·빈 문장 없는 `items`, `student` 중복 없음), `themes` 수. 요약은 문제별 제시문/문항/추가질문 수(AI 묶음은 분야 넘버링·별 개수도).

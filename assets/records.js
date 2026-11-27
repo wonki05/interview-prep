@@ -210,8 +210,8 @@
       <div class="stack">${url ? `<a class="btn sm" download="${esc(r.filename)}" href="${url}">내려받기</a>` : ""}<button type="button" class="btn sm ghost" data-rec-del="${esc(r.id)}">삭제</button></div></div>`;
   }
   async function detailView(id) {
-    await ensureDeps().catch(() => null);
     const [s, recs] = await Promise.all([getSession(id), recordingsOf(id)]);
+    await ensureDeps((s && s.setId) || (recs[0] && recs[0].setId)).catch(() => null);
     const top = '<div class="d-top"><button type="button" class="btn ghost sm" id="rBack">목록</button><button type="button" class="btn ghost sm" id="rClose">닫기</button></div>';
     if (!s && !recs.length) return { html: `${top}<p class="small muted" id="rTitle">기록 없음</p>`, urls: [] };
     const first = recs[0] || {}, info = s || { setId: first.setId, setLabel: first.setLabel || first.setId || "", modeLabel: first.modeLabel || "", answerMode: "voice", createdAt: first.createdAt || 0 };
@@ -225,7 +225,8 @@
       memo ? `<span class="chip">메모 ${memo.length}자</span>` : "",
       !s ? '<span class="chip line">녹음만</span>' : !s.endedAt ? '<span class="chip warn">중단</span>' : ""
     ].join("");
-    const links = info.setId ? `<a class="btn sm" href="practice.html?set=${esc(info.setId)}">같은 세트로 모의면접</a><a class="btn sm" href="db.html#${esc(info.setId)}">기출DB에서 보기</a>` : "";
+    const mock = SNU.db.isMock(info.setId);   // 모의고사 문제로 치른 면접: 보기는 모의고사 상세
+    const links = info.setId ? `<a class="btn sm" href="practice.html?set=${esc(info.setId)}">같은 세트로 모의면접</a>${mock ? `<a class="btn sm" href="mock.html#${esc(info.setId)}">모의고사에서 보기</a>` : `<a class="btn sm" href="db.html#${esc(info.setId)}">기출DB에서 보기</a>`}` : "";
     const qa = history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted" style="white-space:pre-line">${esc(String(h.a || "").trim() || "(답변 없음)")}</span></span><span class="small muted">${h.duration ? fmtClock(h.duration) : Number.isFinite(h.elapsed) ? fmtClock(h.elapsed) : String(h.a || "").trim() ? String(h.a).trim().length + "자" : "—"}${h.cut ? " · 끊김" : ""}</span></li>`).join("");   // elapsed·cut: 기조발언 문답(없는 이전 기록은 그대로)
     return { urls: created, html: `${top}
       <div class="sethead">
@@ -261,9 +262,9 @@
     const prefix = "explanation" + provider[0].toUpperCase() + provider.slice(1);
     return { provider, model: s[prefix + "Model"], effort: s[prefix + "Effort"] };
   }
-  /* 기록한 복기본 그대로의 세트. 그 복기본이 없어졌으면 피드백을 만들지 않는다. */
+  /* 기록한 복기본 그대로의 세트. 그 복기본이 없어졌으면 피드백을 만들지 않는다. 모의고사 문제는 MOCK_DB에서 푼다. */
   function setOf(s) {
-    if (!s || !s.setId || !window.INTERVIEW_DB) return null;
+    if (!s || !s.setId || !(SNU.db.isMock(s.setId) ? window.MOCK_DB : window.INTERVIEW_DB)) return null;
     const cs = SNU.db.set(s.setId, s.variant || undefined);
     return cs && (!s.variant || cs.variant === s.variant) ? cs : null;
   }
@@ -284,14 +285,19 @@
       document.head.append(script);
     });
   }
-  /* 홈·서가는 세트 데이터나 AI 클라이언트를 읽지 않는다. 기록 상세를 열 때 상대 경로로 한 번만 불러온다. */
-  function ensureDeps() {
-    if (window.INTERVIEW_DB && window.AIClient) return Promise.resolve();
+  /* 홈·서가는 세트 데이터나 AI 클라이언트를 읽지 않는다(모의고사 화면은 기출 데이터를 읽지 않는다). 기록 상세를 열 때 상대 경로로 한 번만 불러온다.
+     모의고사 데이터(data/mocks.js)는 모의고사 문제의 기록(setId "mock-…")을 열 때만 불러온다. */
+  let mockPromise = null;
+  function ensureDeps(setId) {
+    const needMock = SNU.db.isMock(setId) && !window.MOCK_DB;
+    if (window.INTERVIEW_DB && window.AIClient && !needMock) return Promise.resolve();
     if (!depsPromise) depsPromise = (window.INTERVIEW_DB ? Promise.resolve() : loadScript("data/questions.js"))
       .then(() => window.AIClient ? null : loadScript("assets/ai.js"))
       .catch(error => { depsPromise = null; throw error; });
-    return depsPromise;
+    if (needMock && !mockPromise) mockPromise = loadScript("data/mocks.js").catch(error => { mockPromise = null; throw error; });
+    return Promise.all([depsPromise, needMock ? mockPromise : null]);
   }
+  const sessionSetId = id => getSession(id).then(s => s && s.setId).catch(() => "");
   function mountFeedback(el, id) {
     mounts.forEach(m => { if (!m.el.isConnected) mounts.delete(m); });
     const m = { el, id, uid: ++mountSeq, seq: 0, ready: false };
@@ -300,7 +306,7 @@
     el.innerHTML = '<p class="small muted">불러오는 중…</p>';
     el.addEventListener("click", e => onFeedbackClick(m, e));
     el.addEventListener("toggle", e => onFeedbackToggle(m, e), true);
-    ensureDeps().then(() => { const state = fbState(id); if (!state.choice) state.choice = explanationChoice(); m.ready = true; renderMount(m); }).catch(() => { if (el.isConnected) el.innerHTML = '<p class="callout warn">세트 자료를 읽지 못했다.</p>'; });
+    sessionSetId(id).then(ensureDeps).then(() => { const state = fbState(id); if (!state.choice) state.choice = explanationChoice(); m.ready = true; renderMount(m); }).catch(() => { if (el.isConnected) el.innerHTML = '<p class="callout warn">세트 자료를 읽지 못했다.</p>'; });
     return m;
   }
   async function renderMount(m) {

@@ -301,8 +301,23 @@
   const VARIANT_KEYS = ["merged", "hwang", "kim"];
   const VARIANT_LABEL = { merged: "통합(AI)", hwang: "황변", kim: "김종수" };
   const urlVariant = () => { try { return new URLSearchParams(location.search).get("variant") || ""; } catch (e) { return ""; } };
+  /* 모의고사(data/mocks.js MOCK_DB, docs/DATA.md §6): id가 "mock-"로 시작한다. 읽은 화면에서만 db.set이 기출 해석 세트와 같은 모양으로 푼다.
+     복기본은 하나(variant "mock"), common은 빈 배열, year·session·variantLabel은 비운다(화면은 db.label과 mockSession을 쓴다).
+     기출 목록(schools·school·sets)에는 섞지 않는다. */
+  const isMock = id => /^mock-/.test(String(id || ""));
+  const mockSession = x => x.code ? [(x.field || []).join("·"), x.code].filter(Boolean).join(" ") : "문제 " + x.no;   // 모의고사 목록의 분야 넘버링(인문 A) 또는 문제 번호
+  function mockSet(id) {
+    const series = (window.MOCK_DB && window.MOCK_DB.series) || [];
+    for (const src of series) {
+      const x = src.sets.find(s => s.id === id);
+      if (x) return Object.assign({}, x, { mock: true, seriesId: src.id, seriesName: src.name, book: src.book, mockLabel: mockSession(x), year: null, session: "", track: "", common: [],
+        variant: "mock", defaultVariant: "mock", variantKeys: ["mock"], variantLabel: "" });
+    }
+    return null;
+  }
   const db = {
     raw() { return (window.INTERVIEW_DB && window.INTERVIEW_DB.schools) || []; },
+    isMock, mockSession,
     pick(set, v) {
       const keys = set.variants ? Object.keys(set.variants) : [];
       if (!keys.length) return null;
@@ -319,11 +334,11 @@
     schools(v) { return this.raw().map(sc => Object.assign({}, sc, { sets: sc.sets.map(s => this.resolve(s, v)) })); },
     school(id, v) { return this.schools(v).find(s => s.id === id) || null; },
     sets(v) { return this.schools(v).flatMap(s => s.sets); },
-    set(id, v) { const s = this.raw().flatMap(sc => sc.sets).find(x => x.id === id); return s ? this.resolve(s, v) : null; },
-    label(set) { return `${set.year}학년도 ${set.name}`; },
+    set(id, v) { if (isMock(id)) return mockSet(id); const s = this.raw().flatMap(sc => sc.sets).find(x => x.id === id); return s ? this.resolve(s, v) : null; },
+    label(set) { return set.mock ? `${set.seriesName} · ${set.name}` : `${set.year}학년도 ${set.name}`; },
     count(set) { return (set.tasks || []).length + set.followups.reduce((n, f) => n + f.items.length, 0) + (set.common || []).reduce((n, c) => n + c.items.length, 0); },   // 문제지 문항 포함('복기 질문 전부' 모드가 묻는 수)
     /* 기출DB 문답 키 접두사: kim은 접두사 없음(기존 저장 데이터와 호환), 그 밖은 "<variant>/" */
-    keyPrefix(set) { return set.variant && set.variant !== "kim" ? set.variant + "/" : ""; },
+    keyPrefix(set) { return set.mock ? "" : set.variant && set.variant !== "kim" ? set.variant + "/" : ""; },   // 모의고사: 접두사 없음(id가 기출 키와 겹치지 않는다)
     variantLabel(k) { return VARIANT_LABEL[k] || k; },
     variantKeys: VARIANT_KEYS,
     /* 복기본 seg의 버튼들: 눌림은 실효 변형, 비활성은 세트에 없는 변형. 감싸는 .seg는 호출하는 쪽이 둔다(클릭 위임 속성이 다르다). */

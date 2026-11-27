@@ -120,14 +120,23 @@
   const set = () => db.set(st.setId, st.variant || undefined);
   const mode = () => MODES[st.mode];
   const school = () => db.school(st.schoolId);
+  /* 모의고사 문제(SNU.db가 MOCK_DB에서 푼 세트, cs.mock): 복기본·학년도가 없고 질문은 '복기 질문'이 아니다. */
+  const setLine = cs => [db.label(cs), cs.session, cs.variantLabel].filter(Boolean).join(" · ");
+  const qWord = cs => cs.mock ? "질문" : "복기 질문";
+  const modeText = (k, v, cs) => cs.mock && k === "all" ? { desc: "문항·추가질문을 순서대로 전부 답한다.", feats: v.feats.map(f => f === "복기 질문 전체" ? "질문 전체" : f) } : v;
 
   /* ---------------- 시간표: 설정값 또는 세트 시간표 ----------------
      학교 format.timeline에 keynote가 있는 학교(고려대)는 세트의 책 값(format.prep·duration·keynote, 없으면 학교 값)으로
      시간표를 시작한다. 이 값과 기조발언 제한 스위치는 세션 상태(st.tm)에만 두고 전역 설정은 읽지도 쓰지도 않는다.
      그 세트를 고르고 있는 동안([같은 세트 다시] 포함) 고친 값을 유지하고, 다른 세트를 고르면 그 세트의 기본값으로 돌아간다.
-     그 밖의 학교는 시간표를 설정값으로 정하고, 기조발언 스위치만 세션 상태(기본 꺼짐)다. */
+     그 밖의 학교는 시간표를 설정값으로 정하고, 기조발언 스위치만 세션 상태(기본 꺼짐)다.
+     모의고사 문제는 학교와 관계없이 문제의 진행 조건(format.prep·duration·keynote)으로 시작한다. 기조발언이 있는 문제만 제한이 켜져 시작한다. */
   function setTimeline(cs) {
     const sc = (D.schools || []).find(x => x.id === cs.school), t = sc && sc.format && sc.format.timeline;
+    if (cs.mock) {
+      const f = cs.format || {}, interview = f.duration > 0 ? f.duration : (t && t.interview) || 15;
+      return { mock: true, short: cs.mockLabel, prep: f.prep > 0 ? f.prep : (t && t.prep) || 20, wait: 0, interview, keynote: f.keynote > 0 ? Math.max(1, Math.min(interview - 1, f.keynote)) : 0, basis: 0 };
+    }
     if (!t || !(t.keynote > 0)) return null;
     const f = cs.format || {}, interview = f.duration > 0 ? f.duration : t.interview, own = f.keynote > 0;
     return { short: sc.short, prep: f.prep > 0 ? f.prep : t.prep, wait: t.wait || 0, interview, keynote: Math.max(1, Math.min(interview - 1, own ? f.keynote : t.keynote)), basis: own ? 0 : sc.format.year };   // basis: 그해 값이 책에 없어 쓴 학교 기준 연도
@@ -135,7 +144,7 @@
   function timing() {
     if (st.tm && st.tm.setId === st.setId) return st.tm;
     const base = setTimeline(db.set(st.setId));
-    st.tm = { setId: st.setId, base, on: !!base, keynote: base ? base.keynote : 0 };
+    st.tm = { setId: st.setId, base, on: !!base && base.keynote > 0, keynote: base ? base.keynote : 0 };
     if (base) Object.assign(st.tm, { prep: base.prep, waitOn: base.wait > 0, wait: base.wait || 5, interview: base.interview });
     return st.tm;
   }
@@ -168,12 +177,12 @@
 
       <div class="stepper">
         <section class="step ${stepCls(1)}" id="step1">
-          ${stepHead(1, "세트", cs ? `${esc(db.label(cs))} · ${esc(cs.session)}` : "")}
-          ${st.step === 1 ? `<div class="step-b">${schoolTabs()}${setList()}</div>` : ""}
+          ${stepHead(1, "세트", cs ? esc([db.label(cs), cs.session].filter(Boolean).join(" · ")) : "")}
+          ${st.step === 1 ? `<div class="step-b">${mockPick(cs)}${schoolTabs()}${setList()}</div>` : ""}
         </section>
         <section class="step ${stepCls(2)}" id="step2">
           ${stepHead(2, "모드", `${m.code} ${esc(m.label)}`)}
-          ${st.step === 2 ? `<div class="step-b"><div class="modes" id="modePick">${Object.entries(MODES).map(([k, v]) => `<button type="button" class="mode" data-mode="${k}" aria-pressed="${k === st.mode}"><span class="code">${v.code}</span><span class="t">${esc(v.label)}</span><span class="d">${esc(v.desc)}</span><span class="f">${v.feats.map(f => `<span>${esc(f)}</span>`).join("")}</span></button>`).join("")}</div></div>` : ""}
+          ${st.step === 2 ? `<div class="step-b"><div class="modes" id="modePick">${Object.entries(MODES).map(([k, v]) => { const x = modeText(k, v, cs); return `<button type="button" class="mode" data-mode="${k}" aria-pressed="${k === st.mode}"><span class="code">${v.code}</span><span class="t">${esc(v.label)}</span><span class="d">${esc(x.desc)}</span><span class="f">${x.feats.map(f => `<span>${esc(f)}</span>`).join("")}</span></button>`; }).join("")}</div></div>` : ""}
         </section>
         <section class="step ${stepCls(3)}" id="step3">
           ${stepHead(3, "옵션과 시작", "")}
@@ -187,6 +196,15 @@
       </section>`;
     bindOptions();
     Records.mountList($("#vault"), 5);
+  }
+  /* 지금 세트가 모의고사 문제면(모의고사 상세의 [이 문제로 모의면접]) 그 문제를 맨 위에 두고 모의고사로 돌아가는 길을 둔다. 아래 학교 목록에서 기출 세트로 바꿀 수 있다. */
+  function mockPick(cs) {
+    if (!cs || !cs.mock) return "";
+    return `<div class="setrows byschool" id="mockPick"><button type="button" class="setrow" data-set="${esc(cs.id)}" aria-pressed="true">
+        <span class="yr">${esc((db.school(cs.school) || { short: cs.school }).short)}<small>모의고사</small></span>
+        <span><span class="nm">${esc(cs.name)}</span><br><span class="th">${esc(cs.seriesName)}</span></span>
+        <span class="mt"><span>제시문 ${cs.passages.length}</span><span>질문 ${db.count(cs)}</span><span>준비 ${esc(cs.format.prep)}분</span><span>면접 ${esc(cs.format.duration)}분</span>${cs.format.keynote ? `<span>기조발언 ${esc(cs.format.keynote)}분</span>` : ""}</span></button></div>
+      <div class="row"><a class="btn sm" href="mock.html#${esc(cs.id)}">모의고사</a></div>`;
   }
   function schoolTabs() {
     return `<div class="schooltabs" role="group" aria-label="학교" id="schoolTabs">${db.schools().map(s => `<button type="button" data-school="${s.id}" aria-pressed="${s.id === st.schoolId}" class="${s.id === "snu" ? "main" : ""} ${s.sets.length ? "" : "empty"}">${esc(s.short)}${s.sets.length ? `<span class="n">${s.sets.length}</span>` : ""}</button>`).join("")}</div>`;
@@ -209,7 +227,8 @@
     const plan = currentPlan(), tm = timing(), b = tm.base, kOffer = keynoteOffered();
     const voice = s.answerMode === "voice";
     const minutes = (label, attr, value, on, max) => `<label class="minutes"><span class="small">${label}</span><input class="input sm num" type="number" min="1" max="${max || 60}" ${attr} value="${value}" ${on ? "" : "disabled"}><span class="small muted">분</span></label>`;
-    const capRight = b ? `${esc(b.short)} ${cs.year} 복기 ${b.prep}·${b.interview} · 기조발언 ${b.keynote}${b.basis ? `(${b.basis} 기준)` : ""}`
+    const capRight = b && b.mock ? `${esc(b.short)} 진행 조건 ${b.prep}·${b.interview}${b.keynote ? ` · 기조발언 ${b.keynote}` : ""}`
+      : b ? `${esc(b.short)} ${cs.year} 복기 ${b.prep}·${b.interview} · 기조발언 ${b.keynote}${b.basis ? `(${b.basis} 기준)` : ""}`
       : sc.format ? `${esc(sc.short)} ${sc.format.year} 기준 ${sc.format.timeline.prep}·${sc.format.timeline.wait}·${sc.format.timeline.interview}` : "";
     const preview = /claude\.ai$/.test(location.hostname);
     return `
@@ -222,9 +241,9 @@
         </div>
 
         <div class="opt-group">
-          <div class="opt-title">복기본</div>
-          <div class="field"><span class="lab">제시문·질문</span><div class="seg" data-seg="variant">${db.variantButtons(cs)}</div>${s.variant !== cs.variant ? `<span class="help">${esc(db.variantLabel(s.variant))} 없음 — ${esc(cs.variantLabel)}로 진행된다.</span>` : ""}</div>
-          <div class="row"><span class="chip line">제시문 ${cs.passages.length}</span><span class="chip line">복기 질문 ${db.count(cs)}</span>${cs.source && cs.source.pages ? `<span class="chip line">p.${esc(cs.source.pages)}</span>` : ""}</div>
+          <div class="opt-title">${cs.mock ? "모의고사" : "복기본"}</div>
+          ${cs.mock ? "" : `<div class="field"><span class="lab">제시문·질문</span><div class="seg" data-seg="variant">${db.variantButtons(cs)}</div>${s.variant !== cs.variant ? `<span class="help">${esc(db.variantLabel(s.variant))} 없음 — ${esc(cs.variantLabel)}로 진행된다.</span>` : ""}</div>`}
+          <div class="row"><span class="chip line">제시문 ${cs.passages.length}</span><span class="chip line">${qWord(cs)} ${db.count(cs)}</span>${cs.source && cs.source.pages ? `<span class="chip line">p.${esc(cs.source.pages)}</span>` : ""}</div>
         </div>
 
         <div class="opt-group">
@@ -256,10 +275,10 @@
           <div class="row">${ai.configured ? `<span class="chip ok">${esc(ai.label)} · 키 있음</span>` : `<span class="chip warn">API 키 없음 — 복기 질문 은행으로 진행</span><button type="button" class="linkbtn" id="optOpenSettings">설정</button>`}</div>
         </div>
         <div class="span2">${promptPreview(cs, plan)}</div>` : `
-        <div class="span2 row"><span class="chip">복기 질문 ${db.count(cs)}개</span><span class="chip">AI 없음</span></div>`}
+        <div class="span2 row"><span class="chip">${qWord(cs)} ${db.count(cs)}개</span><span class="chip">AI 없음</span></div>`}
       </div>
       <div class="startrow">
-        <button type="button" class="btn primary big" id="startBtn">시작 — ${esc(db.label(cs))}</button>
+        <button type="button" class="btn primary big" id="startBtn">시작 — ${esc(cs.mock ? cs.name : db.label(cs))}</button>
         ${voice ? '<span class="small muted">마이크 권한 필요</span>' : ""}
       </div>
       <p class="callout rec" id="setupErr" hidden></p>
@@ -270,7 +289,7 @@
     /* 기조발언 제한이 켜져 있으면 첫 AI 호출은 기조발언 뒤다. 자리표시 답변이 든 기조발언 문답 하나와 남은 시간으로 같은 모양을 보인다. */
     const hist = plan.keynote ? [{ q: AI.KEYNOTE.q, a: "(기조발언 답변이 여기에 들어간다)", group: AI.KEYNOTE.group }] : [];
     const inp = AI.buildNextQuestionInput(cs, hist, s.difficulty, s.variation, plan, plan.keynote ? (plan.interview - plan.keynote) * 60 : undefined);
-    return `<details class="promptview" id="pv" ${st.promptOpen ? "open" : ""}><summary>AI 입력 미리 보기 — 제시문 ${cs.passages.length}편 전문 + 복기 질문 ${db.count(cs)}개 포함</summary>
+    return `<details class="promptview" id="pv" ${st.promptOpen ? "open" : ""}><summary>AI 입력 미리 보기 — 제시문 ${cs.passages.length}편 전문 + ${qWord(cs)} ${db.count(cs)}개 포함</summary>
       <p class="small muted" style="margin-top:8px">${plan.keynote ? "기조발언 뒤 " : ""}첫 질문 생성 시 실제 입력. 이후 호출에는 '지금까지의 문답'이 덧붙는다. 결정 트리의 분기 분류 호출만 답변·분기 조건을 보내는 경량 호출.</p>
       <pre><b>[system]</b>\n${esc(inp.system)}\n\n<b>[user]</b>\n${esc(inp.user)}</pre></details>`;
   }
@@ -282,7 +301,7 @@
     const t = e.target;
     const go = t.closest("[data-goto]"); if (go) { st.step = +go.dataset.goto; renderSetup(); return; }
     const sch = t.closest("[data-school]"); if (sch) { st.schoolId = sch.dataset.school; save({ lastSchool: st.schoolId }); renderSetup(); return; }
-    const sb = t.closest("[data-set]"); if (sb) { st.setId = sb.dataset.set; st.schoolId = set().school; save({ lastSet: st.setId, lastSchool: st.schoolId }); st.step = 2; renderSetup(); scrollToStep(2); return; }
+    const sb = t.closest("[data-set]"); if (sb) { st.setId = sb.dataset.set; st.schoolId = set().school; if (!db.isMock(st.setId)) save({ lastSet: st.setId, lastSchool: st.schoolId }); st.step = 2; renderSetup(); scrollToStep(2); return; }   // 모의고사 문제는 마지막 기출 세트로 남기지 않는다
     const mb = t.closest("[data-mode]"); if (mb) { st.mode = mb.dataset.mode; save({ lastMode: st.mode }); st.step = 3; renderSetup(); scrollToStep(3); return; }
     const seg = t.closest("[data-seg] button"); if (seg) { save({ [seg.closest("[data-seg]").dataset.seg]: seg.dataset.v }); return; }   // save → settings:change → refreshOptions
     const aseg = t.closest("[data-aiseg] button"); if (aseg) { st.ai.provider = aseg.dataset.v; st.ai.model = ""; st.ai.effort = undefined; refreshOptions(); return; }
@@ -423,7 +442,7 @@
       <div class="session" id="session" data-tab="${st.tab}">
         <div class="coll">${passagesHtml(cs)}</div>
         <div class="colr">
-          <div class="qcard"><div class="qmeta"><span>${esc(db.label(cs))} · ${esc(cs.session)} · ${esc(cs.variantLabel)}</span><span>${mode().code} ${esc(mode().label)}</span></div>
+          <div class="qcard"><div class="qmeta"><span>${esc(setLine(cs))}</span><span>${mode().code} ${esc(mode().label)}</span></div>
             <p class="qtext waiting">질문은 면접 시간에 나온다. 제시문을 읽고 메모한다.</p></div>
           ${memoHtml()}
         </div>
@@ -655,6 +674,14 @@
     try { speechSynthesis.cancel(); } catch (e) {}
     st.phase = "done"; await finishSession();
   }
+  /* 종료 화면의 질문 전체: 기출은 복기 추가질문 묶음, 모의고사는 문항 + 추가질문(번호는 책처럼 문항 뒤로 이어진다). */
+  function allQuestions(cs) {
+    const groups = cs.mock ? [{ label: "문항", items: (cs.tasks || []).map(t => `${AI.taskHead(t)}. ${t.text}`) }, ...cs.followups] : [...cs.followups, ...(cs.common || [])];
+    let n = 0;
+    const html = groups.filter(f => !cs.mock || f.items.length).map(f => `<div class="panel tight"><h3 class="h3" style="margin-bottom:6px">${esc(f.label)}</h3><ol class="qlist">${f.items.map((q, i) => `<li><span class="idx">Q${cs.mock ? ++n : i + 1}</span><span>${esc(q)}</span><span></span></li>`).join("")}</ol></div>`).join("");
+    return `<section class="sec"><div class="sec-head"><h2 class="h2">${cs.mock ? "이 문제의 질문 전체" : "이 세트의 복기 질문 전체"}</h2></div>
+        ${html}</section>`;
+  }
   async function finishSession() {
     recorder.release(); stt.stop(); if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
     app.classList.remove("in-session");
@@ -663,10 +690,10 @@
     const total = st.history.reduce((n, h) => n + (h.rec ? h.rec.duration : 0), 0);
     app.innerHTML = `
       <section class="sec">
-        <div class="eyebrow">${esc(db.label(cs))} · ${esc(cs.variantLabel)} · ${m.code} ${esc(m.label)} · ${st.answerMode === "voice" ? "음성" : "텍스트"}</div>
+        <div class="eyebrow">${esc([db.label(cs), cs.variantLabel].filter(Boolean).join(" · "))} · ${m.code} ${esc(m.label)} · ${st.answerMode === "voice" ? "음성" : "텍스트"}</div>
         <h1 class="h1">면접 종료</h1>
         <div class="row"><span class="chip">질문 ${st.history.length}</span>${st.answerMode === "voice" ? `<span class="chip">녹음 ${st.history.filter(h => h.rec).length} · ${fmtClock(total)}</span>` : `<span class="chip">답변 ${st.history.filter(h => h.a).length}</span>`}${st.memo ? `<span class="chip">메모 ${st.memo.length}자</span>` : ""}</div>
-        <div class="row"><button type="button" class="btn primary" id="again">같은 세트 다시</button><a class="btn" href="practice.html">다른 세트</a><a class="btn ghost" href="db.html#${esc(cs.id)}">기출DB에서 보기</a>${saved ? '<button type="button" class="btn ghost" id="openRecord" disabled>기록 보기</button>' : ""}</div>
+        <div class="row"><button type="button" class="btn primary" id="again">같은 세트 다시</button><a class="btn" href="practice.html">다른 세트</a>${cs.mock ? `<a class="btn ghost" href="mock.html#${esc(cs.id)}">모의고사에서 보기</a>` : `<a class="btn ghost" href="db.html#${esc(cs.id)}">기출DB에서 보기</a>`}${saved ? '<button type="button" class="btn ghost" id="openRecord" disabled>기록 보기</button>' : ""}</div>
         <p class="callout warn" id="saveErr" hidden></p>
       </section>
       ${saved && st.history.length ? '<section class="sec"><div class="sec-head"><h2 class="h2">AI 피드백</h2></div><div class="stack" id="feedback"><p class="small muted">저장 중…</p></div></section>' : ""}
@@ -674,8 +701,7 @@
       <section class="sec"><div class="sec-head"><h2 class="h2">문답 기록</h2></div>
         <ol class="qlist">${st.history.map((h, i) => `<li class="done"><span class="idx">Q${i + 1}</span><span><b>${esc(h.q)}</b><br><span class="small muted">${esc(h.a || "(답변 기록 없음)")}</span></span><span class="small muted">${h.rec ? fmtClock(h.rec.duration) : Number.isFinite(h.elapsed) ? fmtClock(h.elapsed) : "—"}${h.cut ? " · 끊김" : ""}</span></li>`).join("") || '<li><span></span><span class="muted">기록 없음</span><span></span></li>'}</ol></section>
       ${st.memo ? `<section class="sec"><div class="sec-head"><h2 class="h2">메모</h2></div><pre class="panel" style="white-space:pre-wrap;font:inherit">${esc(st.memo)}</pre></section>` : ""}
-      <section class="sec"><div class="sec-head"><h2 class="h2">이 세트의 복기 질문 전체</h2></div>
-        ${[...cs.followups, ...(cs.common || [])].map(f => `<div class="panel tight"><h3 class="h3" style="margin-bottom:6px">${esc(f.label)}</h3><ol class="qlist">${f.items.map((q, i) => `<li><span class="idx">Q${i + 1}</span><span>${esc(q)}</span><span></span></li>`).join("")}</ol></div>`).join("")}</section>`;
+      ${allQuestions(cs)}`;
     $("#again").addEventListener("click", () => { st.phase = "setup"; st.step = 3; st.variant = ""; renderSetup(); });
     const el = $("#sessionRecs");
     if (el) {
